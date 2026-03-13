@@ -431,12 +431,15 @@ function Leads({leads,setLeads}){
 // ═══════════════════════════════════════════════════════════════
 // MEASUREMENTS
 // ═══════════════════════════════════════════════════════════════
-function Measurements({measurements,setMeasurements,onOpenCalc}){
+// Lead status pipeline helper
+const MSTATUS_TO_LSTATUS={"Запланирован":"Замер назначен","Выполнен":"КП отправлено","Утверждён":"Follow-up"};
+
+function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads}){
   const [modal,setModal]=useState(false);
   const [viewM,setViewM]=useState(null);
   const [editId,setEditId]=useState(null);
   const ef=()=>({client:"",phone:"",address:"",date:new Date().toISOString().split("T")[0],
-    specialist:"",status:"Запланирован",
+    specialist:"",status:"Запланирован",leadId:"",
     openings:[{id:Date.now(),room:"",width:"",height:"",type:"Хаза 2-трек",qty:1,notes:""}],
     wallType:"Железобетон",floor:"1",crane:false,demolition:false,installNotes:"",files:[]});
   const [form,setForm]=useState(ef());
@@ -452,12 +455,21 @@ function Measurements({measurements,setMeasurements,onOpenCalc}){
       r.readAsDataURL(file);
     });e.target.value="";
   };
+  const syncLeadStatus=(leadId,mStatus)=>{
+    const ls=MSTATUS_TO_LSTATUS[mStatus];
+    if(leadId&&ls)setLeads(p=>p.map(l=>l.id===leadId?{...l,status:ls}:l));
+  };
   const submit=()=>{
     if(!form.client)return;
     const rec={...form,id:editId||Date.now()};
     if(editId)setMeasurements(p=>p.map(m=>m.id===editId?rec:m));
     else setMeasurements(p=>[...p,rec]);
+    syncLeadStatus(form.leadId,form.status);
     setModal(false);
+  };
+  const changeMStatus=(m,newStatus)=>{
+    setMeasurements(p=>p.map(x=>x.id===m.id?{...x,status:newStatus}:x));
+    syncLeadStatus(m.leadId,newStatus);
   };
   const totalArea=m=>m.openings.reduce((s,o)=>s+(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1),0);
 
@@ -496,7 +508,11 @@ function Measurements({measurements,setMeasurements,onOpenCalc}){
               </div>
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
-              <Badge status={m.status}/>
+              <select value={m.status} onChange={e=>changeMStatus(m,e.target.value)}
+                style={{background:(SC[m.status]||D.muted)+"18",color:SC[m.status]||D.muted,
+                  border:`1px solid ${(SC[m.status]||D.muted)}40`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                {MST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+              </select>
               <Btn onClick={()=>onOpenCalc(m)} variant="yellow" small><Calculator size={12}/> В калькулятор</Btn>
               <Btn onClick={()=>setViewM(m)} variant="ghost" small><Eye size={12}/></Btn>
               <button onClick={()=>openEdit(m)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}>✏️</button>
@@ -587,6 +603,20 @@ function Measurements({measurements,setMeasurements,onOpenCalc}){
         <Inp label="Специалист" value={form.specialist} onChange={e=>setForm(f=>({...f,specialist:e.target.value}))}/>
         <Sel label="Статус" value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} options={MST}/>
       </div>
+      {leads.length>0&&(<div style={{marginBottom:12}}>
+        <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>Привязать к лиду (авто-статус)</div>
+        <select value={form.leadId} onChange={e=>{
+          const lead=leads.find(l=>l.id===+e.target.value);
+          setForm(f=>({...f,leadId:e.target.value?+e.target.value:"",
+            client:lead?lead.name:f.client,phone:lead?lead.phone:f.phone}));
+        }} style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 12px",color:D.text,fontSize:13,outline:"none"}}>
+          <option value="" style={{background:D.card}}>— без привязки —</option>
+          {leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status)).map(l=>(
+            <option key={l.id} value={l.id} style={{background:D.card}}>{l.name} · {l.phone} · {l.status}</option>
+          ))}
+        </select>
+        {form.leadId&&<div style={{fontSize:10,color:D.teal,marginTop:4}}>✓ При сохранении статус лида обновится автоматически</div>}
+      </div>)}
       <SH title="🪟 Проёмы"/>
       <div style={{background:D.surface,borderRadius:10,overflow:"hidden",marginBottom:10}}>
         <div style={{display:"grid",gridTemplateColumns:"1.4fr 72px 72px 1.4fr 50px 1fr 28px",padding:"6px 10px",gap:8,background:D.bg}}>
@@ -660,7 +690,7 @@ function newItem(name,op,profile,w,h,qty){
     profile:profile||"klil_7000",w:w||120,h:h||140,qty:qty||1,glass:"none",screen:"none",install:1.10};
 }
 
-function Calc({preload,setPreload,setOrders,orders}){
+function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
   const [tab,setTab]=useState("quick");
   const [items,setItems]=useState([newItem("Окно 1")]);
   const [client,setClient]=useState("");
@@ -710,7 +740,9 @@ function Calc({preload,setPreload,setOrders,orders}){
     const id="WB-"+String(orders.length+1).padStart(3,"0");
     setOrders(p=>[...p,{id,client,city:"",windows:items.reduce((s,i)=>s+i.qty,0),total:saleTotal,paid:0,
       status:"Ожидает материалов",progress:10,created:new Date().toISOString().split("T")[0],delivery:""}]);
-    alert(`Заказ ${id} создан!`);
+    // Auto-update lead: status → "Закрыт (выиграли)", value → actual price
+    setLeads(p=>p.map(l=>l.name===client?{...l,status:"Закрыт (выиграли)",value:saleTotal}:l));
+    alert(`Заказ ${id} создан! Лид обновлён.`);
   };
 
   const ProfileSel=({it})=>{
@@ -1249,18 +1281,18 @@ export default function App(){
           payments.filter(p=>p.status==="Ожидается").length>0&&`💰 ожидаются платежи`,
         ].filter(Boolean).map((a,i)=>(<div key={i} style={{background:D.yellow+"12",border:`1px solid ${D.yellow}25`,borderRadius:7,padding:"4px 8px",marginBottom:3,fontSize:9,fontWeight:700,color:D.yellow}}>{a}</div>))}
       </div>
-      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.0 🇮🇱</div>
+      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.1 🇮🇱</div>
     </div>
     {/* MAIN */}
     <div style={{flex:1,overflowY:"auto",padding:"22px 24px"}}>
       {page==="dashboard"&&<Dashboard leads={leads} orders={orders} payments={payments} inventory={inventory} kpi={kpi} measurements={measurements}/>}
       {page==="leads"&&<Leads leads={leads} setLeads={setLeads}/>}
-      {page==="measurements"&&<Measurements measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc}/>}
+      {page==="measurements"&&<Measurements measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc} leads={leads} setLeads={setLeads}/>}
       {page==="orders"&&<Orders orders={orders} setOrders={setOrders} setPayments={setPayments}/>}
       {page==="inventory"&&<Inventory inventory={inventory} setInventory={setInventory}/>}
       {page==="payments"&&<Payments payments={payments} setPayments={setPayments}/>}
       {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi}/>}
-      {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders}/>}
+      {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads}/>}
     </div>
   </div>);
 }
