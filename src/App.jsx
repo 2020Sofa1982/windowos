@@ -90,6 +90,17 @@ const DS=[
   {id:"roll",name:"Сетка рулонная",price:362,code:"12.110.0120"},
 ];
 
+// Shutters — price per m², motor per unit
+const DSHT=[
+  {id:"none",name:"Без роллет",priceM2:0,motor:0,code:"-"},
+  {id:"roll_pvc_manual",name:"Роллет PVC ручной",priceM2:735,motor:0,code:"12.101.1600"},
+  {id:"roll_alum_manual",name:"Роллет алюм. ручной",priceM2:915,motor:0,code:"12.101.1611"},
+  {id:"roll_alum_motor",name:"Роллет алюм. моторизованный",priceM2:915,motor:622,code:"12.101.1611+12.101.2000"},
+  {id:"roll_alum_motor_rf",name:"Роллет алюм. мотор + пульт ДУ",priceM2:915,motor:1085,code:"12.101.1611+12.101.2060"},
+  {id:"slide_pvc_1",name:"Тришс הזזה PVC 1-крыло",priceM2:802,motor:0,code:"12.101.1200"},
+  {id:"slide_pvc_2",name:"Тришс הזזה PVC 2-крыла",priceM2:1017,motor:0,code:"12.101.1250"},
+];
+
 // Op types UI
 const OPS=[
   {id:"sliding_2_track",name:"Хаза 2-трек",profiles:["klil_7000","klil_9000","klil_1700","klil_7300"]},
@@ -693,19 +704,47 @@ function printKP(client,calced,saleTotal,margin,split){
   const rows=validItems.map((c,i)=>{
     const linePrice=Math.round(c.totalCost/c.qty*(1+margin/100))*c.qty;
     const unitPrice=Math.round(c.totalCost/c.qty*(1+margin/100));
-    const typeName=OPS.find(o=>o.id===c.op)?.name||c.op;
     const glassName=c.glass!=="none"?(DG.find(g=>g.id===c.glass)?.name||""):"";
-    const screenName=c.screen!=="none"?(DS.find(s=>s.id===c.screen)?.name||""):"";
-    const extras=[glassName,screenName].filter(Boolean).join(", ");
-    return`<tr>
+    const screenOpt=DS.find(s=>s.id===c.screen)||DS[0];
+    const shutterOpt=DSHT.find(s=>s.id===c.shutter)||DSHT[0];
+    // Window row
+    const winPrice=Math.round((c.baseDekel+c.glassAddon)*c.install/c.qty*(1+margin/100));
+    const winTotal=winPrice*c.qty;
+    let html=`<tr>
       <td style="text-align:center">${i+1}</td>
-      <td><b>${c.name}</b>${extras?`<br/><span class="sub">${extras}</span>`:""}</td>
+      <td><b>${c.name}</b>${glassName?`<br/><span class="sub">זכוכית: ${glassName}</span>`:""}
+      <br/><span class="sub">${OPS.find(o=>o.id===c.op)?.name||c.op} · ${PNAMES[c.profile]||c.profile}</span></td>
       <td style="text-align:center">${c.w}×${c.h} ס"מ</td>
       <td style="text-align:center">${c.area.toFixed(2)} מ"ר</td>
       <td style="text-align:center">${c.qty}</td>
-      <td style="text-align:left;font-weight:700">₪${unitPrice.toLocaleString("he-IL")}</td>
-      <td style="text-align:left;font-weight:800;color:#1d4ed8">₪${linePrice.toLocaleString("he-IL")}</td>
+      <td style="text-align:left;font-weight:700">₪${winPrice.toLocaleString("he-IL")}</td>
+      <td style="text-align:left;font-weight:800;color:#1d4ed8">₪${winTotal.toLocaleString("he-IL")}</td>
     </tr>`;
+    // Screen sub-row
+    if(c.screen!=="none"){
+      const sp=Math.round(screenOpt.price*(1+margin/100));
+      html+=`<tr style="background:#f0fdf4">
+        <td></td>
+        <td style="padding-right:24px"><span style="color:#16a34a">↳ ${screenOpt.name}</span></td>
+        <td colspan="2"></td><td style="text-align:center">${c.qty}</td>
+        <td style="color:#16a34a">₪${sp.toLocaleString("he-IL")}</td>
+        <td style="color:#16a34a;font-weight:700">₪${(sp*c.qty).toLocaleString("he-IL")}</td>
+      </tr>`;
+    }
+    // Shutter sub-row
+    if(c.shutter!=="none"){
+      const shp=Math.round((shutterOpt.priceM2*c.billArea+shutterOpt.motor*c.qty)*(1+margin/100));
+      html+=`<tr style="background:#fffbeb">
+        <td></td>
+        <td style="padding-right:24px"><span style="color:#d97706">↳ ${shutterOpt.name}</span></td>
+        <td style="text-align:center">${c.w}×${c.h} ס"מ</td>
+        <td style="text-align:center">${c.area.toFixed(2)} מ"ר</td>
+        <td style="text-align:center">${c.qty}</td>
+        <td style="color:#d97706">—</td>
+        <td style="color:#d97706;font-weight:700">₪${shp.toLocaleString("he-IL")}</td>
+      </tr>`;
+    }
+    return html;
   }).join("");
 
   const html=`<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="UTF-8"/>
@@ -814,7 +853,8 @@ function printKP(client,calced,saleTotal,margin,split){
 
 function newItem(name,op,profile,w,h,qty){
   return{id:Date.now()+Math.random(),name:name||"Окно",op:op||"sliding_2_track",
-    profile:profile||"klil_7000",w:w||120,h:h||140,qty:qty||1,glass:"none",screen:"none",install:1.10};
+    profile:profile||"klil_7000",w:w||120,h:h||140,qty:qty||1,
+    glass:"none",screen:"none",shutter:"none",install:1.10};
 }
 
 function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
@@ -849,11 +889,13 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
     if(!lookup)return{...it,area,billArea,baseDekel:0,glassAddon:0,screenAddon:0,unitCost:0,totalCost:0,code:"—",valid:false};
     const glassOpt=DG.find(g=>g.id===it.glass)||DG[0];
     const screenOpt=DS.find(s=>s.id===it.screen)||DS[0];
+    const shutterOpt=DSHT.find(s=>s.id===it.shutter)||DSHT[0];
     const baseDekel=lookup.price*billArea;
     const glassAddon=glassOpt.price*billArea;
     const screenAddon=screenOpt.price*it.qty;
-    const totalCost=(baseDekel+glassAddon+screenAddon)*it.install;
-    return{...it,area,billArea,baseDekel,glassAddon,screenAddon,totalCost,code:lookup.code,valid:true};
+    const shutterAddon=(shutterOpt.priceM2*billArea+shutterOpt.motor*it.qty);
+    const totalCost=(baseDekel+glassAddon+screenAddon+shutterAddon)*it.install;
+    return{...it,area,billArea,baseDekel,glassAddon,screenAddon,shutterAddon,totalCost,code:lookup.code,shutterOpt,valid:true};
   };
   const calced=items.map(calcItem);
   const totalCost=calced.reduce((s,c)=>s+c.totalCost,0);
@@ -977,6 +1019,13 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
                       {DS.map(s=><option key={s.id} value={s.id} style={{background:D.card}}>{s.name}</option>)}
                     </select>
                   </div>
+                  <div style={{marginTop:5}}>
+                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Роллет / тришс</div>
+                    <select value={it.shutter} onChange={e=>upd(it.id,"shutter",e.target.value)}
+                      style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:it.shutter!=="none"?D.yellow:D.muted,fontSize:11,outline:"none",fontWeight:it.shutter!=="none"?700:400}}>
+                      {DSHT.map(s=><option key={s.id} value={s.id} style={{background:D.card,color:D.text}}>{s.name}</option>)}
+                    </select>
+                  </div>
                 </div>
                 {/* Col 3: Breakdown */}
                 <div>
@@ -988,6 +1037,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
                       {[["База Dekel",fmt(Math.round(it.baseDekel)),"code",it.code],
                         it.glassAddon>0&&["Стекло",fmt(Math.round(it.glassAddon)),"",""],
                         it.screenAddon>0&&["Сетка",fmt(Math.round(it.screenAddon)),"",""],
+                        it.shutterAddon>0&&["Роллет",fmt(Math.round(it.shutterAddon)),"",""],
                         ["× монтаж",`×${it.install.toFixed(2)}`,"",''],
                       ].filter(Boolean).map((r,i)=>(
                         <div key={i} style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
@@ -1087,11 +1137,69 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
         )}
       </div>
     </div>
+    {/* BOM — Bill of Materials */}
+    {calced.some(c=>c.valid)&&(<div style={{marginTop:24}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={{fontSize:14,fontWeight:800,color:D.text}}>📦 BOM — Список материалов</div>
+        <Btn onClick={()=>{
+          const rows=[];
+          let totalProf=0,totalGlass=0,totalSeals=0;
+          calced.filter(c=>c.valid).forEach(c=>{
+            const profM=(2*(c.w+c.h)/100*1.15*c.qty).toFixed(2);
+            const glassM2=(c.area*c.qty).toFixed(2);
+            const sealM=(2*(c.w+c.h)/100*c.qty).toFixed(2);
+            totalProf+=parseFloat(profM);totalGlass+=parseFloat(glassM2);totalSeals+=parseFloat(sealM);
+            rows.push([c.name,PNAMES[c.profile]||c.profile,profM+" м.п.",glassM2+" м²",sealM+" м.п.",
+              c.screen!=="none"?c.qty+"шт":"—",c.shutter!=="none"?glassM2+" м²":"—"]);
+          });
+          rows.push(["ИТОГО","","","","","",""]);
+          exportCSV(["Позиция","Профиль","Профиль (м.п.)","Стекло (м²)","Уплотнитель (м.п.)","Сетка (шт)","Роллет (м²)"],rows,"BOM.csv");
+        }} variant="ghost"><Download size={13}/> CSV</Btn>
+      </div>
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr",padding:"7px 14px",background:D.surface,gap:10}}>
+          {["Позиция","Профиль","Профиль м.п.","Стекло м²","Уплотнитель","Сетки","Роллеты"].map((h,i)=>(
+            <div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>
+          ))}
+        </div>
+        {calced.filter(c=>c.valid).map((c,i)=>{
+          const profM=(2*(c.w+c.h)/100*1.15*c.qty).toFixed(2);
+          const glassM2=(c.area*c.qty).toFixed(2);
+          const sealM=(2*(c.w+c.h)/100*c.qty).toFixed(2);
+          const screenOpt=DS.find(s=>s.id===c.screen)||DS[0];
+          const shutterOpt=DSHT.find(s=>s.id===c.shutter)||DSHT[0];
+          return(<div key={c.id} style={{display:"grid",gridTemplateColumns:"1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr",
+            padding:"9px 14px",gap:10,borderTop:`1px solid ${D.border}`,background:i%2===0?D.card:D.surface,alignItems:"center"}}>
+            <div style={{fontSize:12,fontWeight:700,color:D.text}}>{c.name}<div style={{fontSize:10,color:D.muted}}>{c.qty} шт</div></div>
+            <div style={{fontSize:11,color:D.muted}}>{PNAMES[c.profile]||c.profile}</div>
+            <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{profM} м.п.</div>
+            <div style={{fontSize:12,fontWeight:700,color:D.teal}}>{glassM2} м²</div>
+            <div style={{fontSize:12,color:D.muted}}>{sealM} м.п.</div>
+            <div style={{fontSize:11,color:c.screen!=="none"?D.green:D.muted}}>{c.screen!=="none"?`${c.qty} шт (${screenOpt.name})`:"—"}</div>
+            <div style={{fontSize:11,color:c.shutter!=="none"?D.yellow:D.muted}}>{c.shutter!=="none"?`${glassM2} м² (${shutterOpt.name})`:"—"}</div>
+          </div>);
+        })}
+        {/* Totals row */}
+        {(()=>{
+          const tp=calced.filter(c=>c.valid).reduce((s,c)=>s+2*(c.w+c.h)/100*1.15*c.qty,0);
+          const tg=calced.filter(c=>c.valid).reduce((s,c)=>s+c.area*c.qty,0);
+          const ts=calced.filter(c=>c.valid).reduce((s,c)=>s+2*(c.w+c.h)/100*c.qty,0);
+          const tsc=calced.filter(c=>c.valid&&c.screen!=="none").reduce((s,c)=>s+c.qty,0);
+          const tsh=calced.filter(c=>c.valid&&c.shutter!=="none").reduce((s,c)=>s+c.area*c.qty,0);
+          return(<div style={{display:"grid",gridTemplateColumns:"1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr",
+            padding:"9px 14px",gap:10,borderTop:`2px solid ${D.border}`,background:D.surface}}>
+            <div style={{fontSize:11,fontWeight:800,color:D.text,gridColumn:"span 2"}}>ИТОГО</div>
+            <div style={{fontSize:13,fontWeight:800,color:D.accentLight}}>{tp.toFixed(1)} м.п.</div>
+            <div style={{fontSize:13,fontWeight:800,color:D.teal}}>{tg.toFixed(2)} м²</div>
+            <div style={{fontSize:12,fontWeight:700,color:D.muted}}>{ts.toFixed(1)} м.п.</div>
+            <div style={{fontSize:12,fontWeight:700,color:D.green}}>{tsc>0?`${tsc} шт`:"—"}</div>
+            <div style={{fontSize:12,fontWeight:700,color:D.yellow}}>{tsh>0?`${tsh.toFixed(2)} м²`:"—"}</div>
+          </div>);
+        })()}
+      </div>
+    </div>)}
   </div>);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// ORDERS
 // ═══════════════════════════════════════════════════════════════
 function Orders({orders,setOrders,setPayments}){
   const [modal,setModal]=useState(false);
@@ -1411,7 +1519,7 @@ export default function App(){
           onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
           onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
       </div>
-      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.2 🇮🇱</div>
+      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.3 🇮🇱</div>
     </div>
     {/* MAIN */}
     <div style={{flex:1,overflowY:"auto",padding:"22px 24px"}}>
