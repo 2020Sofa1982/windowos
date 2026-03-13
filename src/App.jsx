@@ -685,6 +685,105 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads}){
 // ═══════════════════════════════════════════════════════════════
 // CALCULATOR — QUICK + DETAILED (Dekel)
 // ═══════════════════════════════════════════════════════════════
+function printKP(client,calced,saleTotal,totalCost,margin,split,tab){
+  const pay1=Math.round(saleTotal*split/100);
+  const pay2=saleTotal-pay1;
+  const profit=saleTotal-totalCost;
+  const date=new Date().toLocaleDateString("ru-RU");
+  const rows=calced.filter(c=>c.valid).map(c=>{
+    const unitPrice=Math.round(c.totalCost/c.qty*(1+margin/100));
+    const linePrice=unitPrice*c.qty;
+    const glassName=c.glass!=="none"?DG.find(g=>g.id===c.glass)?.name:"—";
+    const screenName=c.screen!=="none"?DS.find(s=>s.id===c.screen)?.name:"—";
+    return`<tr>
+      <td>${c.name}</td>
+      <td>${OPS.find(o=>o.id===c.op)?.name||c.op}</td>
+      <td>${PNAMES[c.profile]||c.profile}</td>
+      <td style="text-align:center">${c.w}×${c.h}</td>
+      <td style="text-align:center">${c.area.toFixed(2)}</td>
+      <td>${glassName}</td>
+      <td style="text-align:center">${c.qty}</td>
+      ${tab==="detailed"?`<td style="font-family:monospace;font-size:10px">${c.code}</td>`:""}
+      <td style="text-align:right;font-weight:700">₪${unitPrice.toLocaleString("ru-RU")}</td>
+      <td style="text-align:right;font-weight:700;color:#1d4ed8">₪${linePrice.toLocaleString("ru-RU")}</td>
+    </tr>`;
+  }).join("");
+  const html=`<!DOCTYPE html><html lang="he"><head><meta charset="UTF-8"/>
+  <title>הצעת מחיר – ${client}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Arial',sans-serif;color:#1e293b;background:#fff;padding:32px;font-size:13px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:3px solid #2563eb}
+    .logo{font-size:22px;font-weight:900;color:#2563eb}
+    .logo span{color:#1e293b}
+    .meta{text-align:right;font-size:12px;color:#64748b}
+    .meta b{color:#1e293b;font-size:14px}
+    h2{font-size:15px;font-weight:800;color:#1e293b;margin-bottom:14px;padding:8px 14px;background:#f1f5f9;border-left:4px solid #2563eb;border-radius:4px}
+    table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px}
+    th{background:#1e293b;color:#fff;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.04em}
+    td{padding:8px 10px;border-bottom:1px solid #e2e8f0}
+    tr:nth-child(even) td{background:#f8fafc}
+    .totals{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
+    .box{border:1px solid #e2e8f0;border-radius:8px;padding:16px}
+    .box h3{font-size:11px;text-transform:uppercase;color:#64748b;margin-bottom:10px;font-weight:700}
+    .row{display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px}
+    .row .val{font-weight:700}
+    .total-row{display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid #1e293b;margin-top:6px}
+    .total-row .val{font-size:18px;font-weight:900;color:#2563eb}
+    .payments{background:linear-gradient(135deg,#1d4ed8,#1e3a8a);color:#fff;border-radius:10px;padding:20px;margin-bottom:24px}
+    .payments h3{font-size:12px;opacity:0.7;text-transform:uppercase;margin-bottom:12px}
+    .pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .pay-box{background:rgba(255,255,255,0.15);border-radius:8px;padding:12px;text-align:center}
+    .pay-box .amount{font-size:20px;font-weight:900}
+    .pay-box .label{font-size:11px;opacity:0.7;margin-top:4px}
+    .footer{font-size:11px;color:#94a3b8;text-align:center;padding-top:20px;border-top:1px solid #e2e8f0}
+    @media print{body{padding:20px}}
+  </style></head><body>
+  <div class="header">
+    <div><div class="logo">🏭 Window<span>OS</span></div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">יצרן ומתקין חלונות אלומיניום</div></div>
+    <div class="meta">
+      <div><b>הצעת מחיר</b></div>
+      <div>תאריך: ${date}</div>
+      <div style="margin-top:6px">לכבוד: <b>${client}</b></div>
+    </div>
+  </div>
+  <h2>פירוט הצעת מחיר / Детальный расчёт КП</h2>
+  <table>
+    <thead><tr>
+      <th>Позиция</th><th>Тип</th><th>Профиль</th><th>Размер (см)</th><th>м²</th><th>Стекло</th><th>Кол</th>
+      ${tab==="detailed"?"<th>Код Dekel</th>":""}
+      <th>Цена/шт</th><th>Итого</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="totals">
+    <div class="box">
+      <h3>Расчёт стоимости</h3>
+      <div class="row"><span>Себестоимость</span><span class="val">₪${Math.round(totalCost).toLocaleString("ru-RU")}</span></div>
+      <div class="row"><span>Маржа</span><span class="val">${margin}%</span></div>
+      <div class="row"><span>Прибыль</span><span class="val" style="color:#16a34a">₪${Math.round(profit).toLocaleString("ru-RU")}</span></div>
+      <div class="total-row"><span>ИТОГО КП</span><span class="val">₪${saleTotal.toLocaleString("ru-RU")}</span></div>
+    </div>
+    <div class="box">
+      <h3>Позиций в КП</h3>
+      ${calced.filter(c=>c.valid).map(c=>`<div class="row"><span>${c.name}</span><span class="val">₪${Math.round(c.totalCost/c.qty*(1+margin/100)*c.qty).toLocaleString("ru-RU")}</span></div>`).join("")}
+    </div>
+  </div>
+  <div class="payments">
+    <h3>График оплаты / לוח תשלומים</h3>
+    <div class="pay-grid">
+      <div class="pay-box"><div class="amount">₪${pay1.toLocaleString("ru-RU")}</div><div class="label">Предоплата ${split}% · בעת החתימה</div></div>
+      <div class="pay-box"><div class="amount">₪${pay2.toLocaleString("ru-RU")}</div><div class="label">При монтаже ${100-split}% · בסיום ההתקנה</div></div>
+    </div>
+  </div>
+  <div class="footer">הצעה זו בתוקף ל-30 יום · Предложение действительно 30 дней · WindowOS v3.1</div>
+  </body></html>`;
+  const w=window.open("","_blank","width=900,height=700");
+  w.document.write(html);w.document.close();
+  setTimeout(()=>w.print(),400);
+}
+
 function newItem(name,op,profile,w,h,qty){
   return{id:Date.now()+Math.random(),name:name||"Окно",op:op||"sliding_2_track",
     profile:profile||"klil_7000",w:w||120,h:h||140,qty:qty||1,glass:"none",screen:"none",install:1.10};
@@ -758,6 +857,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
       <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Калькулятор КП</div>
         <div style={{fontSize:13,color:D.muted}}>Dekel 2022 × 1.13 (цены 2026)</div></div>
       <div style={{display:"flex",gap:8}}>
+        <Btn onClick={()=>printKP(client,calced,saleTotal,totalCost,margin,split,tab)} variant="success"><Download size={13}/> PDF КП</Btn>
         <Btn onClick={()=>exportCSV(["Позиция","Ш","В","м²","Тип","Профиль","Стекло","Кол","Код","Себест.","Цена"],
           calced.map(c=>[c.name,c.w,c.h,c.area.toFixed(2),c.op,c.profile,c.glass,c.qty,c.code,Math.round(c.totalCost),Math.round(c.totalCost*(1+margin/100))]),"кп.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
         <Btn onClick={addItem}><Plus size={13}/> Добавить окно</Btn>
@@ -1275,13 +1375,15 @@ export default function App(){
       </nav>
       <div style={{padding:"8px",borderTop:`1px solid ${D.border}`}}>
         {[
-          leads.filter(l=>l.status==="Новый лид").length>0&&`👤 ${leads.filter(l=>l.status==="Новый лид").length} новых лидов`,
-          pendM>0&&`📐 ${pendM} замеров ждут`,
-          inventory.filter(i=>i.qty<i.minQty).length>0&&`📦 нужна закупка`,
-          payments.filter(p=>p.status==="Ожидается").length>0&&`💰 ожидаются платежи`,
-        ].filter(Boolean).map((a,i)=>(<div key={i} style={{background:D.yellow+"12",border:`1px solid ${D.yellow}25`,borderRadius:7,padding:"4px 8px",marginBottom:3,fontSize:9,fontWeight:700,color:D.yellow}}>{a}</div>))}
+          leads.filter(l=>l.status==="Новый лид").length>0&&[`👤 ${leads.filter(l=>l.status==="Новый лид").length} новых лидов`,"leads"],
+          pendM>0&&[`📐 ${pendM} замеров ждут`,"measurements"],
+          inventory.filter(i=>i.qty<i.minQty).length>0&&[`📦 нужна закупка`,"inventory"],
+          payments.filter(p=>p.status==="Ожидается").length>0&&[`💰 ожидаются платежи`,"payments"],
+        ].filter(Boolean).map(([a,pg],i)=>(<button key={i} onClick={()=>setPage(pg)} style={{display:"block",width:"100%",textAlign:"left",background:D.yellow+"12",border:`1px solid ${D.yellow}25`,borderRadius:7,padding:"5px 8px",marginBottom:3,fontSize:9,fontWeight:700,color:D.yellow,cursor:"pointer",transition:"background 0.15s"}}
+          onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
+          onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
       </div>
-      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.1 🇮🇱</div>
+      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.2 🇮🇱</div>
     </div>
     {/* MAIN */}
     <div style={{flex:1,overflowY:"auto",padding:"22px 24px"}}>
