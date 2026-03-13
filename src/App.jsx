@@ -90,16 +90,19 @@ const DS=[
   {id:"roll",name:"Сетка рулонная",price:362,code:"12.110.0120"},
 ];
 
-// Shutters — price per m², motor per unit
+// Shutters — dekelPrice per m², marketFactor brings to real market level, motor per unit
+// Dekel 2022×1.13 is ~35-40% below market for rollers → marketFactor=1.38 default
 const DSHT=[
-  {id:"none",name:"Без роллет",priceM2:0,motor:0,code:"-"},
-  {id:"roll_pvc_manual",name:"Роллет PVC ручной",priceM2:735,motor:0,code:"12.101.1600"},
-  {id:"roll_alum_manual",name:"Роллет алюм. ручной",priceM2:915,motor:0,code:"12.101.1611"},
-  {id:"roll_alum_motor",name:"Роллет алюм. моторизованный",priceM2:915,motor:622,code:"12.101.1611+12.101.2000"},
-  {id:"roll_alum_motor_rf",name:"Роллет алюм. мотор + пульт ДУ",priceM2:915,motor:1085,code:"12.101.1611+12.101.2060"},
-  {id:"slide_pvc_1",name:"Тришс הזזה PVC 1-крыло",priceM2:802,motor:0,code:"12.101.1200"},
-  {id:"slide_pvc_2",name:"Тришс הזזה PVC 2-крыла",priceM2:1017,motor:0,code:"12.101.1250"},
+  {id:"none",   name:"Без роллет",              dekelM2:0,    motor:0,    marketFactor:1.0,  code:"-"},
+  {id:"roll_pvc_manual",  name:"Роллет PVC ручной",          dekelM2:735,  motor:0,    marketFactor:1.38, code:"12.101.1600"},
+  {id:"roll_alum_manual", name:"Роллет алюм. ручной",        dekelM2:915,  motor:0,    marketFactor:1.38, code:"12.101.1611"},
+  {id:"roll_alum_motor",  name:"Роллет алюм. + мотор",       dekelM2:915,  motor:622,  marketFactor:1.38, code:"12.101.1611+12.101.2000"},
+  {id:"roll_alum_motor_rf",name:"Роллет алюм. мотор + пульт",dekelM2:915,  motor:1085, marketFactor:1.38, code:"12.101.1611+12.101.2060"},
+  {id:"slide_pvc_1",      name:"Тришс PVC 1-крыло",          dekelM2:802,  motor:0,    marketFactor:1.35, code:"12.101.1200"},
+  {id:"slide_pvc_2",      name:"Тришс PVC 2-крыла",          dekelM2:1017, motor:0,    marketFactor:1.35, code:"12.101.1250"},
 ];
+// Helper: get actual shutter price per m² after market correction
+const shutterM2=(opt,mf)=>opt.dekelM2*(mf??opt.marketFactor);
 
 // Op types UI
 const OPS=[
@@ -696,7 +699,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads}){
 // ═══════════════════════════════════════════════════════════════
 // CALCULATOR — QUICK + DETAILED (Dekel)
 // ═══════════════════════════════════════════════════════════════
-function printKP(client,calced,saleTotal,margin,split){
+function printKP(client,calced,saleTotal,margin,split,extras){
   const pay1=Math.round(saleTotal*split/100);
   const pay2=saleTotal-pay1;
   const date=new Date().toLocaleDateString("he-IL");
@@ -809,7 +812,11 @@ function printKP(client,calced,saleTotal,margin,split){
       <th>מחיר ליחידה</th>
       <th>סה"כ</th>
     </tr></thead>
-    <tbody>${rows}</tbody>
+    <tbody>${rows}
+    ${extras&&extras.demolition?`<tr style="background:#fef9c3"><td></td><td colspan="4"><b>🔨 פירוק חלונות ישנים</b></td><td>—</td><td style="font-weight:700;color:#b45309">₪${Math.round(extras.demolitionPrice*(1+margin/100)).toLocaleString("he-IL")}</td></tr>`:""}
+    ${extras&&extras.crane?`<tr style="background:#fef9c3"><td></td><td colspan="4"><b>🏗️ עבודה עם מנוף</b></td><td>—</td><td style="font-weight:700;color:#b45309">₪${Math.round(extras.cranePrice*(1+margin/100)).toLocaleString("he-IL")}</td></tr>`:""}
+    ${extras&&extras.highFloorPrice>0?`<tr style="background:#fef9c3"><td></td><td colspan="4"><b>🏢 תוספת קומה גבוהה (קומה ${extras.floor})</b></td><td>—</td><td style="font-weight:700;color:#b45309">₪${Math.round(extras.highFloorPrice*(1+margin/100)).toLocaleString("he-IL")}</td></tr>`:""}
+    </tbody>
   </table>
 
   <div class="total-section">
@@ -863,7 +870,10 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
   const [client,setClient]=useState("");
   const [margin,setMargin]=useState(40);
   const [split,setSplit]=useState(40);
-  const [installFactor,setInstallFactor]=useState(1.10);
+  const [shutterFactor,setShutterFactor]=useState(1.38);
+  // Extras from measurement
+  const [extras,setExtras]=useState({demolition:false,crane:false,floor:"1",wallType:"Железобетон",
+    demolitionPrice:800,cranePrice:1200,highFloorPrice:0});
 
   // Load from measurement
   useEffect(()=>{
@@ -875,6 +885,18 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
       return newItem(o.room||o.type,op,profile,parseFloat(o.width)||120,parseFloat(o.height)||140,parseInt(o.qty)||1);
     });
     if(newItems.length)setItems(newItems);
+    // Pull extras from measurement
+    const floor=parseInt(preload.floor)||1;
+    const highFloorPrice=floor>=5?800*Math.max(0,floor-4):floor>=3?400:0;
+    setExtras({
+      demolition:!!preload.demolition,
+      crane:!!preload.crane,
+      floor:preload.floor||"1",
+      wallType:preload.wallType||"Железобетон",
+      demolitionPrice:800,
+      cranePrice:1200,
+      highFloorPrice,
+    });
     setPreload(null);
   },[preload]);
 
@@ -886,19 +908,21 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
     const area=(it.w*it.h)/10000;
     const billArea=Math.max(area,0.6)*it.qty;
     const lookup=dekelLookup(it.op,it.profile,Math.max(area,0.6));
-    if(!lookup)return{...it,area,billArea,baseDekel:0,glassAddon:0,screenAddon:0,unitCost:0,totalCost:0,code:"—",valid:false};
+    if(!lookup)return{...it,area,billArea,baseDekel:0,glassAddon:0,screenAddon:0,shutterAddon:0,unitCost:0,totalCost:0,code:"—",valid:false};
     const glassOpt=DG.find(g=>g.id===it.glass)||DG[0];
     const screenOpt=DS.find(s=>s.id===it.screen)||DS[0];
     const shutterOpt=DSHT.find(s=>s.id===it.shutter)||DSHT[0];
     const baseDekel=lookup.price*billArea;
     const glassAddon=glassOpt.price*billArea;
     const screenAddon=screenOpt.price*it.qty;
-    const shutterAddon=(shutterOpt.priceM2*billArea+shutterOpt.motor*it.qty);
+    const shutterAddon=(shutterM2(shutterOpt,shutterFactor)*Math.max(area,0.6)*it.qty+shutterOpt.motor*it.qty);
     const totalCost=(baseDekel+glassAddon+screenAddon+shutterAddon)*it.install;
     return{...it,area,billArea,baseDekel,glassAddon,screenAddon,shutterAddon,totalCost,code:lookup.code,shutterOpt,valid:true};
   };
   const calced=items.map(calcItem);
-  const totalCost=calced.reduce((s,c)=>s+c.totalCost,0);
+  const itemsCost=calced.reduce((s,c)=>s+c.totalCost,0);
+  const extrasCost=(extras.demolition?extras.demolitionPrice:0)+(extras.crane?extras.cranePrice:0)+extras.highFloorPrice;
+  const totalCost=itemsCost+extrasCost;
   const saleTotal=Math.round(totalCost*(1+margin/100));
   const profit=saleTotal-totalCost;
   const pay1=Math.round(saleTotal*split/100);
@@ -927,7 +951,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
       <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Калькулятор КП</div>
         <div style={{fontSize:13,color:D.muted}}>Dekel 2022 × 1.13 (цены 2026)</div></div>
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={()=>printKP(client,calced,saleTotal,margin,split)} variant="success"><Download size={13}/> PDF КП</Btn>
+        <Btn onClick={()=>printKP(client,calced,saleTotal,margin,split,extras)} variant="success"><Download size={13}/> PDF КП</Btn>
         <Btn onClick={()=>exportCSV(["Позиция","Ш","В","м²","Тип","Профиль","Стекло","Кол","Код","Себест.","Цена"],
           calced.map(c=>[c.name,c.w,c.h,c.area.toFixed(2),c.op,c.profile,c.glass,c.qty,c.code,Math.round(c.totalCost),Math.round(c.totalCost*(1+margin/100))]),"кп.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
         <Btn onClick={addItem}><Plus size={13}/> Добавить окно</Btn>
@@ -1071,6 +1095,71 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
 
       {/* RIGHT: summary */}
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
+
+        {/* Extras / Surcharges */}
+        <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
+          <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>
+            Доплаты
+            {extrasCost>0&&<span style={{marginLeft:8,color:D.yellow,fontWeight:900}}>{fmt(Math.round(extrasCost))}</span>}
+          </div>
+          {/* Demolition */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:extras.demolition?D.text:D.muted}}>
+              <input type="checkbox" checked={extras.demolition} onChange={e=>setExtras(p=>({...p,demolition:e.target.checked}))} style={{accentColor:D.accent}}/>
+              🔨 Демонтаж
+            </label>
+            {extras.demolition&&<input type="number" value={extras.demolitionPrice}
+              onChange={e=>setExtras(p=>({...p,demolitionPrice:+e.target.value||0}))}
+              style={{width:75,background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"3px 6px",color:D.yellow,fontSize:12,fontWeight:700,outline:"none",textAlign:"right"}}/>}
+          </div>
+          {/* Crane */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:extras.crane?D.text:D.muted}}>
+              <input type="checkbox" checked={extras.crane} onChange={e=>setExtras(p=>({...p,crane:e.target.checked}))} style={{accentColor:D.accent}}/>
+              🏗️ Кран
+            </label>
+            {extras.crane&&<input type="number" value={extras.cranePrice}
+              onChange={e=>setExtras(p=>({...p,cranePrice:+e.target.value||0}))}
+              style={{width:75,background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"3px 6px",color:D.yellow,fontSize:12,fontWeight:700,outline:"none",textAlign:"right"}}/>}
+          </div>
+          {/* Floor surcharge */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:D.muted}}>
+              🏢 Этаж
+            </label>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <input type="number" value={extras.floor} min={1} max={50}
+                onChange={e=>{const fl=parseInt(e.target.value)||1;
+                  const hp=fl>=5?800*Math.max(0,fl-4):fl>=3?400:0;
+                  setExtras(p=>({...p,floor:String(fl),highFloorPrice:hp}));}}
+                style={{width:50,background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"3px 6px",color:D.text,fontSize:12,fontWeight:700,outline:"none",textAlign:"center"}}/>
+              {extras.highFloorPrice>0&&<span style={{fontSize:11,color:D.yellow,fontWeight:700}}>+{fmt(extras.highFloorPrice)}</span>}
+            </div>
+          </div>
+          {/* Wall type — info only */}
+          {extras.wallType&&<div style={{fontSize:10,color:D.muted,marginTop:4}}>🧱 {extras.wallType}</div>}
+        </div>
+
+        {/* Shutter market factor */}
+        {calced.some(c=>c.shutter!=="none")&&(
+          <div style={{background:D.card,border:`1px solid ${D.yellow}40`,borderRadius:14,padding:16}}>
+            <div style={{fontSize:10,fontWeight:800,color:D.yellow,textTransform:"uppercase",marginBottom:8}}>
+              Коэфф. роллет (рынок vs Dekel)
+            </div>
+            <input type="range" min={1.0} max={2.0} step={0.01} value={shutterFactor}
+              onChange={e=>setShutterFactor(+e.target.value)}
+              style={{width:"100%",accentColor:D.yellow,marginBottom:4}}/>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:D.muted}}>
+              <span>×1.00</span>
+              <div style={{textAlign:"center"}}>
+                <b style={{color:D.yellow,fontSize:15}}>×{shutterFactor.toFixed(2)}</b>
+                <div style={{fontSize:9,color:D.muted}}>Рекомендовано ×1.38</div>
+              </div>
+              <span>×2.00</span>
+            </div>
+          </div>
+        )}
+
         {/* Margin */}
         <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
           <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Маржа %</div>
@@ -1081,11 +1170,13 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
         </div>
         {/* Totals */}
         <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
-          {[["Себестоимость",fmt(Math.round(totalCost)),D.muted],
+          {[["Окна (себест.)",fmt(Math.round(itemsCost)),D.muted],
+            extrasCost>0&&["Доплаты",fmt(Math.round(extrasCost)),D.yellow],
+            ["Итого себест.",fmt(Math.round(totalCost)),D.muted],
             ["Цена продажи",fmt(saleTotal),D.text],
             ["Прибыль",fmt(Math.round(profit)),D.green],
             ["Маржа",saleTotal>0?Math.round(profit/saleTotal*100)+"%":"—",D.green],
-          ].map(([l,v,c])=>(
+          ].filter(Boolean).map(([l,v,c])=>(
             <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
               <span style={{fontSize:11,color:D.muted}}>{l}</span>
               <span style={{fontSize:13,fontWeight:700,color:c}}>{v}</span>
@@ -1519,7 +1610,7 @@ export default function App(){
           onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
           onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
       </div>
-      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.3 🇮🇱</div>
+      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.4 🇮🇱</div>
     </div>
     {/* MAIN */}
     <div style={{flex:1,overflowY:"auto",padding:"22px 24px"}}>
