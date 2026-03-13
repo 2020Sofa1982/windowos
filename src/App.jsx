@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, ShoppingCart, Package, Wallet,
   Calculator, Plus, Search, X, Check, Clock, AlertTriangle,
   TrendingUp, Trash2, Download, BarChart2, DollarSign, Eye,
-  Ruler, Image, Paperclip, Zap, List, ArrowRight
+  Ruler, Image, Paperclip, Zap, List, ArrowRight, Wrench, ClipboardCheck
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
@@ -12,7 +12,7 @@ import {
 
 // ── STORAGE ──────────────────────────────────────────────────
 const KEYS = { leads:"wb:leads", orders:"wb:orders", inventory:"wb:inventory",
-  payments:"wb:payments", kpi:"wb:kpi", measurements:"wb:measurements" };
+  payments:"wb:payments", kpi:"wb:kpi", measurements:"wb:measurements", installations:"wb:installations" };
 const load=(key,fb)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):fb;}catch{return fb;}};
 const save=(key,data)=>{try{localStorage.setItem(key,JSON.stringify(data));}catch{}};
 
@@ -178,6 +178,21 @@ const IM=[
    ],
    wallType:"Железобетон",floor:"3",crane:false,demolition:true,installNotes:"Демонтаж включён.",files:[]}
 ];
+
+const CHECKLIST_STEPS=[
+  "הגעה לאתר ובדיקת מידות סופיות",
+  "פירוק חלונות ישנים (אם נדרש)",
+  "ניקוי פתחים והכנת משטחים",
+  "התקנת מסגרות ופרופילים",
+  "הרכבת זגוגיות / יחידות זיגוג",
+  "התקנת ידיות ואביזרים",
+  "בדיקת פתיחה ונעילה לכל חלון",
+  "אטימה ומילוי פגמים",
+  "התקנת תריסים / רשתות (אם יש)",
+  "ניקיון סופי ובדיקת איכות",
+  "הסבר לבעל הדירה",
+];
+const II_INST=[];
 
 // ── TOKENS ───────────────────────────────────────────────────
 const D={bg:"#090E1A",surface:"#0F1729",card:"#131D30",border:"#1E2D45",
@@ -1292,9 +1307,284 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
   </div>);
 }
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// PRINT ACT (תעודת גמר)
+// ═══════════════════════════════════════════════════════════════
+function printAct(inst,order){
+  const date=new Date().toLocaleDateString("he-IL");
+  const checks=inst.checklist||[];
+  const rows=CHECKLIST_STEPS.map((s,i)=>`<tr>
+    <td style="text-align:center;width:32px">${checks[i]?'<span style="color:#16a34a;font-size:16px">✓</span>':'<span style="color:#dc2626;font-size:16px">✗</span>'}</td>
+    <td>${s}</td>
+    <td style="text-align:center;color:${checks[i]?"#16a34a":"#dc2626"};font-weight:700">${checks[i]?"בוצע":"לא בוצע"}</td>
+  </tr>`).join("");
+  const html=`<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="UTF-8"/>
+  <title>תעודת גמר – ${inst.client}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Arial',sans-serif;direction:rtl;color:#1e293b;background:#fff;padding:36px;font-size:13px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:18px;border-bottom:3px solid #2563eb}
+    .logo{font-size:22px;font-weight:900;color:#2563eb}
+    .logo-sub{font-size:11px;color:#64748b;margin-top:3px}
+    .meta{text-align:left;font-size:12px;color:#64748b;line-height:1.9}
+    h2{font-size:13px;font-weight:800;color:#1e293b;background:#f1f5f9;border-right:4px solid #2563eb;padding:8px 14px;border-radius:4px;margin-bottom:14px}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+    .info-box{border:1px solid #e2e8f0;border-radius:8px;padding:14px}
+    .info-box label{font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;display:block;margin-bottom:4px}
+    .info-box b{font-size:14px;color:#1e293b}
+    table{width:100%;border-collapse:collapse;margin-bottom:22px}
+    th{background:#1e293b;color:#fff;padding:8px 12px;text-align:right;font-size:11px}
+    td{padding:9px 12px;border-bottom:1px solid #e2e8f0}
+    tr:nth-child(even) td{background:#f8fafc}
+    .sign-section{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:30px}
+    .sign-box{border-top:2px solid #1e293b;padding-top:10px;text-align:center;font-size:12px;color:#64748b}
+    .footer{font-size:10px;color:#94a3b8;text-align:center;padding-top:16px;border-top:1px solid #e2e8f0;margin-top:24px}
+    .stamp{width:80px;height:80px;border:3px solid #2563eb;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;color:#2563eb;font-size:11px;font-weight:800;text-align:center;line-height:1.3}
+    @media print{body{padding:20px}}
+  </style></head><body>
+  <div class="header">
+    <div><div class="logo">🏭 חלונות אלומיניום</div>
+      <div class="logo-sub">ייצור והתקנה של חלונות ודלתות אלומיניום</div></div>
+    <div class="meta">
+      <div><b style="font-size:16px">תעודת גמר</b></div>
+      <div>מספר: <b>${inst.id||"ACT-"+Date.now().toString().slice(-6)}</b></div>
+      <div>תאריך: <b>${inst.completedDate||date}</b></div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-box"><label>לקוח</label><b>${inst.client}</b><div style="font-size:12px;color:#64748b;margin-top:3px">${inst.address||""}</div></div>
+    <div class="info-box"><label>הזמנה</label><b>${inst.orderId||"—"}</b>
+      <div style="font-size:12px;color:#64748b;margin-top:3px">מתקין: ${inst.specialist||"—"} · ${inst.completedDate||date}</div></div>
+    ${order?`<div class="info-box"><label>סכום הזמנה</label><b style="color:#2563eb">₪${order.total?.toLocaleString("he-IL")||"—"}</b></div>`:""}
+    ${order?`<div class="info-box"><label>חלונות שהותקנו</label><b>${order.windows||"—"} יחידות</b></div>`:""}
+  </div>
+  <h2>רשימת בדיקות התקנה</h2>
+  <table>
+    <thead><tr><th style="width:40px;text-align:center">✓</th><th>פעולה</th><th style="text-align:center">סטטוס</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  ${inst.notes?`<div style="background:#f8fafc;border-radius:8px;padding:14px;margin-bottom:22px;font-size:13px">
+    <b>הערות:</b> ${inst.notes}</div>`:""}
+  <div class="sign-section">
+    <div class="sign-box">
+      <div style="height:50px"></div>
+      <div>חתימת המתקין</div>
+      <div style="margin-top:4px;font-weight:700">${inst.specialist||"___________"}</div>
+    </div>
+    <div class="sign-box">
+      <div style="height:50px"></div>
+      <div>חתימת הלקוח לאישור קבלת העבודה</div>
+      <div style="margin-top:4px;font-weight:700">${inst.client}</div>
+    </div>
+  </div>
+  <div class="footer">WindowOS · תעודה זו מהווה אישור לביצוע העבודה · ${date}</div>
+  </body></html>`;
+  const w=window.open("","_blank","width=860,height=700");
+  w.document.write(html);w.document.close();
+  setTimeout(()=>w.print(),500);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INSTALLATION MODULE
+// ═══════════════════════════════════════════════════════════════
+function Installation({installations,setInstallations,orders}){
+  const [modal,setModal]=useState(false);
+  const [viewId,setViewId]=useState(null);
+  const ef=()=>({client:"",phone:"",address:"",orderId:"",specialist:"",
+    scheduledDate:new Date().toISOString().split("T")[0],completedDate:"",
+    status:"Запланирован",checklist:CHECKLIST_STEPS.map(()=>false),
+    notes:"",photosBefore:[],photosAfter:[]});
+  const [form,setForm]=useState(ef());
+  const [editId,setEditId]=useState(null);
+
+  const openAdd=()=>{setEditId(null);setForm(ef());setModal(true);};
+  const openEdit=i=>{setEditId(i.id);setForm({...i,checklist:[...i.checklist],photosBefore:[...i.photosBefore],photosAfter:[...i.photosAfter]});setModal(true);};
+  const submit=()=>{
+    if(!form.client)return;
+    const rec={...form,id:editId||Date.now()};
+    if(editId)setInstallations(p=>p.map(x=>x.id===editId?rec:x));
+    else setInstallations(p=>[...p,rec]);
+    setModal(false);
+  };
+  const toggleCheck=(i)=>setForm(f=>({...f,checklist:f.checklist.map((v,idx)=>idx===i?!v:v)}));
+  const pickPhotos=(e,field)=>{
+    Array.from(e.target.files).forEach(file=>{
+      const r=new FileReader();
+      r.onload=ev=>setForm(f=>({...f,[field]:[...f[field],{id:Date.now()+Math.random(),name:file.name,data:ev.target.result}]}));
+      r.readAsDataURL(file);
+    });e.target.value="";
+  };
+  const doneCount=inst=>inst.checklist.filter(Boolean).length;
+  const linked=inst=>{
+    if(inst.orderId)return orders.find(o=>o.id===inst.orderId);
+    return orders.find(o=>o.client===inst.client);
+  };
+  const viewInst=installations.find(x=>x.id===viewId);
+
+  return(<div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Монтаж</div>
+        <div style={{fontSize:13,color:D.muted}}>{installations.length} объектов</div></div>
+      <Btn onClick={openAdd}><Plus size={13}/> Новый монтаж</Btn>
+    </div>
+    {/* Stats */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
+      <KCard icon={Clock} label="Запланировано" value={installations.filter(i=>i.status==="Запланирован").length} color={D.purple}/>
+      <KCard icon={Wrench} label="В процессе" value={installations.filter(i=>i.status==="В процессе").length} color={D.accentLight}/>
+      <KCard icon={Check} label="Завершено" value={installations.filter(i=>i.status==="Завершён").length} color={D.green}/>
+      <KCard icon={ClipboardCheck} label="Актов выдано" value={installations.filter(i=>i.status==="Завершён").length} color={D.teal}/>
+    </div>
+    {installations.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:40,textAlign:"center",color:D.muted}}>Нет монтажей. Нажми «Новый монтаж» чтобы начать.</div>}
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {installations.map(inst=>{
+        const done=doneCount(inst);
+        const total=CHECKLIST_STEPS.length;
+        const pct=Math.round(done/total*100);
+        const ord=linked(inst);
+        return(<div key={inst.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:"16px 18px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+            <div>
+              <div style={{fontSize:15,fontWeight:800,color:D.text}}>{inst.client}</div>
+              <div style={{fontSize:11,color:D.muted,marginTop:2}}>{inst.address} · 📅 {inst.scheduledDate} · 👤 {inst.specialist||"—"}</div>
+              {ord&&<div style={{fontSize:11,color:D.accentLight,marginTop:2}}>🔗 {ord.id} · {fmt(ord.total)}</div>}
+            </div>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+              <select value={inst.status} onChange={e=>setInstallations(p=>p.map(x=>x.id===inst.id?{...x,status:e.target.value}:x))}
+                style={{background:(SC[inst.status]||D.muted)+"18",color:SC[inst.status]||D.muted,
+                  border:`1px solid ${(SC[inst.status]||D.muted)}40`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                {["Запланирован","В процессе","Завершён"].map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+              </select>
+              <Btn onClick={()=>setViewId(inst.id)} variant="teal" small><Eye size={12}/> Чек-лист</Btn>
+              <Btn onClick={()=>printAct(inst,ord)} variant="success" small><Download size={12}/> Акт PDF</Btn>
+              <button onClick={()=>openEdit(inst)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}>✏️</button>
+              <button onClick={()=>setInstallations(p=>p.filter(x=>x.id!==inst.id))} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}><Trash2 size={13}/></button>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:12,alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:9,fontWeight:700,color:D.muted,marginBottom:5,textTransform:"uppercase"}}>Чек-лист {done}/{total}</div>
+              <PBar value={pct} color={pct===100?D.green:D.purple}/>
+            </div>
+            <div style={{fontSize:11,color:D.muted}}>📸 до: {inst.photosBefore.length} · после: {inst.photosAfter.length}</div>
+            <div style={{fontSize:11,color:D.muted}}>{inst.completedDate?`✅ ${inst.completedDate}`:"Не завершён"}</div>
+          </div>
+        </div>);
+      })}
+    </div>
+
+    {/* VIEW / CHECKLIST MODAL */}
+    {viewInst&&(<Modal title={`📋 ${viewInst.client} — Чек-лист`} onClose={()=>setViewId(null)} wide>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+        <div>
+          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Шаги установки ({doneCount(viewInst)}/{CHECKLIST_STEPS.length})</div>
+          {CHECKLIST_STEPS.map((s,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:`1px solid ${D.border}`}}>
+              <div style={{width:18,height:18,borderRadius:4,background:viewInst.checklist[i]?D.green:D.surface,
+                border:`2px solid ${viewInst.checklist[i]?D.green:D.border}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                {viewInst.checklist[i]&&<Check size={11} color="#fff"/>}
+              </div>
+              <span style={{fontSize:12,color:viewInst.checklist[i]?D.text:D.muted}}>{s}</span>
+            </div>
+          ))}
+        </div>
+        <div>
+          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото до установки ({viewInst.photosBefore.length})</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
+            {viewInst.photosBefore.map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
+            {viewInst.photosBefore.length===0&&<div style={{fontSize:11,color:D.muted}}>Нет фото</div>}
+          </div>
+          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото после установки ({viewInst.photosAfter.length})</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {viewInst.photosAfter.map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
+            {viewInst.photosAfter.length===0&&<div style={{fontSize:11,color:D.muted}}>Нет фото</div>}
+          </div>
+          {viewInst.notes&&<div style={{marginTop:14,background:D.surface,borderRadius:8,padding:12,fontSize:12,color:D.muted}}><b style={{color:D.text}}>Заметки:</b> {viewInst.notes}</div>}
+          <div style={{marginTop:16,display:"flex",gap:8}}>
+            <Btn onClick={()=>printAct(viewInst,linked(viewInst))} variant="success"><Download size={13}/> Акт PDF</Btn>
+          </div>
+        </div>
+      </div>
+    </Modal>)}
+
+    {/* ADD/EDIT MODAL */}
+    {modal&&(<Modal title={editId?"✏️ Редактировать монтаж":"🔧 Новый монтаж"} onClose={()=>setModal(false)} wide>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Inp label="Клиент *" value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
+        <Inp label="Телефон" value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
+      </div>
+      <Inp label="Адрес объекта" value={form.address} onChange={e=>setForm(p=>({...p,address:e.target.value}))}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>Привязать заказ</div>
+          <select value={form.orderId} onChange={e=>{
+            const ord=orders.find(o=>o.id===e.target.value);
+            setForm(p=>({...p,orderId:e.target.value,client:ord?ord.client:p.client}));
+          }} style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 12px",color:D.text,fontSize:13,outline:"none"}}>
+            <option value="" style={{background:D.card}}>— без привязки —</option>
+            {orders.map(o=><option key={o.id} value={o.id} style={{background:D.card}}>{o.id} · {o.client}</option>)}
+          </select>
+        </div>
+        <Inp label="Дата монтажа" value={form.scheduledDate} onChange={e=>setForm(p=>({...p,scheduledDate:e.target.value}))} type="date"/>
+        <Inp label="Специалист" value={form.specialist} onChange={e=>setForm(p=>({...p,specialist:e.target.value}))}/>
+      </div>
+      {/* Checklist */}
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:10,fontWeight:700,color:D.muted,textTransform:"uppercase",marginBottom:8}}>Чек-лист ({form.checklist.filter(Boolean).length}/{CHECKLIST_STEPS.length})</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
+          {CHECKLIST_STEPS.map((s,i)=>(
+            <label key={i} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 8px",borderRadius:6,
+              cursor:"pointer",background:form.checklist[i]?D.green+"15":D.surface,border:`1px solid ${form.checklist[i]?D.green+"40":D.border}`}}>
+              <input type="checkbox" checked={form.checklist[i]} onChange={()=>toggleCheck(i)} style={{accentColor:D.green}}/>
+              <span style={{fontSize:11,color:form.checklist[i]?D.text:D.muted}}>{s}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      {/* Photos */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:D.muted,textTransform:"uppercase",marginBottom:6}}>Фото ДО ({form.photosBefore.length})</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
+            {form.photosBefore.map(p=>(<img key={p.id} src={p.data} alt="" style={{width:56,height:44,objectFit:"cover",borderRadius:5}}/>))}
+          </div>
+          <label style={{display:"inline-flex",alignItems:"center",gap:5,background:D.surface,border:`1px dashed ${D.border}`,borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,color:D.muted}}>
+            <Image size={12}/> Добавить
+            <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>pickPhotos(e,"photosBefore")}/>
+          </label>
+        </div>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:D.muted,textTransform:"uppercase",marginBottom:6}}>Фото ПОСЛЕ ({form.photosAfter.length})</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
+            {form.photosAfter.map(p=>(<img key={p.id} src={p.data} alt="" style={{width:56,height:44,objectFit:"cover",borderRadius:5}}/>))}
+          </div>
+          <label style={{display:"inline-flex",alignItems:"center",gap:5,background:D.surface,border:`1px dashed ${D.border}`,borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,color:D.muted}}>
+            <Image size={12}/> Добавить
+            <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>pickPhotos(e,"photosAfter")}/>
+          </label>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        <Inp label="Дата завершения" value={form.completedDate} onChange={e=>setForm(p=>({...p,completedDate:e.target.value}))} type="date"/>
+        <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={["Запланирован","В процессе","Завершён"]}/>
+      </div>
+      <Inp label="Заметки / Замечания" value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
+      <div style={{display:"flex",gap:8}}>
+        <Btn onClick={submit}><Check size={13}/> {editId?"Сохранить":"Создать"}</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+      </div>
+    </Modal>)}
+  </div>);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ORDERS (with P&L)
+// ═══════════════════════════════════════════════════════════════
 function Orders({orders,setOrders,setPayments}){
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({client:"",city:"",windows:"1",total:"",delivery:""});
+  const [plModal,setPlModal]=useState(null); // orderId with P&L open
+  const [plData,setPlData]=useState({}); // {orderId: {materialsCost,laborCost,extrasCost,notes}}
+
   const addOrder=()=>{
     if(!form.client||!form.total)return;
     const id="WB-"+String(orders.length+1).padStart(3,"0");
@@ -1309,6 +1599,9 @@ function Orders({orders,setOrders,setPayments}){
       amount,date:new Date().toISOString().split("T")[0],method:"Банк",status:"Ожидается"}]);
     setOrders(p=>p.map(x=>x.id===o.id?{...x,paid:o.total}:x));
   };
+  const getPl=(id)=>plData[id]||{materialsCost:"",laborCost:"",extrasCost:"",notes:""};
+  const setPl=(id,k,v)=>setPlData(p=>({...p,[id]:{...getPl(id),[k]:v}}));
+
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
       <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Заказы</div>
@@ -1319,16 +1612,28 @@ function Orders({orders,setOrders,setPayments}){
       </div>
     </div>
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      {orders.map(o=>{const debt=o.total-o.paid;return(
-        <div key={o.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:"18px 20px"}}>
+      {orders.map(o=>{
+        const debt=o.total-o.paid;
+        const pl=getPl(o.id);
+        const matC=+pl.materialsCost||0;
+        const labC=+pl.laborCost||0;
+        const extC=+pl.extrasCost||0;
+        const totalCost=matC+labC+extC;
+        const profit=o.paid-totalCost;
+        const margin=o.paid>0?Math.round(profit/o.paid*100):0;
+        const hasPl=matC>0||labC>0||extC>0;
+        return(<div key={o.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:"18px 20px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
             <div style={{display:"flex",gap:12,alignItems:"center"}}>
               <div style={{background:D.accent+"20",border:`1px solid ${D.accent}40`,borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:800,color:D.accentLight}}>{o.id}</div>
               <div><div style={{fontSize:15,fontWeight:800,color:D.text}}>{o.client}</div>
                 <div style={{fontSize:11,color:D.muted}}>{o.city} · {o.windows} окон · Сдача: {o.delivery}</div></div>
             </div>
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
               {o.status!=="Завершён"&&debt>0&&<Btn onClick={()=>addPay(o)} variant="success" small><Plus size={11}/> Платёж</Btn>}
+              <Btn onClick={()=>setPlModal(plModal===o.id?null:o.id)} variant={hasPl?"teal":"ghost"} small>
+                <BarChart2 size={11}/> P&L
+              </Btn>
               <select value={o.status} onChange={e=>updStatus(o.id,e.target.value)}
                 style={{background:(SC[o.status]||D.muted)+"18",color:SC[o.status]||D.muted,
                   border:`1px solid ${(SC[o.status]||D.muted)}40`,borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
@@ -1336,16 +1641,52 @@ function Orders({orders,setOrders,setPayments}){
               </select>
             </div>
           </div>
+          {/* Financials row */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 2fr",gap:16,alignItems:"center"}}>
-            {[["Сумма",fmt(o.total),D.text],["Получено",fmt(o.paid),D.green],["Остаток",fmt(debt),debt>0?D.yellow:D.green]].map(([l,v,c])=>(
+            {[["Сумма КП",fmt(o.total),D.text],["Получено",fmt(o.paid),D.green],["Остаток",fmt(debt),debt>0?D.yellow:D.green]].map(([l,v,c])=>(
               <div key={l}><div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>{l}</div>
                 <div style={{fontSize:18,fontWeight:800,color:c}}>{v}</div></div>
             ))}
             <div><div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Прогресс {o.progress}%</div>
               <PBar value={o.progress} color={o.progress===100?D.green:o.progress>50?D.purple:D.accent}/></div>
           </div>
-        </div>
-      );})}
+          {/* P&L Panel */}
+          {plModal===o.id&&(<div style={{marginTop:16,borderTop:`1px solid ${D.border}`,paddingTop:16}}>
+            <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:12}}>📊 P&L — Реальные затраты</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:14}}>
+              {[["💰 Материалы ₪","materialsCost"],["👷 Труд / субподряд ₪","laborCost"],["🔧 Доп. расходы ₪","extrasCost"]].map(([l,k])=>(
+                <div key={k}>
+                  <div style={{fontSize:10,color:D.muted,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{l}</div>
+                  <input type="number" value={pl[k]} onChange={e=>setPl(o.id,k,e.target.value)} placeholder="0"
+                    style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"7px 10px",color:D.text,fontSize:13,fontWeight:700,outline:"none"}}/>
+                </div>
+              ))}
+              <div style={{background:hasPl?(profit>=0?D.green+"15":D.red+"15"):D.surface,
+                border:`1px solid ${hasPl?(profit>=0?D.green:D.red)+"40":D.border}`,
+                borderRadius:10,padding:"10px 12px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Прибыль (факт)</div>
+                <div style={{fontSize:20,fontWeight:900,color:hasPl?(profit>=0?D.green:D.red):D.muted}}>{hasPl?fmt(profit):"—"}</div>
+                {hasPl&&<div style={{fontSize:11,color:D.muted,marginTop:2}}>Маржа {margin}%</div>}
+              </div>
+            </div>
+            {hasPl&&totalCost>0&&(<div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:12}}>
+              {[["Выручка",fmt(o.paid),D.text],
+                ["Материалы",fmt(matC),D.muted],
+                ["Труд",fmt(labC),D.muted],
+                ["Прочее",fmt(extC),D.muted],
+                ["Себест. итого",fmt(totalCost),D.yellow],
+              ].map(([l,v,c])=>(
+                <div key={l} style={{background:D.surface,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                  <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{l}</div>
+                  <div style={{fontSize:13,fontWeight:800,color:c}}>{v}</div>
+                </div>
+              ))}
+            </div>)}
+            <input placeholder="Заметки по затратам..." value={pl.notes} onChange={e=>setPl(o.id,"notes",e.target.value)}
+              style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"7px 12px",color:D.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+          </div>)}
+        </div>);
+      })}
     </div>
     {modal&&(<Modal title="📦 Новый заказ" onClose={()=>setModal(false)}>
       <Inp label="Клиент *" value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
@@ -1537,6 +1878,7 @@ const PAGES=[
   {id:"leads",icon:Users,label:"Лиды / CRM"},
   {id:"measurements",icon:Ruler,label:"Замеры"},
   {id:"orders",icon:ShoppingCart,label:"Заказы"},
+  {id:"installation",icon:Wrench,label:"Монтаж"},
   {id:"inventory",icon:Package,label:"Склад"},
   {id:"payments",icon:Wallet,label:"Касса"},
   {id:"kpi",icon:BarChart2,label:"KPI"},
@@ -1554,9 +1896,12 @@ export default function App(){
   const [saved,setSaved]=useState(true);
   const [calcPreload,setCalcPreload]=useState(null);
 
+  const [installations,setInstallations]=useState(()=>load(KEYS.installations,II_INST));
+
   useEffect(()=>{setSaved(false);save(KEYS.leads,leads);setTimeout(()=>setSaved(true),600);},[leads]);
   useEffect(()=>{save(KEYS.measurements,measurements);},[measurements]);
   useEffect(()=>{save(KEYS.orders,orders);},[orders]);
+  useEffect(()=>{save(KEYS.installations,installations);},[installations]);
   useEffect(()=>{save(KEYS.inventory,inventory);},[inventory]);
   useEffect(()=>{save(KEYS.payments,payments);},[payments]);
   useEffect(()=>{save(KEYS.kpi,kpi);},[kpi]);
@@ -1564,9 +1909,11 @@ export default function App(){
   const openCalc=(measurement)=>{setCalcPreload(measurement);setPage("calc");};
 
   const pendM=measurements.filter(m=>m.status==="Запланирован").length;
+  const pendInst=installations.filter(i=>i.status==="Запланирован"||i.status==="В процессе").length;
   const alerts=[
     leads.filter(l=>l.status==="Новый лид").length,
     pendM,null,
+    pendInst,
     inventory.filter(i=>i.qty<i.minQty).length,
     payments.filter(p=>p.status==="Ожидается").length,
     null,null,null
@@ -1604,13 +1951,14 @@ export default function App(){
         {[
           leads.filter(l=>l.status==="Новый лид").length>0&&[`👤 ${leads.filter(l=>l.status==="Новый лид").length} новых лидов`,"leads"],
           pendM>0&&[`📐 ${pendM} замеров ждут`,"measurements"],
+          pendInst>0&&[`🔧 ${pendInst} монтажей активно`,"installation"],
           inventory.filter(i=>i.qty<i.minQty).length>0&&[`📦 нужна закупка`,"inventory"],
           payments.filter(p=>p.status==="Ожидается").length>0&&[`💰 ожидаются платежи`,"payments"],
         ].filter(Boolean).map(([a,pg],i)=>(<button key={i} onClick={()=>setPage(pg)} style={{display:"block",width:"100%",textAlign:"left",background:D.yellow+"12",border:`1px solid ${D.yellow}25`,borderRadius:7,padding:"5px 8px",marginBottom:3,fontSize:9,fontWeight:700,color:D.yellow,cursor:"pointer",transition:"background 0.15s"}}
           onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
           onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
       </div>
-      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.4 🇮🇱</div>
+      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.5 🇮🇱</div>
     </div>
     {/* MAIN */}
     <div style={{flex:1,overflowY:"auto",padding:"22px 24px"}}>
@@ -1618,6 +1966,7 @@ export default function App(){
       {page==="leads"&&<Leads leads={leads} setLeads={setLeads}/>}
       {page==="measurements"&&<Measurements measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc} leads={leads} setLeads={setLeads}/>}
       {page==="orders"&&<Orders orders={orders} setOrders={setOrders} setPayments={setPayments}/>}
+      {page==="installation"&&<Installation installations={installations} setInstallations={setInstallations} orders={orders}/>}
       {page==="inventory"&&<Inventory inventory={inventory} setInventory={setInventory}/>}
       {page==="payments"&&<Payments payments={payments} setPayments={setPayments}/>}
       {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi}/>}
