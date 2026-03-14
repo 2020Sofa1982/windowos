@@ -292,77 +292,189 @@ const SH=({title,color=D.teal})=>(<div style={{fontSize:11,fontWeight:800,color,
 // ═══════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
-function Dashboard({leads,orders,payments,inventory,kpi,measurements}){
+function Dashboard({leads,orders,payments,inventory,kpi,measurements,installations}){
+  // ── Real financials ──
   const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
-  const totalRev=orders.reduce((s,o)=>s+o.total,0);
-  const newLeads=leads.filter(l=>l.status==="Новый лид").length;
-  const lowStock=inventory.filter(i=>i.qty<i.minQty).length;
-  const pending=payments.filter(p=>p.status==="Ожидается");
-  const pendM=measurements.filter(m=>m.status==="Запланирован").length;
+  const totalPending=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const totalContracted=orders.reduce((s,o)=>s+o.total,0);
+  const activeOrders=orders.filter(o=>o.status!=="Завершён");
+  const completedOrders=orders.filter(o=>o.status==="Завершён");
+  const avgDeal=orders.length>0?Math.round(totalContracted/orders.length):0;
+
+  // ── Funnel ──
+  const fLeads=leads.length;
+  const fMeasured=measurements.length;
+  const fOrders=orders.length;
+  const fCompleted=completedOrders.length;
+  const convLM=fLeads>0?Math.round(fMeasured/fLeads*100):0;
+  const convMO=fMeasured>0?Math.round(fOrders/fMeasured*100):0;
+  const convLO=fLeads>0?Math.round(fOrders/fLeads*100):0;
+
+  // ── Pipeline value (leads with value) ──
+  const pipeline=leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status))
+    .reduce((s,l)=>s+(l.value||0),0);
+
+  // ── Status breakdown ──
   const pie=[
     {name:"Новый",value:leads.filter(l=>l.status==="Новый лид").length,c:D.accentLight},
     {name:"Замер",value:leads.filter(l=>l.status==="Замер назначен").length,c:D.purple},
     {name:"КП",value:leads.filter(l=>l.status==="КП отправлено").length,c:D.yellow},
+    {name:"Follow-up",value:leads.filter(l=>l.status==="Follow-up").length,c:"#EC4899"},
     {name:"Выиграли",value:leads.filter(l=>l.status==="Закрыт (выиграли)").length,c:D.green},
-  ];
+  ].filter(d=>d.value>0);
+
+  // ── Monthly revenue from real orders (by created date) ──
+  const monthMap={};
+  orders.forEach(o=>{
+    const m=o.created?.slice(0,7)||"";
+    if(!m)return;
+    if(!monthMap[m])monthMap[m]={month:m.slice(5),revenue:0,paid:0,count:0};
+    monthMap[m].revenue+=o.total;
+    monthMap[m].paid+=o.paid;
+    monthMap[m].count++;
+  });
+  const revenueChart=Object.values(monthMap).sort((a,b)=>a.month.localeCompare(b.month)).slice(-6);
+
+  const lowStock=inventory.filter(i=>i.qty<i.minQty).length;
+  const pending=payments.filter(p=>p.status==="Ожидается");
+  const pendInst=installations.filter(i=>i.status==="Запланирован"||i.status==="В процессе").length;
+
   return(<div>
-    <div style={{marginBottom:22}}><div style={{fontSize:22,fontWeight:900,color:D.text}}>Dashboard</div>
-      <div style={{fontSize:13,color:D.muted,marginTop:2}}>Общая картина бизнеса</div></div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
-      <KCard icon={Users} label="Новых лидов" value={newLeads} color={D.accentLight} trend={24} target={5}/>
-      <KCard icon={Ruler} label="Замеров ожидает" value={pendM} color={D.teal} sub={`Всего ${measurements.length}`}/>
-      <KCard icon={DollarSign} label="Получено" value={fmt(totalPaid)} color={D.green} sub={`из ${fmt(totalRev)}`}/>
-      <KCard icon={AlertTriangle} label="Мало на складе" value={lowStock} color={D.yellow}/>
+    <div style={{marginBottom:22}}>
+      <div style={{fontSize:22,fontWeight:900,color:D.text}}>Dashboard</div>
+      <div style={{fontSize:13,color:D.muted,marginTop:2}}>Реальные данные из системы</div>
     </div>
+
+    {/* Top KPIs */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
+      <KCard icon={DollarSign} label="Получено ₪" value={fmt(totalPaid)} color={D.green} sub={`Ожидается ещё ${fmt(totalPending)}`}/>
+      <KCard icon={ShoppingCart} label="В работе" value={activeOrders.length} color={D.accentLight} sub={`Сумма ${fmt(activeOrders.reduce((s,o)=>s+o.total,0))}`}/>
+      <KCard icon={TrendingUp} label="Pipeline" value={fmt(pipeline)} color={D.purple} sub={`${leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status)).length} лидов в работе`}/>
+      <KCard icon={Users} label="Ср. чек" value={fmt(avgDeal)} color={D.yellow} sub={`${orders.length} заказов всего`}/>
+    </div>
+
     <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}}>
+      {/* Revenue chart */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>📈 ВЫРУЧКА И ПРИБЫЛЬ</div>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={kpi.map(d=>({month:d.month,"Выручка":d.revenue,"EBITDA":d.revenue-d.cogs-d.opex}))} barGap={3}>
-            <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
-            <YAxis stroke={D.muted} tick={{fontSize:10,fill:D.muted}} tickFormatter={v=>"₪"+v/1000+"k"}/>
-            <Tooltip content={<TT/>}/>
-            <Bar dataKey="Выручка" fill={D.accentLight+"90"} radius={[4,4,0,0]}/>
-            <Bar dataKey="EBITDA" fill={D.green} radius={[4,4,0,0]}/>
-          </BarChart>
-        </ResponsiveContainer>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>📈 ВЫРУЧКА ПО МЕСЯЦАМ (реальные заказы)</div>
+        {revenueChart.length>0?(
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={revenueChart} barGap={3}>
+              <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
+              <YAxis stroke={D.muted} tick={{fontSize:10,fill:D.muted}} tickFormatter={v=>"₪"+v/1000+"k"}/>
+              <Tooltip content={<TT/>}/>
+              <Bar dataKey="revenue" name="КП сумма" fill={D.accentLight+"90"} radius={[4,4,0,0]}/>
+              <Bar dataKey="paid" name="Получено" fill={D.green} radius={[4,4,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        ):(
+          <div style={{height:180,display:"flex",alignItems:"center",justifyContent:"center",color:D.muted,fontSize:13}}>
+            Заказы появятся здесь после добавления
+          </div>
+        )}
       </div>
+
+      {/* Funnel */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>🎯 ВОРОНКА</div>
-        <ResponsiveContainer width="100%" height={150}>
-          <PieChart><Pie data={pie} cx="50%" cy="50%" innerRadius={38} outerRadius={62} dataKey="value">
-            {pie.map((d,i)=><Cell key={i} fill={d.c}/>)}
-          </Pie><Tooltip content={<TT/>}/></PieChart>
-        </ResponsiveContainer>
-        <div style={{display:"flex",flexWrap:"wrap",gap:"3px 10px",marginTop:4}}>
-          {pie.map((d,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:D.muted}}>
-            <div style={{width:7,height:7,borderRadius:"50%",background:d.c}}/>{d.name} {d.value}
-          </div>))}
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:16}}>🎯 ВОРОНКА КОНВЕРСИИ</div>
+        {[
+          {label:"Лидов всего",value:fLeads,color:D.accentLight,max:fLeads},
+          {label:"Замеров",value:fMeasured,color:D.purple,max:fLeads},
+          {label:"Заказов",value:fOrders,color:D.yellow,max:fLeads},
+          {label:"Завершено",value:fCompleted,color:D.green,max:fLeads},
+        ].map(({label,value,color,max})=>(
+          <div key={label} style={{marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:11,color:D.muted}}>{label}</span>
+              <span style={{fontSize:12,fontWeight:800,color}}>{value}</span>
+            </div>
+            <div style={{background:D.surface,borderRadius:4,height:6}}>
+              <div style={{width:max>0?`${value/max*100}%`:"0%",height:"100%",borderRadius:4,background:color,transition:"width 0.4s"}}/>
+            </div>
+          </div>
+        ))}
+        <div style={{borderTop:`1px solid ${D.border}`,paddingTop:12,marginTop:4,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          {[
+            ["Лид→Замер",convLM+"%",D.purple],
+            ["Замер→Заказ",convMO+"%",D.yellow],
+            ["Лид→Заказ",convLO+"%",D.green],
+            ["Ср. чек",fmt(avgDeal),D.accentLight],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{background:D.surface,borderRadius:8,padding:"7px 10px",textAlign:"center"}}>
+              <div style={{fontSize:9,color:D.muted,fontWeight:700,marginBottom:2,textTransform:"uppercase"}}>{l}</div>
+              <div style={{fontSize:14,fontWeight:900,color:c}}>{v}</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16}}>
+      {/* Lead statuses */}
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>👥 ЛИДЫ ПО СТАТУСАМ</div>
+        {pie.length>0?(
+          <>
+            <ResponsiveContainer width="100%" height={110}>
+              <PieChart><Pie data={pie} cx="50%" cy="50%" innerRadius={30} outerRadius={50} dataKey="value">
+                {pie.map((d,i)=><Cell key={i} fill={d.c}/>)}
+              </Pie><Tooltip content={<TT/>}/></PieChart>
+            </ResponsiveContainer>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"3px 8px",marginTop:6}}>
+              {pie.map((d,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:D.muted}}>
+                <div style={{width:7,height:7,borderRadius:"50%",background:d.c}}/>{d.name} {d.value}
+              </div>))}
+            </div>
+          </>
+        ):<div style={{color:D.muted,fontSize:12,textAlign:"center",paddingTop:20}}>Нет лидов</div>}
+      </div>
+
+      {/* Active orders */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
         <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>📦 АКТИВНЫЕ ЗАКАЗЫ</div>
-        {orders.filter(o=>o.status!=="Завершён").slice(0,4).map(o=>(
-          <div key={o.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${D.border}`}}>
-            <div><div style={{fontSize:12,fontWeight:700,color:D.text}}>{o.client}</div>
-              <div style={{fontSize:10,color:D.muted}}>{o.id} · {o.windows} окон</div></div>
-            <Badge status={o.status}/>
+        {activeOrders.length===0&&<div style={{color:D.muted,fontSize:12}}>Нет активных заказов</div>}
+        {activeOrders.slice(0,5).map(o=>(
+          <div key={o.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${D.border}`}}>
+            <div>
+              <div style={{fontSize:12,fontWeight:700,color:D.text}}>{o.client}</div>
+              <div style={{fontSize:10,color:D.muted}}>{o.id} · {o.windows} окон</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:12,fontWeight:700,color:D.green}}>{fmt(o.paid)}</div>
+              <div style={{fontSize:10,color:D.muted}}>из {fmt(o.total)}</div>
+            </div>
           </div>
         ))}
       </div>
-      {pending.length>0&&(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>💰 ОЖИДАЮТСЯ ПЛАТЕЖИ</div>
-        {pending.map(p=>(<div key={p.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${D.border}`}}>
-          <div style={{fontSize:12,color:D.text}}>{p.client}</div>
-          <div style={{fontSize:13,fontWeight:800,color:D.yellow}}>{fmt(p.amount)}</div>
-        </div>))}
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:10}}>
-          <span style={{fontSize:12,color:D.muted}}>Итого</span>
-          <span style={{fontSize:16,fontWeight:800,color:D.yellow}}>{fmt(pending.reduce((s,p)=>s+p.amount,0))}</span>
+
+      {/* Right column: pending payments + alerts */}
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {pending.length>0&&(<div style={{background:D.card,border:`1px solid ${D.yellow}30`,borderRadius:14,padding:16}}>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:10}}>💰 ОЖИДАЮТСЯ ПЛАТЕЖИ</div>
+          {pending.slice(0,3).map(p=>(<div key={p.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${D.border}`}}>
+            <div style={{fontSize:11,color:D.text}}>{p.client}</div>
+            <div style={{fontSize:12,fontWeight:800,color:D.yellow}}>{fmt(p.amount)}</div>
+          </div>))}
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
+            <span style={{fontSize:11,color:D.muted}}>Итого</span>
+            <span style={{fontSize:14,fontWeight:900,color:D.yellow}}>{fmt(totalPending)}</span>
+          </div>
+        </div>)}
+        <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:10}}>🔔 СТАТУС</div>
+          {[
+            [lowStock>0,`📦 ${lowStock} позиций мало на складе`,D.yellow],
+            [pendInst>0,`🔧 ${pendInst} монтажей в работе`,D.purple],
+            [totalPending>0,`💰 ${fmt(totalPending)} ожидается`,D.green],
+            [leads.filter(l=>l.status==="Новый лид").length>0,
+              `👤 ${leads.filter(l=>l.status==="Новый лид").length} новых лидов`,D.accentLight],
+          ].filter(([cond])=>cond).map(([,text,color],i)=>(
+            <div key={i} style={{fontSize:11,color,fontWeight:700,marginBottom:5}}>• {text}</div>
+          ))}
+          {[lowStock,pendInst,totalPending,leads.filter(l=>l.status==="Новый лид").length].every(v=>!v)&&
+            <div style={{fontSize:11,color:D.green}}>✓ Всё в порядке</div>}
         </div>
-      </div>)}
+      </div>
     </div>
   </div>);
 }
@@ -1794,64 +1906,177 @@ function Payments({payments,setPayments}){
 // ═══════════════════════════════════════════════════════════════
 // KPI
 // ═══════════════════════════════════════════════════════════════
-function KPI({kpi,setKpi}){
+function KPI({kpi,setKpi,leads,measurements,orders,payments}){
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({month:"Апр",leads:"",measures:"",orders:"",revenue:"",cogs:"",opex:"",adSpend:""});
+
+  // ── Real funnel stats ──
+  const fLeads=leads.length;
+  const fMeasured=measurements.length;
+  const fOrders=orders.length;
+  const fWon=leads.filter(l=>l.status==="Закрыт (выиграли)").length;
+  const fLost=leads.filter(l=>l.status==="Закрыт (проиграли)").length;
+  const convLM=fLeads>0?(fMeasured/fLeads*100).toFixed(0):0;
+  const convMO=fMeasured>0?(fOrders/fMeasured*100).toFixed(0):0;
+  const convLO=fLeads>0?(fOrders/fLeads*100).toFixed(0):0;
+  const winRate=fWon+fLost>0?(fWon/(fWon+fLost)*100).toFixed(0):0;
+
+  // ── Real revenue ──
+  const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
+  const totalContracted=orders.reduce((s,o)=>s+o.total,0);
+  const avgDeal=orders.length>0?Math.round(totalContracted/orders.length):0;
+
+  // ── Source breakdown ──
+  const srcMap={};
+  leads.forEach(l=>{srcMap[l.source]=(srcMap[l.source]||0)+1;});
+  const sources=Object.entries(srcMap).sort((a,b)=>b[1]-a[1]);
+
   const last=kpi[kpi.length-1]||{revenue:0,cogs:0,opex:0,leads:0,measures:0,orders:0};
   const ebitda=last.revenue-last.cogs-last.opex;
-  const addMonth=()=>{if(!form.month)return;setKpi(p=>[...p,{month:form.month,leads:+form.leads||0,measures:+form.measures||0,orders:+form.orders||0,revenue:+form.revenue||0,cogs:+form.cogs||0,opex:+form.opex||0,adSpend:+form.adSpend||0}]);setModal(false);};
+  const addMonth=()=>{
+    if(!form.month)return;
+    setKpi(p=>[...p,{month:form.month,leads:+form.leads||0,measures:+form.measures||0,
+      orders:+form.orders||0,revenue:+form.revenue||0,cogs:+form.cogs||0,opex:+form.opex||0,adSpend:+form.adSpend||0}]);
+    setModal(false);
+  };
+
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>KPI Dashboard</div>
-        <div style={{fontSize:13,color:D.muted}}>Ежемесячная аналитика</div></div>
+      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>KPI & Аналитика</div>
+        <div style={{fontSize:13,color:D.muted}}>Реальные данные + история</div></div>
       <Btn onClick={()=>setModal(true)}><Plus size={13}/> Добавить месяц</Btn>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
-      <KCard icon={Users} label="Лидов" value={last.leads} color={D.accentLight} target={20}/>
-      <KCard icon={ShoppingCart} label="Заказов" value={last.orders} color={D.purple} target={6}/>
-      <KCard icon={DollarSign} label="Выручка" value={fmt(last.revenue)} color={D.green}/>
-      <KCard icon={TrendingUp} label="EBITDA" value={fmt(ebitda)} color={ebitda>=0?D.green:D.red}/>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}}>
-      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>💹 ВЫРУЧКА / EBITDA</div>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={kpi.map(d=>({month:d.month,"Выручка":d.revenue,"EBITDA":d.revenue-d.cogs-d.opex}))} barGap={3}>
-            <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
-            <YAxis stroke={D.muted} tick={{fontSize:10,fill:D.muted}} tickFormatter={v=>"₪"+v/1000+"k"}/>
-            <Tooltip content={<TT/>}/>
-            <ReferenceLine y={0} stroke={D.red} strokeDasharray="4 4"/>
-            <Bar dataKey="Выручка" fill={D.accentLight+"80"} radius={[3,3,0,0]}/>
-            <Bar dataKey="EBITDA" fill={D.green} radius={[3,3,0,0]}/>
-          </BarChart>
-        </ResponsiveContainer>
+
+    {/* Real-time KPIs */}
+    <div style={{background:D.card,border:`1px solid ${D.accentLight}30`,borderRadius:14,padding:16,marginBottom:20}}>
+      <div style={{fontSize:11,fontWeight:800,color:D.accentLight,textTransform:"uppercase",marginBottom:14}}>
+        📊 Реальные показатели (из системы)
       </div>
-      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>📈 ЛИДЫ / ЗАКАЗЫ</div>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={kpi}>
-            <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
-            <YAxis stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
-            <Tooltip content={<TT/>}/>
-            <Line dataKey="leads" name="Лиды" stroke={D.accentLight} strokeWidth={2} dot={{r:3}}/>
-            <Line dataKey="orders" name="Заказы" stroke={D.green} strokeWidth={2} dot={{r:3}}/>
-          </LineChart>
-        </ResponsiveContainer>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>
+        <KCard icon={Users} label="Лидов всего" value={fLeads} color={D.accentLight}/>
+        <KCard icon={Ruler} label="Замеров" value={fMeasured} color={D.purple}/>
+        <KCard icon={ShoppingCart} label="Заказов" value={fOrders} color={D.yellow}/>
+        <KCard icon={DollarSign} label="Получено" value={fmt(totalPaid)} color={D.green}/>
       </div>
     </div>
-    <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",padding:"8px 14px",background:D.surface,gap:10}}>
-        {["Месяц","Лиды","Замеры","Заказы","Выручка","Себест.","OPEX","EBITDA"].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
-      </div>
-      {kpi.map((d,i)=>{const e=d.revenue-d.cogs-d.opex;return(
-        <div key={i} style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",padding:"10px 14px",gap:10,background:i%2===0?D.card:D.surface,borderTop:`1px solid ${D.border}`}}>
-          <div style={{fontSize:13,fontWeight:800,color:D.text}}>{d.month}</div>
-          {[d.leads,d.measures,d.orders].map((v,ci)=><div key={ci} style={{fontSize:13,fontWeight:700,color:D.text}}>{v}</div>)}
-          {[d.revenue,d.cogs,d.opex].map((v,ci)=><div key={ci} style={{fontSize:12,color:D.muted}}>{fmt(v)}</div>)}
-          <div style={{fontSize:13,fontWeight:800,color:e>=0?D.green:D.red}}>{fmt(e)}</div>
+
+    {/* Funnel conversion */}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:16}}>🎯 ВОРОНКА КОНВЕРСИИ</div>
+        {[
+          {label:"Лиды",value:fLeads,color:D.accentLight},
+          {label:"Замеры",value:fMeasured,color:D.purple},
+          {label:"Заказы",value:fOrders,color:D.yellow},
+          {label:"Закрыто (выиграли)",value:fWon,color:D.green},
+        ].map(({label,value,color})=>(
+          <div key={label} style={{marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+              <span style={{fontSize:12,color:D.muted}}>{label}</span>
+              <span style={{fontSize:14,fontWeight:900,color}}>{value}</span>
+            </div>
+            <div style={{background:D.surface,borderRadius:6,height:10,overflow:"hidden"}}>
+              <div style={{width:fLeads>0?`${value/fLeads*100}%`:"0%",height:"100%",
+                background:`linear-gradient(90deg,${color},${color}88)`,borderRadius:6,transition:"width 0.5s"}}/>
+            </div>
+          </div>
+        ))}
+        {/* Conversion rates */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginTop:8}}>
+          {[
+            ["Лид→Замер",convLM+"%",D.purple],
+            ["Замер→Заказ",convMO+"%",D.yellow],
+            ["Лид→Заказ",convLO+"%",D.green],
+            ["Win Rate",winRate+"%",D.teal],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{background:D.surface,borderRadius:8,padding:"8px 6px",textAlign:"center"}}>
+              <div style={{fontSize:18,fontWeight:900,color:c}}>{v}</div>
+              <div style={{fontSize:9,color:D.muted,fontWeight:700,marginTop:2,textTransform:"uppercase"}}>{l}</div>
+            </div>
+          ))}
         </div>
-      );})}
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {/* Avg deal + pipeline */}
+        <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>💰 ФИНАНСЫ</div>
+          {[
+            ["Средний чек",fmt(avgDeal),D.yellow],
+            ["Контрактов",fmt(totalContracted),D.text],
+            ["Получено",fmt(totalPaid),D.green],
+            ["Ожидается",fmt(totalContracted-totalPaid),D.yellow],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+              <span style={{fontSize:11,color:D.muted}}>{l}</span>
+              <span style={{fontSize:13,fontWeight:800,color:c}}>{v}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Source breakdown */}
+        {sources.length>0&&(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>📣 ИСТОЧНИКИ ЛИДОВ</div>
+          {sources.slice(0,5).map(([src,cnt])=>(
+            <div key={src} style={{marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                <span style={{fontSize:11,color:D.muted}}>{src}</span>
+                <span style={{fontSize:11,fontWeight:700,color:D.text}}>{cnt} ({fLeads>0?Math.round(cnt/fLeads*100):0}%)</span>
+              </div>
+              <div style={{background:D.surface,borderRadius:3,height:4}}>
+                <div style={{width:`${fLeads>0?cnt/fLeads*100:0}%`,height:"100%",borderRadius:3,background:D.accentLight}}/>
+              </div>
+            </div>
+          ))}
+        </div>)}
+      </div>
     </div>
+
+    {/* Historical KPI chart */}
+    {kpi.length>0&&(<>
+      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}}>
+        <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>💹 ИСТОРИЯ: ВЫРУЧКА / EBITDA</div>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={kpi.map(d=>({month:d.month,"Выручка":d.revenue,"EBITDA":d.revenue-d.cogs-d.opex}))} barGap={3}>
+              <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
+              <YAxis stroke={D.muted} tick={{fontSize:10,fill:D.muted}} tickFormatter={v=>"₪"+v/1000+"k"}/>
+              <Tooltip content={<TT/>}/>
+              <ReferenceLine y={0} stroke={D.red} strokeDasharray="4 4"/>
+              <Bar dataKey="Выручка" fill={D.accentLight+"80"} radius={[3,3,0,0]}/>
+              <Bar dataKey="EBITDA" fill={D.green} radius={[3,3,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>📈 ИСТОРИЯ: ЛИДЫ / ЗАКАЗЫ</div>
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={kpi}>
+              <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
+              <YAxis stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
+              <Tooltip content={<TT/>}/>
+              <Line dataKey="leads" name="Лиды" stroke={D.accentLight} strokeWidth={2} dot={{r:3}}/>
+              <Line dataKey="orders" name="Заказы" stroke={D.green} strokeWidth={2} dot={{r:3}}/>
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",padding:"8px 14px",background:D.surface,gap:10}}>
+          {["Месяц","Лиды","Замеры","Заказы","Выручка","Себест.","OPEX","EBITDA"].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
+        </div>
+        {kpi.map((d,i)=>{const e=d.revenue-d.cogs-d.opex;return(
+          <div key={i} style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",padding:"10px 14px",gap:10,
+            background:i%2===0?D.card:D.surface,borderTop:`1px solid ${D.border}`}}>
+            <div style={{fontSize:13,fontWeight:800,color:D.text}}>{d.month}</div>
+            {[d.leads,d.measures,d.orders].map((v,ci)=><div key={ci} style={{fontSize:13,fontWeight:700,color:D.text}}>{v}</div>)}
+            {[d.revenue,d.cogs,d.opex].map((v,ci)=><div key={ci} style={{fontSize:12,color:D.muted}}>{fmt(v)}</div>)}
+            <div style={{fontSize:13,fontWeight:800,color:e>=0?D.green:D.red}}>{fmt(e)}</div>
+          </div>
+        );})}
+      </div>
+    </>)}
+
     {modal&&(<Modal title="📅 Добавить месяц" onClose={()=>setModal(false)}>
       <Sel label="Месяц" value={form.month} onChange={e=>setForm(p=>({...p,month:e.target.value}))} options={["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"]}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -1958,18 +2183,18 @@ export default function App(){
           onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
           onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
       </div>
-      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.5 🇮🇱</div>
+      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.6 🇮🇱</div>
     </div>
     {/* MAIN */}
     <div style={{flex:1,overflowY:"auto",padding:"22px 24px"}}>
-      {page==="dashboard"&&<Dashboard leads={leads} orders={orders} payments={payments} inventory={inventory} kpi={kpi} measurements={measurements}/>}
+      {page==="dashboard"&&<Dashboard leads={leads} orders={orders} payments={payments} inventory={inventory} kpi={kpi} measurements={measurements} installations={installations}/>}
       {page==="leads"&&<Leads leads={leads} setLeads={setLeads}/>}
       {page==="measurements"&&<Measurements measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc} leads={leads} setLeads={setLeads}/>}
       {page==="orders"&&<Orders orders={orders} setOrders={setOrders} setPayments={setPayments}/>}
       {page==="installation"&&<Installation installations={installations} setInstallations={setInstallations} orders={orders}/>}
       {page==="inventory"&&<Inventory inventory={inventory} setInventory={setInventory}/>}
       {page==="payments"&&<Payments payments={payments} setPayments={setPayments}/>}
-      {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi}/>}
+      {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
       {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads}/>}
     </div>
   </div>);
