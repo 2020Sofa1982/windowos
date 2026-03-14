@@ -482,83 +482,210 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
 // ═══════════════════════════════════════════════════════════════
 // LEADS
 // ═══════════════════════════════════════════════════════════════
+const PRIORITIES=[
+  {id:"urgent", label:"🔴 Срочно",  color:"#EF4444"},
+  {id:"high",   label:"🟡 Высокий", color:"#F59E0B"},
+  {id:"normal", label:"⚪ Обычный", color:"#4A607A"},
+];
+const JOB_TYPES=["Новый проект","Ремонт","Замена окна","По чертежу"];
+const KANBAN_COLS=[
+  {id:"Новый лид",          label:"Новый лид",         color:"#3B82F6"},
+  {id:"Замер назначен",     label:"Замер назначен",     color:"#8B5CF6"},
+  {id:"КП отправлено",      label:"КП отправлено",      color:"#F59E0B"},
+  {id:"Follow-up",          label:"Follow-up",          color:"#EC4899"},
+  {id:"Закрыт (выиграли)",  label:"✅ Выиграли",        color:"#10B981"},
+  {id:"Закрыт (проиграли)", label:"❌ Проиграли",       color:"#EF4444"},
+];
+
+const EMPTY_LEAD=()=>({name:"",phone:"",city:"",type:"Частный",jobType:"Новый проект",
+  windows:"1",source:"Google Ads",status:"Новый лид",priority:"normal",
+  value:"",followUp:"",notes:""});
+
 function Leads({leads,setLeads}){
+  const [view,setView]=useState("kanban");
   const [search,setSearch]=useState("");
-  const [filter,setFilter]=useState("Все");
   const [modal,setModal]=useState(false);
   const [edit,setEdit]=useState(null);
-  const [form,setForm]=useState({name:"",phone:"",city:"",type:"Частный",windows:"1",source:"Google Ads",status:"Новый лид",value:"",notes:""});
-  const filtered=leads.filter(l=>(filter==="Все"||l.status===filter)&&(l.name.toLowerCase().includes(search.toLowerCase())||l.phone.includes(search)));
-  const openAdd=()=>{setEdit(null);setForm({name:"",phone:"",city:"",type:"Частный",windows:"1",source:"Google Ads",status:"Новый лид",value:"",notes:""});setModal(true);};
-  const openEdit=l=>{setEdit(l.id);setForm({...l,windows:String(l.windows),value:String(l.value)});setModal(true);};
+  const [form,setForm]=useState(EMPTY_LEAD());
+
+  const filtered=leads.filter(l=>
+    l.name.toLowerCase().includes(search.toLowerCase())||
+    (l.phone||"").includes(search)||(l.city||"").toLowerCase().includes(search.toLowerCase()));
+
+  const openAdd=(status="Новый лид")=>{setEdit(null);setForm({...EMPTY_LEAD(),status});setModal(true);};
+  const openEdit=l=>{setEdit(l.id);setForm({...EMPTY_LEAD(),...l,windows:String(l.windows||1),value:String(l.value||0)});setModal(true);};
   const submit=()=>{
     if(!form.name||!form.phone)return;
     const data={...form,windows:+form.windows||1,value:+form.value||0,date:new Date().toISOString().split("T")[0]};
-    if(edit)setLeads(p=>p.map(l=>l.id===edit?{...data,id:edit}:l));
+    if(edit) setLeads(p=>p.map(l=>l.id===edit?{...data,id:edit}:l));
     else setLeads(p=>[...p,{...data,id:Date.now()}]);
     setModal(false);
   };
+
+  const pColor=id=>PRIORITIES.find(p=>p.id===id)?.color||D.muted;
+  const pLabel=id=>PRIORITIES.find(p=>p.id===id)?.label||"";
+
+  const today=new Date().toISOString().split("T")[0];
+  const overdueFollowUp=l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status);
+
+  // ── KANBAN CARD ──
+  const KanbanCard=({l})=>(
+    <div style={{background:D.card,border:`1px solid ${overdueFollowUp(l)?D.red+"60":D.border}`,
+      borderRadius:10,padding:12,marginBottom:8,cursor:"pointer",
+      borderLeft:`3px solid ${SC[l.status]||D.muted}`}}
+      onClick={()=>openEdit(l)}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+        <div style={{fontSize:13,fontWeight:800,color:D.text,lineHeight:1.3,flex:1,paddingRight:4}}>{l.name}</div>
+        <span style={{fontSize:9,color:pColor(l.priority),fontWeight:800,whiteSpace:"nowrap"}}>{pLabel(l.priority)}</span>
+      </div>
+      {l.jobType&&<div style={{display:"inline-block",background:D.surface,border:`1px solid ${D.border}`,
+        borderRadius:4,padding:"1px 6px",fontSize:9,color:D.muted,fontWeight:700,marginBottom:5}}>{l.jobType}</div>}
+      <div style={{fontSize:11,color:D.muted,marginBottom:4}}>📞 {l.phone}</div>
+      {l.city&&<div style={{fontSize:10,color:D.muted}}>📍 {l.city}</div>}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,paddingTop:6,borderTop:`1px solid ${D.border}`}}>
+        <span style={{fontSize:12,fontWeight:800,color:D.green}}>{l.value>0?fmt(l.value):"—"}</span>
+        {l.followUp&&<span style={{fontSize:9,fontWeight:700,
+          color:overdueFollowUp(l)?D.red:D.teal,background:(overdueFollowUp(l)?D.red:D.teal)+"18",
+          borderRadius:4,padding:"2px 5px"}}>
+          📅 {overdueFollowUp(l)?"Просрочен!":l.followUp}
+        </span>}
+      </div>
+    </div>
+  );
+
   return(<div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>CRM · Лиды</div>
-        <div style={{fontSize:13,color:D.muted}}>{leads.length} в базе</div></div>
-      <div style={{display:"flex",gap:8}}>
-        <Btn onClick={()=>exportCSV(["Имя","Телефон","Город","Статус","Сумма","Дата"],leads.map(l=>[l.name,l.phone,l.city,l.status,l.value,l.date]),"лиды.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
-        <Btn onClick={openAdd}><Plus size={13}/> Новый лид</Btn>
+    {/* Header */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+      <div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>CRM · Лиды</div>
+        <div style={{fontSize:13,color:D.muted}}>{leads.length} в базе · {leads.filter(l=>overdueFollowUp(l)).length>0&&
+          <span style={{color:D.red,fontWeight:700}}>{leads.filter(l=>overdueFollowUp(l)).length} просроченных follow-up</span>}</div>
       </div>
-    </div>
-    <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
-      <div style={{position:"relative",flex:1,minWidth:200}}>
-        <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск..."
-          style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 10px 8px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
-      </div>
-      {["Все","Новый лид","Замер назначен","КП отправлено","Закрыт (выиграли)"].map(s=>(
-        <button key={s} onClick={()=>setFilter(s)} style={{padding:"6px 12px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",
-          border:`1px solid ${filter===s?D.accent:D.border}`,background:filter===s?D.accent+"20":"transparent",color:filter===s?D.accentLight:D.muted}}>
-          {s==="Все"?`Все (${leads.length})`:s}</button>
-      ))}
-    </div>
-    <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
-      <div style={{display:"grid",gridTemplateColumns:"2fr 1.2fr 1fr 1.2fr 1fr 64px",padding:"8px 14px",background:D.surface,gap:10}}>
-        {["Клиент","Телефон","Город","Статус","Сумма",""].map((h,i)=>(
-          <div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
-      </div>
-      {filtered.length===0&&<div style={{padding:40,textAlign:"center",color:D.muted}}>Нет лидов</div>}
-      {filtered.map((l,i)=>(
-        <div key={l.id} style={{display:"grid",gridTemplateColumns:"2fr 1.2fr 1fr 1.2fr 1fr 64px",
-          padding:"10px 14px",gap:10,alignItems:"center",background:i%2===0?D.card:D.surface,borderTop:`1px solid ${D.border}`}}>
-          <div><div style={{fontSize:13,fontWeight:700,color:D.text}}>{l.name}</div>
-            <div style={{fontSize:10,color:D.muted}}>{l.type} · {l.source} · {l.date}</div></div>
-          <div style={{fontSize:12,color:D.muted}}>{l.phone}</div>
-          <div style={{fontSize:12,color:D.muted}}>{l.city}</div>
-          <select value={l.status} onChange={e=>setLeads(p=>p.map(x=>x.id===l.id?{...x,status:e.target.value}:x))}
-            style={{background:(SC[l.status]||D.muted)+"18",color:SC[l.status]||D.muted,
-              border:`1px solid ${(SC[l.status]||D.muted)}40`,borderRadius:6,padding:"3px 6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-            {LST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
-          </select>
-          <div style={{fontSize:13,fontWeight:700,color:D.green}}>{fmt(l.value)}</div>
-          <div style={{display:"flex",gap:4}}>
-            <button onClick={()=>openEdit(l)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}><Eye size={13}/></button>
-            <button onClick={()=>setLeads(p=>p.filter(x=>x.id!==l.id))} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}><Trash2 size={13}/></button>
-          </div>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        {/* View toggle */}
+        <div style={{display:"flex",background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,padding:2}}>
+          {[["kanban","⬛ Kanban"],["list","☰ Список"]].map(([v,lbl])=>(
+            <button key={v} onClick={()=>setView(v)} style={{padding:"4px 12px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",border:"none",
+              background:view===v?"linear-gradient(135deg,#2563EB,#1D4ED8)":"transparent",
+              color:view===v?"#fff":D.muted}}>
+              {lbl}
+            </button>
+          ))}
         </div>
-      ))}
+        <Btn onClick={()=>exportCSV(["Имя","Телефон","Город","Тип","Работа","Статус","Приоритет","Сумма","Follow-up","Дата"],
+          leads.map(l=>[l.name,l.phone,l.city,l.type,l.jobType||"",l.status,l.priority||"",l.value,l.followUp||"",l.date]),"лиды.csv")} variant="ghost">
+          <Download size={13}/> CSV
+        </Btn>
+        <Btn onClick={()=>openAdd()}><Plus size={13}/> Новый лид</Btn>
+      </div>
     </div>
-    {modal&&(<Modal title={edit?"✏️ Редактировать":"➕ Новый лид"} onClose={()=>setModal(false)}>
-      <Inp label="Имя *" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
-      <Inp label="Телефон *" value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
+
+    {/* Search */}
+    <div style={{position:"relative",marginBottom:16}}>
+      <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по имени, телефону, городу..."
+        style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
+          padding:"8px 10px 8px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+    </div>
+
+    {/* ── KANBAN VIEW ── */}
+    {view==="kanban"&&(
+      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10,overflowX:"auto",paddingBottom:8}}>
+        {KANBAN_COLS.map(col=>{
+          const colLeads=filtered.filter(l=>l.status===col.id);
+          const colValue=colLeads.reduce((s,l)=>s+(l.value||0),0);
+          return(
+            <div key={col.id} style={{background:D.surface,borderRadius:12,padding:10,minWidth:200,borderTop:`3px solid ${col.color}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div>
+                  <div style={{fontSize:11,fontWeight:800,color:col.color}}>{col.label}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{colLeads.length} · {colValue>0?fmt(colValue):""}</div>
+                </div>
+                <button onClick={()=>openAdd(col.id)} style={{background:D.border,border:"none",borderRadius:6,
+                  width:22,height:22,color:D.muted,cursor:"pointer",fontSize:16,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              </div>
+              <div style={{minHeight:60}}>
+                {colLeads.map(l=><KanbanCard key={l.id} l={l}/>)}
+                {colLeads.length===0&&<div style={{fontSize:10,color:D.muted,textAlign:"center",paddingTop:16,opacity:0.5}}>Пусто</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
+
+    {/* ── LIST VIEW ── */}
+    {view==="list"&&(
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1.1fr 0.8fr 0.8fr 1.2fr 1fr 1fr 56px",
+          padding:"8px 14px",background:D.surface,gap:8}}>
+          {["Клиент / Работа","Телефон","Город","Приоритет","Статус","Оценка","Follow-up",""].map((h,i)=>(
+            <div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
+        </div>
+        {filtered.length===0&&<div style={{padding:40,textAlign:"center",color:D.muted}}>Нет лидов</div>}
+        {filtered.map((l,i)=>(
+          <div key={l.id} style={{display:"grid",gridTemplateColumns:"2fr 1.1fr 0.8fr 0.8fr 1.2fr 1fr 1fr 56px",
+            padding:"10px 14px",gap:8,alignItems:"center",
+            background:overdueFollowUp(l)?D.red+"08":i%2===0?D.card:D.surface,
+            borderTop:`1px solid ${D.border}`,borderLeft:`3px solid ${SC[l.status]||D.muted}`}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:D.text}}>{l.name}</div>
+              <div style={{fontSize:10,color:D.muted}}>{l.jobType||l.type} · {l.source} · {l.date}</div>
+            </div>
+            <div style={{fontSize:12,color:D.muted}}>{l.phone}</div>
+            <div style={{fontSize:12,color:D.muted}}>{l.city}</div>
+            <div style={{fontSize:11,fontWeight:700,color:pColor(l.priority)}}>{pLabel(l.priority)}</div>
+            <select value={l.status} onChange={e=>setLeads(p=>p.map(x=>x.id===l.id?{...x,status:e.target.value}:x))}
+              style={{background:(SC[l.status]||D.muted)+"18",color:SC[l.status]||D.muted,
+                border:`1px solid ${(SC[l.status]||D.muted)}40`,borderRadius:6,padding:"3px 6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+              {LST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+            </select>
+            <div style={{fontSize:13,fontWeight:700,color:D.green}}>{l.value>0?fmt(l.value):"—"}</div>
+            <div style={{fontSize:10,fontWeight:700,color:overdueFollowUp(l)?D.red:D.teal}}>
+              {l.followUp||(overdueFollowUp(l)?"⚠️ Просрочен":"")||"—"}
+            </div>
+            <div style={{display:"flex",gap:3}}>
+              <button onClick={()=>openEdit(l)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:3}}><Eye size={12}/></button>
+              <button onClick={()=>setLeads(p=>p.filter(x=>x.id!==l.id))} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:3}}><Trash2 size={12}/></button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* ── MODAL ── */}
+    {modal&&(<Modal title={edit?"✏️ Редактировать лид":"➕ Новый лид"} onClose={()=>setModal(false)} wide>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <Inp label="Имя *" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
+        <Inp label="Телефон *" value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
         <Inp label="Город" value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
+        <Sel label="Тип клиента" value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} options={["Частный","Подрядчик","Архитектор","Застройщик"]}/>
         <Inp label="Кол-во окон" value={form.windows} onChange={e=>setForm(p=>({...p,windows:e.target.value}))} type="number"/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Sel label="Тип" value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} options={["Частный","Подрядчик","Архитектор"]}/>
-        <Sel label="Источник" value={form.source} onChange={e=>setForm(p=>({...p,source:e.target.value}))} options={["Google Ads","Google Maps","Рекомендация","Instagram","Архитектор","Прораб"]}/>
+        <Sel label="Тип работы" value={form.jobType} onChange={e=>setForm(p=>({...p,jobType:e.target.value}))} options={JOB_TYPES}/>
+        <Sel label="Источник" value={form.source} onChange={e=>setForm(p=>({...p,source:e.target.value}))} options={["Google Ads","Google Maps","Рекомендация","Instagram","Архитектор","Прораб","Повторный клиент"]}/>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
         <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={LST}/>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>Приоритет</div>
+          <div style={{display:"flex",gap:5}}>
+            {PRIORITIES.map(pr=>(
+              <button key={pr.id} onClick={()=>setForm(p=>({...p,priority:pr.id}))}
+                style={{flex:1,padding:"6px 4px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer",
+                  border:`1px solid ${form.priority===pr.id?pr.color:D.border}`,
+                  background:form.priority===pr.id?pr.color+"25":"transparent",
+                  color:form.priority===pr.id?pr.color:D.muted}}>
+                {pr.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <Inp label="Оценка ₪" value={form.value} onChange={e=>setForm(p=>({...p,value:e.target.value}))} type="number"/>
+        <Inp label="Follow-up дата" value={form.followUp} onChange={e=>setForm(p=>({...p,followUp:e.target.value}))} type="date"/>
       </div>
       <Inp label="Заметки" value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
       <div style={{display:"flex",gap:8}}>
@@ -580,7 +707,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads}){
   const [viewM,setViewM]=useState(null);
   const [editId,setEditId]=useState(null);
   const ef=()=>({client:"",phone:"",address:"",date:new Date().toISOString().split("T")[0],
-    specialist:"",status:"Запланирован",leadId:"",
+    specialist:"",status:"Запланирован",leadId:"",mode:"Выезд",
     openings:[{id:Date.now(),room:"",width:"",height:"",type:"Хаза 2-трек",qty:1,notes:""}],
     wallType:"Железобетон",floor:"1",crane:false,demolition:false,installNotes:"",files:[]});
   const [form,setForm]=useState(ef());
@@ -641,6 +768,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads}){
                 <div style={{fontSize:11,color:D.muted,marginTop:2}}>{m.address}</div>
                 <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
                   <span style={{fontSize:11,color:D.muted}}>📅 {m.date}</span>
+                  {m.mode==="По чертежу"&&<span style={{fontSize:10,fontWeight:700,color:D.teal,background:D.teal+"18",borderRadius:4,padding:"1px 5px"}}>📄 По чертежу</span>}
                   {m.specialist&&<span style={{fontSize:11,color:D.muted}}>👤 {m.specialist}</span>}
                   <span style={{fontSize:11,color:D.muted}}>🪟 {m.openings.length} проёмов</span>
                   <span style={{fontSize:11,color:D.green,fontWeight:700}}>📐 {area.toFixed(2)} м²</span>
@@ -732,7 +860,24 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads}){
       <div style={{marginTop:16}}><Btn onClick={()=>{onOpenCalc(viewM);setViewM(null);}} variant="yellow"><Calculator size={13}/> Открыть в калькуляторе</Btn></div>
     </Modal>)}
     {/* EDIT/ADD */}
-    {modal&&(<Modal title={editId?"✏️ Редактировать":"📐 Новый замер"} onClose={()=>setModal(false)} wide>
+    {modal&&(<Modal title={editId?"✏️ Редактировать":"📐 Новый замер / По чертежу"} onClose={()=>setModal(false)} wide>
+      {/* Mode toggle */}
+      <div style={{display:"flex",gap:8,marginBottom:14}}>
+        {[["Выезд","🚗 Выезд на замер"],["По чертежу","📄 По чертежу / списку"]].map(([v,lbl])=>(
+          <button key={v} onClick={()=>setForm(f=>({...f,mode:v}))}
+            style={{flex:1,padding:"9px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",
+              border:`2px solid ${form.mode===v?D.accent:D.border}`,
+              background:form.mode===v?D.accent+"20":"transparent",
+              color:form.mode===v?D.accentLight:D.muted}}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+      {form.mode==="По чертежу"&&(
+        <div style={{background:D.teal+"12",border:`1px solid ${D.teal}30`,borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:11,color:D.teal}}>
+          📄 Введи размеры окон из чертежа или списка клиента → сразу «В калькулятор» без выезда
+        </div>
+      )}
       <SH title="👤 Клиент и объект"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <Inp label="Имя клиента *" value={form.client} onChange={e=>setForm(f=>({...f,client:e.target.value}))}/>
@@ -741,7 +886,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads}){
       <Inp label="Адрес объекта" value={form.address} onChange={e=>setForm(f=>({...f,address:e.target.value}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
         <Inp label="Дата" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} type="date"/>
-        <Inp label="Специалист" value={form.specialist} onChange={e=>setForm(f=>({...f,specialist:e.target.value}))}/>
+        <Inp label={form.mode==="По чертежу"?"Ответственный":"Специалист (выезд)"} value={form.specialist} onChange={e=>setForm(f=>({...f,specialist:e.target.value}))}/>
         <Sel label="Статус" value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} options={MST}/>
       </div>
       {leads.length>0&&(<div style={{marginBottom:12}}>
@@ -2133,6 +2278,8 @@ export default function App(){
 
   const openCalc=(measurement)=>{setCalcPreload(measurement);setPage("calc");};
 
+  const today=new Date().toISOString().split("T")[0];
+  const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
   const pendM=measurements.filter(m=>m.status==="Запланирован").length;
   const pendInst=installations.filter(i=>i.status==="Запланирован"||i.status==="В процессе").length;
   const alerts=[
@@ -2175,6 +2322,7 @@ export default function App(){
       <div style={{padding:"8px",borderTop:`1px solid ${D.border}`}}>
         {[
           leads.filter(l=>l.status==="Новый лид").length>0&&[`👤 ${leads.filter(l=>l.status==="Новый лид").length} новых лидов`,"leads"],
+          overdueFollowUps.length>0&&[`🔴 ${overdueFollowUps.length} просроченных follow-up`,"leads"],
           pendM>0&&[`📐 ${pendM} замеров ждут`,"measurements"],
           pendInst>0&&[`🔧 ${pendInst} монтажей активно`,"installation"],
           inventory.filter(i=>i.qty<i.minQty).length>0&&[`📦 нужна закупка`,"inventory"],
@@ -2183,7 +2331,7 @@ export default function App(){
           onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
           onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
       </div>
-      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.6 🇮🇱</div>
+      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.7 🇮🇱</div>
     </div>
     {/* MAIN */}
     <div style={{flex:1,overflowY:"auto",padding:"22px 24px"}}>
