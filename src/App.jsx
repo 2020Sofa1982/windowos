@@ -1477,6 +1477,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
   };
 
   const [profModal,setProfModal]=useState(null); // itemId with profile picker open
+  const [accDropdown,setAccDropdown]=useState(null); // "itemId_catId"
 
   const ProfileSel=({it})=>{
     const op=OPS.find(o=>o.id===it.op)||OPS[0];
@@ -1573,7 +1574,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {calced.map((it,idx)=>(
-            <div key={it.id} style={{background:D.card,border:`1px solid ${it.valid?D.border:D.red+"60"}`,borderRadius:14,overflow:"hidden"}}>
+            <div key={it.id} style={{background:D.card,border:`1px solid ${it.valid?D.border:D.red+"60"}`,borderRadius:14,overflow:"visible",position:"relative"}}>
               <div style={{background:D.surface,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div style={{display:"flex",gap:10,alignItems:"center"}}>
                   <div style={{background:D.accent+"30",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:800,color:D.accentLight}}>#{idx+1}</div>
@@ -1694,58 +1695,64 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                 </div>
               </div>
               {/* ACCESSORIES PANEL */}
-              <div style={{borderTop:`1px solid ${D.border}`,padding:"8px 14px",background:D.surface+"80"}}>
+              <div style={{borderTop:`1px solid ${D.border}`,padding:"8px 14px",background:D.surface+"80",borderBottomLeftRadius:14,borderBottomRightRadius:14}}>
                 <div style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:6}}>
                   🔧 {bi("Аксессуары","אביזרים")}
-                  {it.accessories?.length>0&&<span style={{marginLeft:6,color:D.teal}}>{it.accessories.length} выбрано · {fmt((it.accessories||[]).reduce((s,a)=>{const ac=DACC.find(d=>d.id===a.id);return s+(ac?ac.price*(a.qty||1)*it.qty:0);},0))}</span>}
+                  {it.accessories?.length>0&&<span style={{marginLeft:6,color:D.teal}}>{it.accessories.length} выбрано · {fmt(Math.round((it.accessories||[]).reduce((s,a)=>{const ac=DACC.find(d=>d.id===a.id);return s+(ac?ac.price*(a.qty||1)*it.qty:0);},0)))}</span>}
                 </div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
                   {DACC_CATS.map(cat=>{
+                    const key=`${it.id}_${cat.id}`;
                     const catAccs=DACC.filter(a=>a.cat===cat.id);
                     const selected=catAccs.filter(a=>(it.accessories||[]).find(x=>x.id===a.id));
+                    const isOpen=accDropdown===key;
                     return(
                       <div key={cat.id} style={{position:"relative"}}>
-                        <button onClick={()=>{
-                          const el=document.getElementById(`acc_${it.id}_${cat.id}`);
-                          if(el)el.style.display=el.style.display==="none"?"block":"none";
-                        }}
+                        <button onClick={()=>setAccDropdown(isOpen?null:key)}
                           style={{background:selected.length?D.teal+"20":D.card,border:`1px solid ${selected.length?D.teal:D.border}`,
                             borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:selected.length?700:400,
                             color:selected.length?D.teal:D.muted,cursor:"pointer"}}>
-                          {cat.label} {selected.length>0&&`(${selected.length})`}
+                          {cat.label}{selected.length>0?` (${selected.length})`:""}
                         </button>
-                        <div id={`acc_${it.id}_${cat.id}`} style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,
-                          background:D.card,border:`1px solid ${D.border}`,borderRadius:10,padding:8,
-                          minWidth:280,boxShadow:"0 8px 24px #00000050",marginTop:2}}>
-                          <div style={{fontSize:9,fontWeight:800,color:D.muted,marginBottom:6,textTransform:"uppercase"}}>{cat.label}</div>
-                          {catAccs.map(acc=>{
-                            const sel=(it.accessories||[]).find(x=>x.id===acc.id);
-                            return(
-                              <div key={acc.id} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 0",
-                                borderBottom:`1px solid ${D.border}`}}>
-                                <input type="checkbox" checked={!!sel} style={{accentColor:D.teal}}
-                                  onChange={e=>{
-                                    const cur=it.accessories||[];
-                                    if(e.target.checked) upd(it.id,"accessories",[...cur,{id:acc.id,qty:1}]);
-                                    else upd(it.id,"accessories",cur.filter(x=>x.id!==acc.id));
-                                  }}/>
-                                <div style={{flex:1,minWidth:0}}>
-                                  <div style={{fontSize:10,color:D.text,fontWeight:sel?700:400}}>{acc.name}</div>
-                                  <div style={{fontSize:9,color:D.muted}}>{acc.code} · {fmt(acc.price)}/{acc.unit}</div>
+                        {isOpen&&(<>
+                          <div onClick={()=>setAccDropdown(null)} style={{position:"fixed",inset:0,zIndex:490}}/>
+                          <div style={{position:"fixed",zIndex:500,
+                            background:D.card,border:`1px solid ${D.border}`,borderRadius:10,padding:10,
+                            width:300,maxHeight:320,overflowY:"auto",
+                            boxShadow:"0 8px 32px #00000070",
+                            top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                              <div style={{fontSize:10,fontWeight:800,color:D.teal,textTransform:"uppercase"}}>{cat.label}</div>
+                              <button onClick={()=>setAccDropdown(null)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:2}}><X size={14}/></button>
+                            </div>
+                            {catAccs.map(acc=>{
+                              const sel=(it.accessories||[]).find(x=>x.id===acc.id);
+                              return(
+                                <div key={acc.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",
+                                  borderBottom:`1px solid ${D.border}`}}>
+                                  <input type="checkbox" checked={!!sel} style={{accentColor:D.teal,flexShrink:0}}
+                                    onChange={e=>{
+                                      const cur=it.accessories||[];
+                                      if(e.target.checked) upd(it.id,"accessories",[...cur,{id:acc.id,qty:1}]);
+                                      else upd(it.id,"accessories",cur.filter(x=>x.id!==acc.id));
+                                    }}/>
+                                  <div style={{flex:1,minWidth:0}}>
+                                    <div style={{fontSize:11,color:sel?D.text:D.muted,fontWeight:sel?700:400,lineHeight:1.3}}>{acc.name}</div>
+                                    <div style={{fontSize:9,color:D.muted}}>{acc.code} · {fmt(acc.price)}/{acc.unit}</div>
+                                  </div>
+                                  {sel&&<input type="number" min={1} max={50} value={sel.qty||1}
+                                    onChange={e=>upd(it.id,"accessories",(it.accessories||[]).map(x=>x.id===acc.id?{...x,qty:+e.target.value||1}:x))}
+                                    style={{width:42,background:D.bg,border:`1px solid ${D.teal}`,borderRadius:5,
+                                      padding:"3px 5px",color:D.teal,fontSize:12,fontWeight:700,outline:"none",textAlign:"center"}}/>}
                                 </div>
-                                {sel&&<input type="number" min={1} max={50} value={sel.qty||1}
-                                  onChange={e=>upd(it.id,"accessories",(it.accessories||[]).map(x=>x.id===acc.id?{...x,qty:+e.target.value||1}:x))}
-                                  style={{width:38,background:D.bg,border:`1px solid ${D.teal}`,borderRadius:5,
-                                    padding:"2px 4px",color:D.teal,fontSize:11,fontWeight:700,outline:"none",textAlign:"center"}}/>}
-                              </div>
-                            );
-                          })}
-                        </div>
+                              );
+                            })}
+                          </div>
+                        </>)}
                       </div>
                     );
                   })}
                 </div>
-                {/* Selected accessories summary */}
                 {(it.accessories||[]).length>0&&(
                   <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
                     {(it.accessories||[]).map(a=>{
@@ -1755,7 +1762,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                         display:"flex",alignItems:"center",gap:4}}>
                         {acc.name.split("|")[0].trim()} ×{a.qty}
                         <button onClick={()=>upd(it.id,"accessories",(it.accessories||[]).filter(x=>x.id!==a.id))}
-                          style={{background:"none",border:"none",cursor:"pointer",color:D.teal,padding:0,fontSize:10}}>×</button>
+                          style={{background:"none",border:"none",cursor:"pointer",color:D.teal,padding:0,fontSize:11,lineHeight:1}}>×</button>
                       </div>);
                     })}
                   </div>
