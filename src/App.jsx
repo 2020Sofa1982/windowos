@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import * as XLSX from "xlsx";
 import {
   LayoutDashboard, Users, ShoppingCart, Package, Wallet,
   Calculator, Plus, Search, X, Check, Clock, AlertTriangle,
@@ -14,7 +15,7 @@ import {
 // ── STORAGE ──────────────────────────────────────────────────
 const KEYS = { leads:"wb:leads", orders:"wb:orders", inventory:"wb:inventory",
   payments:"wb:payments", kpi:"wb:kpi", measurements:"wb:measurements",
-  installations:"wb:installations", quotes:"wb:quotes" };
+  installations:"wb:installations", quotes:"wb:quotes", templates:"wb:templates" };
 const load=(key,fb)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):fb;}catch{return fb;}};
 const save=(key,data)=>{try{localStorage.setItem(key,JSON.stringify(data));}catch{}};
 
@@ -993,6 +994,9 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
               <div style={{background:D.teal+"20",borderRadius:10,padding:10,marginTop:2}}><Ruler size={16} color={D.teal}/></div>
               <div>
                 <div onClick={()=>onClientClick&&onClientClick(m.client)} style={{fontSize:15,fontWeight:800,color:D.text,cursor:"pointer"}}>{m.client}</div>
+                {m.phone&&<a href={`tel:${m.phone}`} style={{fontSize:12,color:D.green,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:4,marginTop:2}}>
+                  <Phone size={11}/>{m.phone}
+                </a>}
                 <div style={{fontSize:11,color:D.muted,marginTop:2}}>{m.address}</div>
                 <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
                   <span style={{fontSize:11,color:D.muted}}>📅 {m.date}</span>
@@ -1358,20 +1362,36 @@ function printKP(client,calced,saleTotal,margin,split,extras){
   setTimeout(()=>w.print(),500);
 }
 
+// ── PROFILE COLORS ────────────────────────────────────────────
+const PCOLORS=[
+  {id:"white",    name:bi("Белый","לבן"),          ral:"RAL 9016", hex:"#F4F4F4", price:0},
+  {id:"bronze",   name:bi("Бронза","ברונזה"),       ral:"RAL 8019", hex:"#4A3728", price:180},
+  {id:"anthracite",name:bi("Антрацит","אנטרציט"),  ral:"RAL 7016", hex:"#293133", price:180},
+  {id:"silver",   name:bi("Серый серебро","כסף"),   ral:"RAL 9006", hex:"#A8A9A1", price:120},
+  {id:"gold",     name:bi("Золото","זהב"),           ral:"RAL 1036", hex:"#B8973E", price:220},
+  {id:"wood_oak", name:bi("Дуб натуральный","אלון"),ral:"Декор",    hex:"#8B6914", price:280},
+  {id:"wood_dark",name:bi("Тёмное дерево","עץ כהה"),ral:"Декор",   hex:"#3E2001", price:280},
+  {id:"black",    name:bi("Чёрный","שחור"),          ral:"RAL 9005", hex:"#0E0E10", price:240},
+  {id:"custom",   name:bi("RAL по заказу","RAL מיוחד"),ral:"Custom",hex:"#888888", price:350},
+];
+
 function newItem(name,op,profile,w,h,qty){
   return{id:Date.now()+Math.random(),name:name||"Окно",op:op||"sliding_2_track",
     profile:profile||"klil_7000",w:w||120,h:h||140,qty:qty||1,
     glass:"none",screen:"none",shutter:"none",install:1.10,
-    accessories:[]}; // [{accId, qty}]
+    accessories:[],color:"white"};
 }
 
-function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuotes}){
+function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuotes,templates,setTemplates}){
   const [tab,setTab]=useState("quick");
   const [items,setItems]=useState([newItem("Окно 1")]);
   const [client,setClient]=useState("");
   const [margin,setMargin]=useState(40);
   const [split,setSplit]=useState(40);
   const [shutterFactor,setShutterFactor]=useState(1.38);
+  const [tplModal,setTplModal]=useState(false);
+  const [tplName,setTplName]=useState("");
+  const [loadModal,setLoadModal]=useState(false); // "quote" | "template" | false
   // Extras from measurement
   const [extras,setExtras]=useState({demolition:false,crane:false,floor:"1",wallType:"Железобетон",
     demolitionPrice:800,cranePrice:1200,highFloorPrice:0});
@@ -1422,8 +1442,10 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
       const acc=DACC.find(d=>d.id===a.id);
       return s+(acc?acc.price*(a.qty||1)*it.qty:0);
     },0);
-    const totalCost=(baseDekel+glassAddon+screenAddon+shutterAddon)*it.install+accCost;
-    return{...it,area,billArea,baseDekel,glassAddon,screenAddon,shutterAddon,accCost,totalCost,code:lookup.code,shutterOpt,valid:true};
+    const colorOpt=PCOLORS.find(c=>c.id===(it.color||"white"))||PCOLORS[0];
+    const colorCost=colorOpt.price*it.qty;
+    const totalCost=(baseDekel+glassAddon+screenAddon+shutterAddon)*it.install+accCost+colorCost;
+    return{...it,area,billArea,baseDekel,glassAddon,screenAddon,shutterAddon,accCost,colorCost,totalCost,code:lookup.code,shutterOpt,valid:true};
   };
   const calced=items.map(calcItem);
   const itemsCost=calced.reduce((s,c)=>s+c.totalCost,0);
@@ -1451,12 +1473,49 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
       total:saleTotal,margin,split,status:"Черновик",
       items:calced.filter(c=>c.valid).map(c=>({
         name:c.name,w:c.w,h:c.h,qty:c.qty,op:c.op,profile:c.profile,
-        glass:c.glass,screen:c.screen,shutter:c.shutter,
-        totalCost:c.totalCost,code:c.code
+        glass:c.glass,screen:c.screen,shutter:c.shutter,color:c.color,
+        accessories:c.accessories||[],totalCost:c.totalCost,code:c.code
       })),
       extras:{...extras},notes:""};
     setQuotes(p=>[rec,...p]);
     alert(`КП ${id} сохранено в историю!`);
+  };
+
+  const loadFromQuote=(q)=>{
+    setClient(q.client||"");
+    setMargin(q.margin||40);
+    setSplit(q.split||40);
+    if(q.extras)setExtras(q.extras);
+    const loaded=(q.items||[]).map(it=>({
+      ...newItem(it.name,it.op,it.profile,it.w,it.h,it.qty),
+      glass:it.glass||"none",screen:it.screen||"none",
+      shutter:it.shutter||"none",color:it.color||"white",
+      accessories:it.accessories||[],
+    }));
+    if(loaded.length)setItems(loaded);
+    setLoadModal(false);
+    alert(`КП ${q.id} загружено в калькулятор!`);
+  };
+
+  const saveTemplate=()=>{
+    if(!tplName.trim())return;
+    if(!setTemplates)return;
+    const tpl={id:"TPL-"+Date.now().toString().slice(-6),
+      name:tplName.trim(),
+      date:new Date().toISOString().split("T")[0],
+      margin,split,
+      items:items.map(it=>({...it}))};
+    setTemplates(p=>[tpl,...p]);
+    setTplModal(false);setTplName("");
+    alert(`Шаблон «${tpl.name}» сохранён!`);
+  };
+
+  const loadFromTemplate=(tpl)=>{
+    setMargin(tpl.margin||40);setSplit(tpl.split||40);
+    const loaded=(tpl.items||[]).map(it=>({...it,id:Date.now()+Math.random()}));
+    if(loaded.length)setItems(loaded);
+    setLoadModal(false);
+    alert(`Шаблон «${tpl.name}» загружен!`);
   };
 
   // Size validation for current item
@@ -1545,6 +1604,8 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={()=>printKP(client,calced,saleTotal,margin,split,extras)} variant="success"><Download size={13}/> PDF КП</Btn>
         <Btn onClick={saveQuote} variant="teal"><FileText size={13}/> Сохранить КП</Btn>
+        <Btn onClick={()=>setTplModal(true)} variant="ghost"><Plus size={13}/> Шаблон</Btn>
+        <Btn onClick={()=>setLoadModal("pick")} variant="ghost"><History size={13}/> Загрузить</Btn>
         <Btn onClick={()=>exportCSV(["Позиция","Ш","В","м²","Тип","Профиль","Стекло","Кол","Код","Себест.","Цена"],
           calced.map(c=>[c.name,c.w,c.h,c.area.toFixed(2),c.op,c.profile,c.glass,c.qty,c.code,Math.round(c.totalCost),Math.round(c.totalCost*(1+margin/100))]),"кп.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
         <Btn onClick={addItem}><Plus size={13}/> Добавить окно</Btn>
@@ -1640,6 +1701,27 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                       {DG.map(g=><option key={g.id} value={g.id} style={{background:D.card}}>{g.name}</option>)}
                     </select>
                   </div>
+                  {/* Color selector */}
+                  <div style={{marginBottom:5}}>
+                    <div style={{fontSize:9,color:D.muted,marginBottom:4}}>{bi("Цвет профиля","צבע פרופיל")}</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                      {PCOLORS.map(c=>{
+                        const sel=(it.color||"white")===c.id;
+                        return(<button key={c.id} title={`${c.name} · ${c.ral}${c.price?` · +₪${c.price}`:""}`}
+                          onClick={()=>upd(it.id,"color",c.id)}
+                          style={{width:20,height:20,borderRadius:4,background:c.hex,cursor:"pointer",
+                            border:`2px solid ${sel?"#fff":c.hex}`,
+                            boxShadow:sel?"0 0 0 2px "+D.accent:"none",
+                            outline:"none",flexShrink:0}}/>);
+                      })}
+                    </div>
+                    {it.color&&it.color!=="white"&&(()=>{
+                      const c=PCOLORS.find(x=>x.id===it.color);
+                      return c?<div style={{fontSize:9,color:D.muted,marginTop:3}}>
+                        <span style={{display:"inline-block",width:8,height:8,borderRadius:2,background:c.hex,marginRight:4}}/>
+                        {c.name} · {c.ral}{c.price?` · +₪${c.price}×${it.qty}`:""}</div>:null;
+                    })()}
+                  </div>
                   <div>
                     <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Москитная сетка</div>
                     <select value={it.screen} onChange={e=>upd(it.id,"screen",e.target.value)}
@@ -1668,6 +1750,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                         it.screenAddon>0&&["Сетка",fmt(Math.round(it.screenAddon)),"",""],
                         it.shutterAddon>0&&["Роллет",fmt(Math.round(it.shutterAddon)),"",""],
                         it.accCost>0&&["Аксессуары",fmt(Math.round(it.accCost)),"",""],
+                        it.colorCost>0&&[bi("Цвет","צבע"),fmt(Math.round(it.colorCost)),"",""],
                         ["× монтаж",`×${it.install.toFixed(2)}`,"",''],
                       ].filter(Boolean).map((r,i)=>(
                         <div key={i} style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
@@ -1973,11 +2056,71 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
         })()}
       </div>
     </div>)}
+
+    {/* SAVE TEMPLATE MODAL */}
+    {tplModal&&(<Modal title="💾 Сохранить как шаблон" onClose={()=>setTplModal(false)}>
+      <div style={{fontSize:12,color:D.muted,marginBottom:12}}>
+        Текущие {items.length} позиций будут сохранены как шаблон для быстрой загрузки.
+      </div>
+      <Inp label="Название шаблона" value={tplName} onChange={e=>setTplName(e.target.value)}
+        placeholder="Напр: Стандартная квартира, Балкон 3 окна..."/>
+      <div style={{display:"flex",gap:8}}>
+        <Btn onClick={saveTemplate}><Check size={13}/> Сохранить</Btn>
+        <Btn onClick={()=>setTplModal(false)} variant="ghost">Отмена</Btn>
+      </div>
+    </Modal>)}
+
+    {/* LOAD MODAL — choose from quotes or templates */}
+    {loadModal&&(<Modal title="📂 Загрузить КП или шаблон" onClose={()=>setLoadModal(false)} wide>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+        {/* Saved quotes */}
+        <div>
+          <div style={{fontSize:11,fontWeight:800,color:D.accentLight,textTransform:"uppercase",marginBottom:10}}>
+            📋 Сохранённые КП ({quotes?.length||0})
+          </div>
+          {(!quotes||quotes.length===0)&&<div style={{fontSize:11,color:D.muted}}>Нет сохранённых КП</div>}
+          <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:300,overflowY:"auto"}}>
+            {(quotes||[]).map(q=>(
+              <button key={q.id} onClick={()=>loadFromQuote(q)}
+                style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,
+                  padding:"10px 12px",textAlign:"left",cursor:"pointer",display:"block",width:"100%"}}
+                onMouseEnter={e=>e.currentTarget.style.borderColor=D.accent}
+                onMouseLeave={e=>e.currentTarget.style.borderColor=D.border}>
+                <div style={{fontSize:12,fontWeight:700,color:D.text}}>{q.client}</div>
+                <div style={{fontSize:10,color:D.muted}}>{q.id} · {q.date} · {fmt(q.total)} · {q.items?.length||0} поз.</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Templates */}
+        <div>
+          <div style={{fontSize:11,fontWeight:800,color:D.yellow,textTransform:"uppercase",marginBottom:10}}>
+            ⚡ Шаблоны ({templates?.length||0})
+          </div>
+          {(!templates||templates.length===0)&&<div style={{fontSize:11,color:D.muted}}>Нет шаблонов. Нажми «Шаблон» чтобы сохранить текущий набор окон.</div>}
+          <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:300,overflowY:"auto"}}>
+            {(templates||[]).map(t=>(
+              <div key={t.id} style={{display:"flex",gap:6,alignItems:"center"}}>
+                <button onClick={()=>loadFromTemplate(t)}
+                  style={{flex:1,background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,
+                    padding:"10px 12px",textAlign:"left",cursor:"pointer"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor=D.yellow}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor=D.border}>
+                  <div style={{fontSize:12,fontWeight:700,color:D.text}}>{t.name}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{t.date} · {t.items?.length||0} окон · маржа {t.margin}%</div>
+                </button>
+                <button onClick={()=>setTemplates(p=>p.filter(x=>x.id!==t.id))}
+                  style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4,flexShrink:0}}>
+                  <Trash2 size={13}/>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Modal>)}
   </div>);
 }
-// ═══════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════
-// PRINT ACT (תעודת גמר)
 // ═══════════════════════════════════════════════════════════════
 function printAct(inst,order){
   const date=new Date().toLocaleDateString("he-IL");
@@ -2490,6 +2633,102 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
 
   const last=kpi[kpi.length-1]||{revenue:0,cogs:0,opex:0,leads:0,measures:0,orders:0};
   const ebitda=last.revenue-last.cogs-last.opex;
+
+  const exportExcel=()=>{
+    const wb=XLSX.utils.book_new();
+
+    // ── Sheet 1: Dashboard KPIs ──
+    const dash=[
+      ["WindowOS — KPI Dashboard","","",""],
+      ["Дата экспорта",new Date().toLocaleDateString("ru-RU"),"",""],
+      ["","","",""],
+      ["📊 ОСНОВНЫЕ ПОКАЗАТЕЛИ","","",""],
+      ["Показатель","Значение","",""],
+      ["Лидов всего",fLeads,"",""],
+      ["Замеров",fMeasured,"",""],
+      ["Заказов",fOrders,"",""],
+      ["Закрыто (выиграли)",fWon,"",""],
+      ["","","",""],
+      ["💰 ФИНАНСЫ","","",""],
+      ["Показатель","₪","",""],
+      ["Сумма контрактов",totalContracted,"",""],
+      ["Получено",totalPaid,"",""],
+      ["Ожидается",totalContracted-totalPaid,"",""],
+      ["Средний чек",avgDeal,"",""],
+      ["","","",""],
+      ["🎯 КОНВЕРСИЯ","","",""],
+      ["Лид → Замер",convLM+"%","",""],
+      ["Замер → Заказ",convMO+"%","",""],
+      ["Лид → Заказ",convLO+"%","",""],
+      ["Win Rate",winRate+"%","",""],
+      ["","","",""],
+      ["📣 ИСТОЧНИКИ ЛИДОВ","","",""],
+      ["Источник","Кол-во","Доля %",""],
+      ...sources.map(([s,c])=>[s,c,fLeads>0?Math.round(c/fLeads*100)+"%":""]),
+    ];
+    const ws1=XLSX.utils.aoa_to_sheet(dash);
+    ws1["!cols"]=[{wch:30},{wch:18},{wch:12},{wch:12}];
+    // Styling via cell format
+    ["A1","A4","A11","A17","A23"].forEach(cell=>{
+      if(ws1[cell])ws1[cell].s={font:{bold:true,sz:13,color:{rgb:"2563EB"}},fill:{fgColor:{rgb:"EFF6FF"}}};
+    });
+    ws1["A1"].s={font:{bold:true,sz:16,color:{rgb:"1E3A8A"}},fill:{fgColor:{rgb:"DBEAFE"}}};
+    XLSX.utils.book_append_sheet(wb,ws1,"Dashboard");
+
+    // ── Sheet 2: Leads ──
+    const leadsData=[
+      ["Имя","Телефон","Город","Тип","Работа","Статус","Приоритет","Оценка ₪","Follow-up","Источник","Дата"],
+      ...leads.map(l=>[l.name,l.phone||"",l.city||"",l.type||"",l.jobType||"",
+        l.status,l.priority||"normal",l.value||0,l.followUp||"",l.source||"",l.date||""])
+    ];
+    const ws2=XLSX.utils.aoa_to_sheet(leadsData);
+    ws2["!cols"]=[{wch:22},{wch:14},{wch:14},{wch:12},{wch:18},{wch:20},{wch:12},{wch:12},{wch:12},{wch:16},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws2,"Лиды");
+
+    // ── Sheet 3: Orders ──
+    const ordersData=[
+      ["ID","Клиент","Город","Окон","Сумма ₪","Оплачено ₪","Остаток ₪","Статус","Создан","Сдача"],
+      ...orders.map(o=>[o.id,o.client,o.city||"",o.windows,o.total,o.paid,o.total-o.paid,o.status,o.created||"",o.delivery||""])
+    ];
+    const ws3=XLSX.utils.aoa_to_sheet(ordersData);
+    ws3["!cols"]=[{wch:10},{wch:22},{wch:14},{wch:8},{wch:12},{wch:12},{wch:12},{wch:20},{wch:12},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws3,"Заказы");
+
+    // ── Sheet 4: Payments ──
+    const payData=[
+      ["Заказ","Клиент","Тип","Сумма ₪","Дата","Метод","Статус"],
+      ...payments.map(p=>[p.order||"",p.client,p.type,p.amount,p.date||"",p.method||"",p.status])
+    ];
+    const ws4=XLSX.utils.aoa_to_sheet(payData);
+    ws4["!cols"]=[{wch:10},{wch:22},{wch:14},{wch:12},{wch:12},{wch:12},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws4,"Платежи");
+
+    // ── Sheet 5: KPI History ──
+    if(kpi.length>0){
+      const kpiData=[
+        ["Месяц","Лидов","Замеров","Заказов","Выручка ₪","Себест. ₪","OPEX ₪","EBITDA ₪","Маржа %"],
+        ...kpi.map(d=>{
+          const e=d.revenue-d.cogs-d.opex;
+          return[d.month,d.leads,d.measures,d.orders,d.revenue,d.cogs,d.opex,e,
+            d.revenue>0?Math.round(e/d.revenue*100)+"%":"—"];
+        }),
+        ["ИТОГО",
+          "=SUM(B2:B"+(kpi.length+1)+")",
+          "=SUM(C2:C"+(kpi.length+1)+")",
+          "=SUM(D2:D"+(kpi.length+1)+")",
+          "=SUM(E2:E"+(kpi.length+1)+")",
+          "=SUM(F2:F"+(kpi.length+1)+")",
+          "=SUM(G2:G"+(kpi.length+1)+")",
+          "=SUM(H2:H"+(kpi.length+1)+")",
+          ""],
+      ];
+      const ws5=XLSX.utils.aoa_to_sheet(kpiData);
+      ws5["!cols"]=[{wch:8},{wch:8},{wch:10},{wch:10},{wch:14},{wch:14},{wch:12},{wch:14},{wch:10}];
+      XLSX.utils.book_append_sheet(wb,ws5,"KPI История");
+    }
+
+    XLSX.writeFile(wb,`WindowOS_KPI_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
   const addMonth=()=>{
     if(!form.month)return;
     setKpi(p=>[...p,{month:form.month,leads:+form.leads||0,measures:+form.measures||0,
@@ -2501,7 +2740,10 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
       <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>KPI & Аналитика</div>
         <div style={{fontSize:13,color:D.muted}}>Реальные данные + история</div></div>
-      <Btn onClick={()=>setModal(true)}><Plus size={13}/> Добавить месяц</Btn>
+      <div style={{display:"flex",gap:8}}>
+        <Btn onClick={exportExcel} variant="success"><Download size={13}/> Excel</Btn>
+        <Btn onClick={()=>setModal(true)}><Plus size={13}/> Добавить месяц</Btn>
+      </div>
     </div>
 
     {/* Real-time KPIs */}
@@ -3049,6 +3291,7 @@ export default function App(){
   const [clientCard,setClientCard]=useState(null); // client name to show card
   const [sidebarOpen,setSidebarOpen]=useState(false); // mobile sidebar
   const [quotes,setQuotes]=useState(()=>load(KEYS.quotes,[]));
+  const [templates,setTemplates]=useState(()=>load(KEYS.templates,[]));
   const [installations,setInstallations]=useState(()=>load(KEYS.installations,II_INST));
 
   useEffect(()=>{setSaved(false);save(KEYS.leads,leads);setTimeout(()=>setSaved(true),600);},[leads]);
@@ -3056,6 +3299,7 @@ export default function App(){
   useEffect(()=>{save(KEYS.orders,orders);},[orders]);
   useEffect(()=>{save(KEYS.installations,installations);},[installations]);
   useEffect(()=>{save(KEYS.quotes,quotes);},[quotes]);
+  useEffect(()=>{save(KEYS.templates,templates);},[templates]);
   useEffect(()=>{save(KEYS.inventory,inventory);},[inventory]);
   useEffect(()=>{save(KEYS.payments,payments);},[payments]);
   useEffect(()=>{save(KEYS.kpi,kpi);},[kpi]);
@@ -3193,7 +3437,7 @@ export default function App(){
         {page==="payments"&&<Payments payments={payments} setPayments={setPayments} onClientClick={setClientCard}/>}
         {page==="quotes"&&<Quotes quotes={quotes} setQuotes={setQuotes} onClientClick={setClientCard}/>}
         {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
-        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes}/>}
+        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes} templates={templates} setTemplates={setTemplates}/>}
       </div>
     </div>
 
