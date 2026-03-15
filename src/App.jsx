@@ -15,7 +15,7 @@ import {
 const KEYS = { leads:"wb:leads", orders:"wb:orders", inventory:"wb:inventory",
   payments:"wb:payments", kpi:"wb:kpi", measurements:"wb:measurements",
   installations:"wb:installations", quotes:"wb:quotes", templates:"wb:templates",
-  activity:"wb:activity" };
+  activity:"wb:activity", company:"wb:company", lang:"wb:lang" };
 const load=(key,fb)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):fb;}catch{return fb;}};
 const save=(key,data)=>{try{localStorage.setItem(key,JSON.stringify(data));}catch{}};
 
@@ -173,6 +173,9 @@ const OPS=[
   {id:"casement_or_tilt_turn",name:bi("Поворотно-откидное",    "כיפ-כיפ / ציר"),     profiles:["klil_4500","klil_5500","klil_4300"]},
   {id:"tilt_or_fixed",        name:bi("Kipp / Глухое",         "כיפ / פיקס"),         profiles:["klil_4500","klil_5500","klil_4300","klil_4350"]},
   {id:"lift_slide_2600",      name:bi("Lift & Slide 2600 🏆",  "הרם והחלק 2600 🏆"),  profiles:["klil_2600_2t","klil_2600_3t","klil_2600_3s"]},
+  {id:"railing",              name:bi("Перила/Ограждение 🔩",  "מעקה / גדר"),         profiles:["klil_railing_std","klil_railing_glass"]},
+  {id:"partition",            name:bi("Перегородка 🪟",         "מחיצה"),              profiles:["klil_partition_std","klil_partition_glass"]},
+  {id:"grille",               name:bi("Решётка/Pergola 🔲",    "סורג / פרגולה"),      profiles:["klil_grille_std"]},
 ];
 const PNAMES={
   klil_7000:"Клиль 7000 | קליל 7000",
@@ -186,6 +189,11 @@ const PNAMES={
   klil_2600_2t:"2600 Bauhaus 2-крыла | 2600 באוהאוס 2 כנפיים",
   klil_2600_3t:"2600 Bauhaus 3-крыла | 2600 באוהאוס 3 כנפיים",
   klil_2600_3s:"2600 Bauhaus 3-трека | 2600 באוהאוס 3 מסלולים",
+  klil_railing_std:"Перила алюм. стд | מעקה אלומיניום סטנדרטי",
+  klil_railing_glass:"Перила со стеклом | מעקה עם זכוכית",
+  klil_partition_std:"Перегородка стд | מחיצה סטנדרטית",
+  klil_partition_glass:"Перегородка стекло | מחיצה זכוכית",
+  klil_grille_std:"Решётка алюм. | סורג אלומיניום",
 };
 // Profile key dimensions mm
 const PDIMS={
@@ -335,10 +343,32 @@ const DB2600=[
   ["12.015.0320","lift_slide_2600","klil_2600_3s",8.0,10.3,2620.0],
 ];
 
-// Dekel lookup (searches main DB + 2600 bands)
+// Dekel level 2 — railings (12.102), partitions (12.117), grilles (12.120)
+const DB_L2=[
+  // Railings (מעקים) 12.102
+  ["12.102.0100","railing","klil_railing_std",0.5,2.0,1850.0],
+  ["12.102.0110","railing","klil_railing_std",2.0,4.0,1620.0],
+  ["12.102.0120","railing","klil_railing_std",4.0,8.0,1380.0],
+  ["12.102.0200","railing","klil_railing_glass",0.5,2.0,2450.0],
+  ["12.102.0210","railing","klil_railing_glass",2.0,4.0,2180.0],
+  ["12.102.0220","railing","klil_railing_glass",4.0,8.0,1920.0],
+  // Partitions (מחיצות) 12.117
+  ["12.117.0100","partition","klil_partition_std",0.5,3.0,1650.0],
+  ["12.117.0110","partition","klil_partition_std",3.0,6.0,1420.0],
+  ["12.117.0120","partition","klil_partition_std",6.0,12.0,1180.0],
+  ["12.117.0200","partition","klil_partition_glass",0.5,3.0,2250.0],
+  ["12.117.0210","partition","klil_partition_glass",3.0,6.0,1980.0],
+  ["12.117.0220","partition","klil_partition_glass",6.0,12.0,1720.0],
+  // Grilles / Pergolas (סורגים) 12.120
+  ["12.120.0100","grille","klil_grille_std",0.5,2.0,980.0],
+  ["12.120.0110","grille","klil_grille_std",2.0,5.0,820.0],
+  ["12.120.0120","grille","klil_grille_std",5.0,10.0,680.0],
+];
+
+// Dekel lookup (searches main DB + 2600 bands + level 2)
 const dekelLookup=(op,profile,areaSqm)=>{
   const a=Math.max(areaSqm,0.6);
-  const allBands=[...DB,...DB2600];
+  const allBands=[...DB,...DB2600,...DB_L2];
   const match=allBands.find(b=>b[1]===op&&b[2]===profile&&a>=b[3]&&a<b[4]);
   if(match)return{price:match[5],code:match[0]};
   const all=allBands.filter(b=>b[1]===op&&b[2]===profile).sort((a,b)=>a[3]-b[3]);
@@ -554,12 +584,16 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   orders.forEach(o=>{
     const m=o.created?.slice(0,7)||"";
     if(!m)return;
-    if(!monthMap[m])monthMap[m]={month:m.slice(5),revenue:0,paid:0,count:0};
+    const MONTHS=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+    const mNum=parseInt(m.slice(5))-1;
+    const label=`${MONTHS[mNum]||m.slice(5)} ${m.slice(2,4)}`;
+    if(!monthMap[m])monthMap[m]={month:label,key:m,revenue:0,paid:0,profit:0,count:0};
     monthMap[m].revenue+=o.total;
     monthMap[m].paid+=o.paid;
+    monthMap[m].profit+=Math.round(o.paid*0.35);
     monthMap[m].count++;
   });
-  const revenueChart=Object.values(monthMap).sort((a,b)=>a.month.localeCompare(b.month)).slice(-6);
+  const revenueChart=Object.values(monthMap).sort((a,b)=>a.key.localeCompare(b.key)).slice(-8);
 
   const lowStock=inventory.filter(i=>i.qty<i.minQty).length;
   const pending=payments.filter(p=>p.status==="Ожидается");
@@ -582,15 +616,22 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
     <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}}>
       {/* Revenue chart */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>📈 ВЫРУЧКА ПО МЕСЯЦАМ (реальные заказы)</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted}}>📈 ВЫРУЧКА ПО МЕСЯЦАМ</div>
+          <div style={{display:"flex",gap:12,fontSize:10,color:D.muted}}>
+            <span><span style={{display:"inline-block",width:10,height:10,background:D.accentLight+"90",borderRadius:2,marginRight:3}}/>КП</span>
+            <span><span style={{display:"inline-block",width:10,height:10,background:D.green,borderRadius:2,marginRight:3}}/>Получено</span>
+            <span><span style={{display:"inline-block",width:10,height:2,background:D.yellow,marginRight:3,verticalAlign:"middle"}}/>Прибыль</span>
+          </div>
+        </div>
         {revenueChart.length>0?(
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={revenueChart} barGap={3}>
-              <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
-              <YAxis stroke={D.muted} tick={{fontSize:10,fill:D.muted}} tickFormatter={v=>"₪"+v/1000+"k"}/>
+          <ResponsiveContainer width="100%" height={190}>
+            <BarChart data={revenueChart} barGap={3} margin={{top:5,right:5,bottom:0,left:0}}>
+              <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:10,fill:D.muted}}/>
+              <YAxis stroke={D.muted} tick={{fontSize:9,fill:D.muted}} tickFormatter={v=>v>=1000?"₪"+Math.round(v/1000)+"k":"₪"+v} width={42}/>
               <Tooltip content={<TT/>}/>
-              <Bar dataKey="revenue" name="КП сумма" fill={D.accentLight+"90"} radius={[4,4,0,0]}/>
-              <Bar dataKey="paid" name="Получено" fill={D.green} radius={[4,4,0,0]}/>
+              <Bar dataKey="revenue" name="КП сумма" fill={D.accentLight+"70"} radius={[4,4,0,0]}/>
+              <Bar dataKey="paid" name="Получено" fill={D.green+"cc"} radius={[4,4,0,0]}/>
             </BarChart>
           </ResponsiveContainer>
         ):(
@@ -1203,7 +1244,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
 // ═══════════════════════════════════════════════════════════════
 // CALCULATOR — QUICK + DETAILED (Dekel)
 // ═══════════════════════════════════════════════════════════════
-function printKP(client,calced,saleTotal,margin,split,extras){
+function printKP(client,calced,saleTotal,margin,split,extras,company={}){
   const pay1=Math.round(saleTotal*split/100);
   const pay2=saleTotal-pay1;
   const date=new Date().toLocaleDateString("he-IL");
@@ -1313,12 +1354,16 @@ function printKP(client,calced,saleTotal,margin,split,extras){
   </style></head><body>
   <div class="header">
     <div>
-      <div class="logo">🏭 חלונות אלומיניום</div>
-      <div class="logo-sub">ייצור והתקנה של חלונות ודלתות אלומיניום</div>
+      <div class="logo">🏭 ${company.name||"חלונות אלומיניום"}</div>
+      <div class="logo-sub">${company.nameRu||"ייצור והתקנה של חלונות ודלתות אלומיניום"}</div>
+      ${company.phone?`<div class="logo-sub">📞 ${company.phone}</div>`:""}
+      ${company.address?`<div class="logo-sub">📍 ${company.address}</div>`:""}
+      ${company.taxId?`<div class="logo-sub">ח.פ. / ע.מ.: ${company.taxId}</div>`:""}
     </div>
     <div class="meta">
       <div>תאריך: <b>${date}</b></div>
       <div>הצעת מחיר מספר: <b>QT-${Date.now().toString().slice(-6)}</b></div>
+      ${company.email?`<div>דוא"ל: <b>${company.email}</b></div>`:""}
     </div>
   </div>
 
@@ -1376,7 +1421,13 @@ function printKP(client,calced,saleTotal,margin,split,extras){
     • זמן אספקה והתקנה: כ-14–21 יום ממועד אישור ההזמנה ותשלום המקדמה
   </div>
 
-  <div class="footer">WindowOS · הצעה זו הופקה באופן אוטומטי · ${date}</div>
+  ${company.bank||company.bankAccount?`
+  <div style="margin-top:16px;padding:12px 16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;color:#475569">
+    <b style="color:#1e293b">פרטי בנק לתשלום:</b>
+    ${company.bank?`<span style="margin-right:12px">🏦 ${company.bank}</span>`:""}
+    ${company.bankAccount?`<span>חשבון: <b>${company.bankAccount}</b></span>`:""}
+  </div>`:""}
+  <div class="footer">${company.name||"WindowOS"} · הצעה זו הופקה באופן אוטומטי · ${date}</div>
   </body></html>`;
   const w=window.open("","_blank","width=900,height=750");
   w.document.write(html);w.document.close();
@@ -1403,7 +1454,7 @@ function newItem(name,op,profile,w,h,qty){
     accessories:[],color:"white"};
 }
 
-function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuotes,templates,setTemplates,setActivity}){
+function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuotes,templates,setTemplates,setActivity,company}){
   const [tab,setTab]=useState("quick");
   const [items,setItems]=useState([newItem("Окно 1")]);
   const [client,setClient]=useState("");
@@ -1625,13 +1676,46 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
       <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Калькулятор КП</div>
         <div style={{fontSize:13,color:D.muted}}>Dekel 2022 × 1.13 (цены 2026)</div></div>
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={()=>printKP(client,calced,saleTotal,margin,split,extras)} variant="success"><Download size={13}/> PDF КП</Btn>
+        <Btn onClick={()=>printKP(client,calced,saleTotal,margin,split,extras,company)} variant="success"><Download size={13}/> PDF КП</Btn>
         <Btn onClick={saveQuote} variant="teal"><FileText size={13}/> Сохранить КП</Btn>
         <Btn onClick={()=>setTplModal(true)} variant="ghost"><Plus size={13}/> Шаблон</Btn>
         <Btn onClick={()=>setLoadModal("pick")} variant="ghost"><History size={13}/> Загрузить</Btn>
         <Btn onClick={()=>exportCSV(["Позиция","Ш","В","м²","Тип","Профиль","Стекло","Кол","Код","Себест.","Цена"],
           calced.map(c=>[c.name,c.w,c.h,c.area.toFixed(2),c.op,c.profile,c.glass,c.qty,c.code,Math.round(c.totalCost),Math.round(c.totalCost*(1+margin/100))]),"кп.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
         <Btn onClick={addItem}><Plus size={13}/> Добавить окно</Btn>
+        <label style={{display:"inline-flex",alignItems:"center",gap:5,
+          background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,
+          padding:"5px 10px",color:D.muted,fontSize:11,fontWeight:600,cursor:"pointer"}}>
+          <Download size={12}/> CSV/Импорт
+          <input type="file" accept=".csv,.txt" style={{display:"none"}}
+            onChange={e=>{
+              const file=e.target.files[0]; if(!file)return;
+              const reader=new FileReader();
+              reader.onload=ev=>{
+                const lines=ev.target.result.split(/\r?\n/).filter(l=>l.trim());
+                const imported=[];
+                lines.forEach((line,i)=>{
+                  // Support: Name,Width,Height,Qty or just Width,Height
+                  const parts=line.split(/[,;\t]+/).map(s=>s.trim());
+                  if(parts.length>=2){
+                    const w=parseFloat(parts[parts.length>=4?1:0]);
+                    const h=parseFloat(parts[parts.length>=4?2:1]);
+                    const qty=parseInt(parts[parts.length>=4?3:2])||1;
+                    const name=parts.length>=4?parts[0]:`Окно ${items.length+i+1}`;
+                    if(w>10&&h>10)imported.push(newItem(name,"sliding_2_track","klil_7000",w,h,qty));
+                  }
+                });
+                if(imported.length){
+                  setItems(p=>[...p,...imported]);
+                  alert(`Импортировано ${imported.length} позиций!`);
+                } else {
+                  alert("Не удалось распознать формат.\nОжидается: Название,Ш,В,Кол или Ш,В,Кол");
+                }
+              };
+              reader.readAsText(file);
+              e.target.value="";
+            }}/>
+        </label>
       </div>
     </div>
 
@@ -3758,6 +3842,13 @@ export default function App(){
   const [quotes,setQuotes]=useState(()=>load(KEYS.quotes,[]));
   const [templates,setTemplates]=useState(()=>load(KEYS.templates,[]));
   const [activity,setActivity]=useState(()=>load(KEYS.activity,[]));
+  const [lang,setLang]=useState(()=>load(KEYS.lang,"ru"));
+  const [company,setCompany]=useState(()=>load(KEYS.company,{
+    name:"חלונות אלומיניום",nameRu:"Алюминиевые окна",
+    phone:"050-000-0000",address:"",email:"",
+    bank:"",bankAccount:"",taxId:"",
+  }));
+  const [companyModal,setCompanyModal]=useState(false);
   const [installations,setInstallations]=useState(()=>load(KEYS.installations,II_INST));
 
   useEffect(()=>{setSaved(false);save(KEYS.leads,leads);setTimeout(()=>setSaved(true),600);},[leads]);
@@ -3767,6 +3858,8 @@ export default function App(){
   useEffect(()=>{save(KEYS.quotes,quotes);},[quotes]);
   useEffect(()=>{save(KEYS.templates,templates);},[templates]);
   useEffect(()=>{save(KEYS.activity,activity);},[activity]);
+  useEffect(()=>{save(KEYS.company,company);},[company]);
+  useEffect(()=>{save(KEYS.lang,lang);},[lang]);
   useEffect(()=>{save(KEYS.inventory,inventory);},[inventory]);
   useEffect(()=>{save(KEYS.payments,payments);},[payments]);
   useEffect(()=>{save(KEYS.kpi,kpi);},[kpi]);
@@ -3834,7 +3927,26 @@ export default function App(){
         onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
         onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
     </div>
-    <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v4.0 🇮🇱</div>
+    <div style={{padding:"8px",borderTop:`1px solid ${D.border}`}}>
+      {/* Language switcher */}
+      <div style={{display:"flex",gap:4,marginBottom:6}}>
+        {[["ru","🇷🇺 RU"],["he","🇮🇱 HE"]].map(([l,lbl])=>(
+          <button key={l} onClick={()=>setLang(l)}
+            style={{flex:1,padding:"4px",borderRadius:6,border:`1px solid ${lang===l?D.accent:D.border}`,
+              background:lang===l?D.accent+"20":"transparent",color:lang===l?D.accentLight:D.muted,
+              fontSize:10,fontWeight:700,cursor:"pointer"}}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+      {/* Company settings */}
+      <button onClick={()=>setCompanyModal(true)}
+        style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:7,
+          padding:"5px 8px",color:D.muted,fontSize:10,cursor:"pointer",textAlign:"left"}}>
+        ⚙️ Реквизиты компании
+      </button>
+    </div>
+    <div style={{padding:"6px 14px 8px",fontSize:9,color:D.muted+"55"}}>WindowOS v5.0 🇮🇱</div>
   </>);
 
   return(<div style={{display:"flex",height:"100vh",background:D.bg,fontFamily:"'Segoe UI',Arial,sans-serif",overflow:"hidden",position:"relative"}}>
@@ -3907,7 +4019,7 @@ export default function App(){
         {page==="quotes"&&<Quotes quotes={quotes} setQuotes={setQuotes} onClientClick={setClientCard}/>}
         {page==="finance"&&<FinancePL orders={orders} payments={payments} leads={leads} measurements={measurements} kpi={kpi}/>}
         {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
-        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes} templates={templates} setTemplates={setTemplates} setActivity={setActivity}/>}
+        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes} templates={templates} setTemplates={setTemplates} setActivity={setActivity} company={company}/>}
       </div>
     </div>
 
@@ -3922,7 +4034,35 @@ export default function App(){
       setPage={navTo}
     />)}
 
-    {/* Mobile sidebar toggle - always visible on small screens via inline script */}
+    {/* COMPANY SETTINGS MODAL */}
+    {companyModal&&(<Modal title="⚙️ Реквизиты компании" onClose={()=>setCompanyModal(false)}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        {[
+          ["Название (иврит)","name","חלונות אלומיניום"],
+          ["Название (русский)","nameRu","Алюминиевые окна"],
+          ["Телефон","phone","050-000-0000"],
+          ["Email","email","info@company.com"],
+          ["Адрес","address","тель-авив..."],
+          ["ח.פ. / ע.מ.","taxId",""],
+          ["Банк","bank","הפועלים"],
+          ["Счёт банка","bankAccount",""],
+        ].map(([l,k,ph])=>(
+          <div key={k}>
+            <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{l}</div>
+            <input value={company[k]||""} onChange={e=>setCompany(p=>({...p,[k]:e.target.value}))}
+              placeholder={ph}
+              style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
+                padding:"7px 10px",color:D.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+          </div>
+        ))}
+      </div>
+      <div style={{fontSize:10,color:D.teal,marginBottom:12,padding:"6px 10px",background:D.teal+"12",borderRadius:6}}>
+        ✓ Эти данные появятся в PDF КП и актах выполненных работ
+      </div>
+      <Btn onClick={()=>setCompanyModal(false)} variant="success"><Check size={13}/> Сохранить</Btn>
+    </Modal>)}
+
+    {/* Mobile sidebar toggle */}
     <style>{`
       @media (max-width: 768px) {
         .desktop-sidebar { display: none !important; }
