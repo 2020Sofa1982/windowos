@@ -14,7 +14,8 @@ import {
 // ── STORAGE ──────────────────────────────────────────────────
 const KEYS = { leads:"wb:leads", orders:"wb:orders", inventory:"wb:inventory",
   payments:"wb:payments", kpi:"wb:kpi", measurements:"wb:measurements",
-  installations:"wb:installations", quotes:"wb:quotes", templates:"wb:templates" };
+  installations:"wb:installations", quotes:"wb:quotes", templates:"wb:templates",
+  activity:"wb:activity" };
 const load=(key,fb)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):fb;}catch{return fb;}};
 const save=(key,data)=>{try{localStorage.setItem(key,JSON.stringify(data));}catch{}};
 
@@ -1402,7 +1403,7 @@ function newItem(name,op,profile,w,h,qty){
     accessories:[],color:"white"};
 }
 
-function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuotes,templates,setTemplates}){
+function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuotes,templates,setTemplates,setActivity}){
   const [tab,setTab]=useState("quick");
   const [items,setItems]=useState([newItem("Окно 1")]);
   const [client,setClient]=useState("");
@@ -1482,6 +1483,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
     setOrders(p=>[...p,{id,client,city:"",windows:items.reduce((s,i)=>s+i.qty,0),total:saleTotal,paid:0,
       status:"Ожидает материалов",progress:10,created:new Date().toISOString().split("T")[0],delivery:""}]);
     setLeads(p=>p.map(l=>l.name===client?{...l,status:"Закрыт (выиграли)",value:saleTotal}:l));
+    if(setActivity)addActivity(setActivity,client,"order",`📦 Создан заказ ${id} на ${fmt(saleTotal)}`);
     alert(`Заказ ${id} создан! Лид обновлён.`);
   };
 
@@ -1498,6 +1500,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
       })),
       extras:{...extras},notes:""};
     setQuotes(p=>[rec,...p]);
+    if(setActivity)addActivity(setActivity,client,"kp",`📋 КП сохранено ${id} на ${fmt(saleTotal)}`);
     alert(`КП ${id} сохранено в историю!`);
   };
 
@@ -3448,16 +3451,40 @@ function Quotes({quotes,setQuotes,onClientClick}){
 // ═══════════════════════════════════════════════════════════════
 // CLIENT CARD — full profile side panel
 // ═══════════════════════════════════════════════════════════════
-function ClientCard({clientName,leads,measurements,orders,installations,payments,onClose,onOpenCalc,setPage}){
+function ClientCard({clientName,leads,measurements,orders,installations,payments,onClose,onOpenCalc,setPage,activity,setActivity,quotes}){
   const lead=leads.find(l=>l.name===clientName);
   const cMeasures=measurements.filter(m=>m.client===clientName);
   const cOrders=orders.filter(o=>o.client===clientName);
   const cInst=installations.filter(i=>i.client===clientName);
   const cPay=payments.filter(p=>p.client===clientName);
+  const cQuotes=(quotes||[]).filter(q=>q.client===clientName);
+  const cActivity=(activity||[]).filter(a=>a.client===clientName);
   const paid=cPay.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
   const pending=cPay.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
   const phone=lead?.phone||cMeasures[0]?.phone||"";
   const waNum=phone.replace(/[^0-9]/g,"").replace(/^0/,"972");
+  const [waModal,setWaModal]=useState(false);
+  const [noteText,setNoteText]=useState("");
+  const latestOrder=cOrders[cOrders.length-1];
+  const latestQuote=cQuotes[0];
+
+  const logAndCall=()=>{
+    if(setActivity)addActivity(setActivity,clientName,"call",`📞 Звонок: ${phone}`);
+  };
+  const sendWA=(tpl)=>{
+    const date=new Date().toLocaleDateString("he-IL");
+    const total=latestOrder?.total||latestQuote?.total;
+    const ordId=latestOrder?.id;
+    const text=tpl.text(clientName,tpl.id==="measure"?date:tpl.id==="order_confirm"?ordId:total);
+    window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(text)}`,"_blank");
+    if(setActivity)addActivity(setActivity,clientName,"whatsapp",`💬 WhatsApp: ${tpl.label}`);
+    setWaModal(false);
+  };
+  const addNote=()=>{
+    if(!noteText.trim())return;
+    if(setActivity)addActivity(setActivity,clientName,"note",`📝 ${noteText.trim()}`);
+    setNoteText("");
+  };
 
   const Section=({icon:Icon,title,children,color=D.accentLight})=>(
     <div style={{marginBottom:16}}>
@@ -3492,21 +3519,47 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
           </div>
           {/* Action buttons */}
           {phone&&(<div style={{display:"flex",gap:8,marginTop:14}}>
-            <a href={`tel:${phone}`} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",
-              gap:6,background:D.green+"20",border:`1px solid ${D.green}40`,borderRadius:8,
-              padding:"9px",color:D.green,fontWeight:700,fontSize:12,textDecoration:"none"}}>
+            <a href={`tel:${phone}`} onClick={logAndCall}
+              style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",
+                gap:6,background:D.green+"20",border:`1px solid ${D.green}40`,borderRadius:8,
+                padding:"9px",color:D.green,fontWeight:700,fontSize:12,textDecoration:"none"}}>
               <Phone size={14}/> {phone}
             </a>
-            <a href={`https://wa.me/${waNum}`} target="_blank" rel="noreferrer"
+            <button onClick={()=>setWaModal(true)}
               style={{display:"flex",alignItems:"center",justifyContent:"center",gap:5,
                 background:"#25D36620",border:"1px solid #25D36640",borderRadius:8,
-                padding:"9px 14px",color:"#25D366",fontWeight:700,fontSize:12,textDecoration:"none"}}>
+                padding:"9px 14px",color:"#25D366",fontWeight:700,fontSize:12,cursor:"pointer"}}>
               <MessageCircle size={14}/> WA
-            </a>
+            </button>
           </div>)}
+
+          {/* WA Templates modal */}
+          {waModal&&phone&&(
+            <div style={{marginTop:12,background:D.surface,border:`1px solid ${"#25D366"}30`,borderRadius:10,padding:12}}>
+              <div style={{fontSize:10,fontWeight:800,color:"#25D366",textTransform:"uppercase",marginBottom:8}}>
+                💬 WhatsApp — выбери шаблон
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                {WA_TEMPLATES.map(tpl=>(
+                  <button key={tpl.id} onClick={()=>sendWA(tpl)}
+                    style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:7,
+                      padding:"7px 10px",textAlign:"left",cursor:"pointer",fontSize:11,color:D.text,
+                      display:"flex",alignItems:"center",gap:6}}
+                    onMouseEnter={e=>e.currentTarget.style.background="#25D36610"}
+                    onMouseLeave={e=>e.currentTarget.style.background=D.card}>
+                    {tpl.label}
+                  </button>
+                ))}
+              </div>
+              <button onClick={()=>setWaModal(false)}
+                style={{marginTop:6,background:"none",border:"none",cursor:"pointer",color:D.muted,fontSize:10,padding:0}}>
+                Закрыть
+              </button>
+            </div>
+          )}
         </div>
 
-        <div style={{padding:"16px 20px",flex:1}}>
+        <div style={{padding:"16px 20px",flex:1,overflowY:"auto"}}>
           {/* Financial summary */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
             {[
@@ -3596,16 +3649,85 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
             <div style={{fontSize:12,color:D.text,background:D.card,borderRadius:8,padding:10}}>{lead.notes}</div>
           </Section>)}
 
+          {/* Saved Quotes cross-link */}
+          {cQuotes.length>0&&(<Section icon={FileText} title={`КП История (${cQuotes.length})`} color={D.yellow}>
+            {cQuotes.slice(0,3).map(q=>(
+              <div key={q.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                padding:"6px 0",borderBottom:`1px solid ${D.border}`}}>
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:D.text}}>{q.id} · {q.date}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{q.items?.length||0} позиций · {q.status}</div>
+                </div>
+                <span style={{fontSize:12,fontWeight:800,color:D.yellow}}>{fmt(q.total)}</span>
+              </div>
+            ))}
+          </Section>)}
+
           {/* Follow-up */}
-          {lead?.followUp&&(<div style={{background:D.teal+"15",border:`1px solid ${D.teal}30`,borderRadius:8,padding:"8px 12px"}}>
+          {lead?.followUp&&(<div style={{background:D.teal+"15",border:`1px solid ${D.teal}30`,borderRadius:8,padding:"8px 12px",marginBottom:12}}>
             <div style={{fontSize:10,fontWeight:700,color:D.teal,textTransform:"uppercase"}}>Follow-up</div>
             <div style={{fontSize:13,fontWeight:800,color:D.text,marginTop:2}}>📅 {lead.followUp}</div>
           </div>)}
+
+          {/* Quick note */}
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:6}}>📝 Заметка</div>
+            <div style={{display:"flex",gap:6}}>
+              <input value={noteText} onChange={e=>setNoteText(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&addNote()}
+                placeholder="Добавить заметку..."
+                style={{flex:1,background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
+                  padding:"7px 10px",color:D.text,fontSize:12,outline:"none"}}/>
+              <Btn onClick={addNote} small><Plus size={12}/></Btn>
+            </div>
+          </div>
+
+          {/* Activity log */}
+          {cActivity.length>0&&(<Section icon={History} title={`История (${cActivity.length})`} color={D.muted}>
+            <div style={{maxHeight:200,overflowY:"auto"}}>
+              {cActivity.slice(0,20).map(a=>(
+                <div key={a.id} style={{display:"flex",gap:8,padding:"5px 0",borderBottom:`1px solid ${D.border}`,alignItems:"flex-start"}}>
+                  <span style={{fontSize:14,flexShrink:0}}>{ACT_ICONS[a.type]||"📌"}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,color:D.text}}>{a.text}</div>
+                    <div style={{fontSize:9,color:D.muted}}>{a.date} {a.time}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>)}
         </div>
       </div>
     </div>
   );
 }
+
+// ── WHATSAPP TEMPLATES ───────────────────────────────────────
+const WA_TEMPLATES=[
+  {id:"new_lead",  label:"👋 Первый контакт",
+    text:(name)=>`שלום ${name}!\nאני מתקין חלונות ודלתות אלומיניום.\nקיבלתי את פנייתך ואשמח לעזור.\nמתי נוח לך שנדבר? 🏭`},
+  {id:"measure",   label:"📐 Подтверждение замера",
+    text:(name,date)=>`שלום ${name}!\nאישור הגעה למדידה בתאריך ${date}.\nאם יש שינוי — אנא עדכן אותי מראש.\nתודה! 🙏`},
+  {id:"send_kp",   label:"📋 Отправка КП",
+    text:(name,total)=>`שלום ${name}!\nמצורפת הצעת המחיר שלנו.\nסה"כ: ₪${total?.toLocaleString()||"—"}\nהצעה בתוקף ל-30 יום.\nשאלות? אשמח לעזור! 😊`},
+  {id:"followup",  label:"🔔 Follow-up",
+    text:(name)=>`שלום ${name}!\nרציתי לבדוק אם יש שאלות לגבי הצעת המחיר?\nאשמח לפגוש אתכם ולהסביר פרטים נוספים. 🏭`},
+  {id:"order_confirm",label:"✅ Подтверждение заказа",
+    text:(name,id)=>`שלום ${name}!\nתודה על ההזמנה! מספר הזמנה: ${id||"—"}\nנחזור אליך בקרוב לתיאום מועד ההתקנה. 🙏`},
+  {id:"install",   label:"🔧 Дата монтажа",
+    text:(name,date)=>`שלום ${name}!\nנקבע מועד התקנה לתאריך ${date}.\nנגיע בשעה שנסכם.\nאם יש שאלות — צרו קשר. 🏭`},
+  {id:"done",      label:"🎉 Работа завершена",
+    text:(name)=>`שלום ${name}!\nשמחים שהעבודה הושלמה בהצלחה! 🎉\nנשמח לקבל ביקורת ו/או המלצה.\nתמיד כאן לשירותכם! 🏭`},
+];
+
+// ── ACTIVITY LOG HELPER ──────────────────────────────────────
+const addActivity=(setActivity,clientName,type,text)=>{
+  const entry={id:Date.now(),client:clientName,type,text,
+    date:new Date().toISOString().split("T")[0],
+    time:new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})};
+  setActivity(p=>[entry,...p.slice(0,499)]); // keep last 500
+};
+const ACT_ICONS={call:"📞",whatsapp:"💬",kp:"📋",measure:"📐",order:"📦",install:"🔧",note:"📝",payment:"💰"};
 
 const PAGES=[
   {id:"dashboard",icon:LayoutDashboard,label:"Dashboard"},
@@ -3635,6 +3757,7 @@ export default function App(){
   const [sidebarOpen,setSidebarOpen]=useState(false); // mobile sidebar
   const [quotes,setQuotes]=useState(()=>load(KEYS.quotes,[]));
   const [templates,setTemplates]=useState(()=>load(KEYS.templates,[]));
+  const [activity,setActivity]=useState(()=>load(KEYS.activity,[]));
   const [installations,setInstallations]=useState(()=>load(KEYS.installations,II_INST));
 
   useEffect(()=>{setSaved(false);save(KEYS.leads,leads);setTimeout(()=>setSaved(true),600);},[leads]);
@@ -3643,6 +3766,7 @@ export default function App(){
   useEffect(()=>{save(KEYS.installations,installations);},[installations]);
   useEffect(()=>{save(KEYS.quotes,quotes);},[quotes]);
   useEffect(()=>{save(KEYS.templates,templates);},[templates]);
+  useEffect(()=>{save(KEYS.activity,activity);},[activity]);
   useEffect(()=>{save(KEYS.inventory,inventory);},[inventory]);
   useEffect(()=>{save(KEYS.payments,payments);},[payments]);
   useEffect(()=>{save(KEYS.kpi,kpi);},[kpi]);
@@ -3783,7 +3907,7 @@ export default function App(){
         {page==="quotes"&&<Quotes quotes={quotes} setQuotes={setQuotes} onClientClick={setClientCard}/>}
         {page==="finance"&&<FinancePL orders={orders} payments={payments} leads={leads} measurements={measurements} kpi={kpi}/>}
         {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
-        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes} templates={templates} setTemplates={setTemplates}/>}
+        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes} templates={templates} setTemplates={setTemplates} setActivity={setActivity}/>}
       </div>
     </div>
 
@@ -3792,6 +3916,7 @@ export default function App(){
       clientName={clientCard}
       leads={leads} measurements={measurements} orders={orders}
       installations={installations} payments={payments}
+      quotes={quotes} activity={activity} setActivity={setActivity}
       onClose={()=>setClientCard(null)}
       onOpenCalc={openCalc}
       setPage={navTo}
