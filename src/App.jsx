@@ -1210,16 +1210,21 @@ function printKP(client,calced,saleTotal,margin,split,extras){
   const rows=validItems.map((c,i)=>{
     const linePrice=Math.round(c.totalCost/c.qty*(1+margin/100))*c.qty;
     const unitPrice=Math.round(c.totalCost/c.qty*(1+margin/100));
-    const glassName=c.glass!=="none"?(DG.find(g=>g.id===c.glass)?.name||""):"";
+    const glassName=c.glass!=="none"?(DG.find(g=>g.id===c.glass)?.name.split("|")[0].trim()||""):"";
     const screenOpt=DS.find(s=>s.id===c.screen)||DS[0];
     const shutterOpt=DSHT.find(s=>s.id===c.shutter)||DSHT[0];
-    // Window row
+    const colorOpt=PCOLORS.find(x=>x.id===(c.color||"white"))||PCOLORS[0];
     const winPrice=Math.round((c.baseDekel+c.glassAddon)*c.install/c.qty*(1+margin/100));
     const winTotal=winPrice*c.qty;
+    // Color swatch for PDF
+    const colorSwatch=`<span style="display:inline-block;width:12px;height:12px;background:${colorOpt.hex};border:1px solid #ccc;border-radius:2px;vertical-align:middle;margin-left:4px"></span>`;
     let html=`<tr>
       <td style="text-align:center">${i+1}</td>
-      <td><b>${c.name}</b>${glassName?`<br/><span class="sub">זכוכית: ${glassName}</span>`:""}
-      <br/><span class="sub">${OPS.find(o=>o.id===c.op)?.name||c.op} · ${PNAMES[c.profile]||c.profile}</span></td>
+      <td><b>${c.name}</b>
+        ${glassName?`<br/><span class="sub">זכוכית: ${glassName}</span>`:""}
+        <br/><span class="sub">${OPS.find(o=>o.id===c.op)?.name.split("|")[0].trim()||c.op} · ${PNAMES[c.profile]?.split("|")[0].trim()||c.profile}</span>
+        <br/><span class="sub">צבע: ${colorOpt.name.split("|")[1]?.trim()||colorOpt.name.split("|")[0].trim()} ${colorSwatch} ${colorOpt.ral}</span>
+      </td>
       <td style="text-align:center">${c.w}×${c.h} ס"מ</td>
       <td style="text-align:center">${c.area.toFixed(2)} מ"ר</td>
       <td style="text-align:center">${c.qty}</td>
@@ -1231,7 +1236,7 @@ function printKP(client,calced,saleTotal,margin,split,extras){
       const sp=Math.round(screenOpt.price*(1+margin/100));
       html+=`<tr style="background:#f0fdf4">
         <td></td>
-        <td style="padding-right:24px"><span style="color:#16a34a">↳ ${screenOpt.name}</span></td>
+        <td style="padding-right:24px"><span style="color:#16a34a">↳ ${screenOpt.name.split("|")[1]?.trim()||screenOpt.name.split("|")[0].trim()}</span></td>
         <td colspan="2"></td><td style="text-align:center">${c.qty}</td>
         <td style="color:#16a34a">₪${sp.toLocaleString("he-IL")}</td>
         <td style="color:#16a34a;font-weight:700">₪${(sp*c.qty).toLocaleString("he-IL")}</td>
@@ -1239,16 +1244,32 @@ function printKP(client,calced,saleTotal,margin,split,extras){
     }
     // Shutter sub-row
     if(c.shutter!=="none"){
-      const shp=Math.round((shutterOpt.priceM2*c.billArea+shutterOpt.motor*c.qty)*(1+margin/100));
+      const shp=Math.round((shutterOpt.dekelM2*(shutterOpt.marketFactor||1.38)*c.billArea+shutterOpt.motor*c.qty)*(1+margin/100));
       html+=`<tr style="background:#fffbeb">
         <td></td>
-        <td style="padding-right:24px"><span style="color:#d97706">↳ ${shutterOpt.name}</span></td>
+        <td style="padding-right:24px"><span style="color:#d97706">↳ ${shutterOpt.name.split("|")[1]?.trim()||shutterOpt.name.split("|")[0].trim()}</span></td>
         <td style="text-align:center">${c.w}×${c.h} ס"מ</td>
         <td style="text-align:center">${c.area.toFixed(2)} מ"ר</td>
         <td style="text-align:center">${c.qty}</td>
         <td style="color:#d97706">—</td>
         <td style="color:#d97706;font-weight:700">₪${shp.toLocaleString("he-IL")}</td>
       </tr>`;
+    }
+    // Accessories sub-rows
+    if(c.accessories&&c.accessories.length>0){
+      c.accessories.forEach(a=>{
+        const acc=DACC.find(d=>d.id===a.id);
+        if(!acc)return;
+        const ap=Math.round(acc.price*(a.qty||1)*c.qty*(1+margin/100));
+        html+=`<tr style="background:#f0f9ff">
+          <td></td>
+          <td style="padding-right:24px"><span style="color:#0369a1">↳ ${acc.name.split("|")[1]?.trim()||acc.name.split("|")[0].trim()} (${acc.code})</span></td>
+          <td colspan="2"></td>
+          <td style="text-align:center">${(a.qty||1)*c.qty}</td>
+          <td style="color:#0369a1">₪${Math.round(acc.price*(1+margin/100)).toLocaleString("he-IL")}</td>
+          <td style="color:#0369a1;font-weight:700">₪${ap.toLocaleString("he-IL")}</td>
+        </tr>`;
+      });
     }
     return html;
   }).join("");
@@ -2605,6 +2626,277 @@ function Payments({payments,setPayments,onClientClick}){
 // ═══════════════════════════════════════════════════════════════
 // KPI
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// P&L — PROFIT & LOSS + FIXED COSTS + BREAKEVEN + GOALS
+// ═══════════════════════════════════════════════════════════════
+function FinancePL({orders,payments,leads,measurements,kpi}){
+  const [fixedCosts,setFixedCosts]=useState(()=>load("wb:fixedcosts",[
+    {id:1,name:"Аренда | שכירות",amount:3000,category:"Аренда"},
+    {id:2,name:"Электроэнергия | חשמל",amount:500,category:"Коммунальные"},
+    {id:3,name:"Бухгалтер | רואה חשבון",amount:800,category:"Услуги"},
+    {id:4,name:"Телефон/Интернет | טלפון/אינטרנט",amount:300,category:"Коммунальные"},
+    {id:5,name:"Транспорт | רכב",amount:1200,category:"Транспорт"},
+  ]));
+  const [goals,setGoals]=useState(()=>load("wb:goals",{
+    leads:20,measures:10,orders:5,revenue:80000,margin:35
+  }));
+  const [newCost,setNewCost]=useState({name:"",amount:""});
+  const [editGoals,setEditGoals]=useState(false);
+  const [goalForm,setGoalForm]=useState({...goals});
+
+  useEffect(()=>{try{localStorage.setItem("wb:fixedcosts",JSON.stringify(fixedCosts));}catch{}},[fixedCosts]);
+  useEffect(()=>{try{localStorage.setItem("wb:goals",JSON.stringify(goals));}catch{}},[goals]);
+
+  // Financials
+  const totalRevenue=orders.reduce((s,o)=>s+o.total,0);
+  const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
+  const totalFixed=fixedCosts.reduce((s,c)=>s+Number(c.amount||0),0);
+  const avgMargin=orders.length>0?35:0; // estimated COGS ~60% of revenue
+  const grossProfit=Math.round(totalPaid*avgMargin/100);
+  const netProfit=grossProfit-totalFixed;
+  const breakevenRevenue=avgMargin>0?Math.round(totalFixed/(avgMargin/100)):0;
+  const breakevenOrders=orders.length>0&&totalRevenue>0?
+    Math.ceil(breakevenRevenue/(totalRevenue/orders.length)):0;
+  const breakevenPct=totalPaid>0?Math.min(Math.round(totalPaid/breakevenRevenue*100),100):0;
+
+  // Goals progress
+  const fLeads=leads.length;
+  const fMeasures=measurements.length;
+  const fOrders=orders.length;
+  const goalPct=(v,t)=>t>0?Math.min(Math.round(v/t*100),100):0;
+
+  const GoalBar=({label,current,target,color,fmt:f})=>{
+    const pct=goalPct(current,target);
+    return(<div style={{marginBottom:14}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:5,alignItems:"center"}}>
+        <span style={{fontSize:12,color:D.muted}}>{label}</span>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <span style={{fontSize:13,fontWeight:800,color:pct>=100?D.green:D.text}}>{f?f(current):current}</span>
+          <span style={{fontSize:10,color:D.muted}}>/ {f?f(target):target}</span>
+          <span style={{fontSize:11,fontWeight:700,color:pct>=100?D.green:pct>=70?D.yellow:D.red}}>{pct}%</span>
+        </div>
+      </div>
+      <div style={{background:D.surface,borderRadius:6,height:10,overflow:"hidden"}}>
+        <div style={{width:`${pct}%`,height:"100%",borderRadius:6,
+          background:pct>=100?`linear-gradient(90deg,${D.green},#34d399)`:
+            pct>=70?`linear-gradient(90deg,${D.yellow},#fbbf24)`:
+            `linear-gradient(90deg,${color},${color}88)`,
+          transition:"width 0.5s"}}/>
+      </div>
+    </div>);
+  };
+
+  // Breakeven gauge
+  const gaugeColor=breakevenPct>=100?D.green:breakevenPct>=70?D.yellow:D.red;
+
+  return(<div>
+    <div style={{marginBottom:22}}>
+      <div style={{fontSize:22,fontWeight:900,color:D.text}}>P&L · Финансы</div>
+      <div style={{fontSize:13,color:D.muted}}>Прибыль, затраты, точка безубыточности</div>
+    </div>
+
+    {/* Top summary */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
+      {[
+        ["Выручка (КП)",fmt(totalRevenue),D.text,"💼"],
+        ["Получено",fmt(totalPaid),D.green,"💰"],
+        ["Постоянные затраты",fmt(totalFixed),D.red,"🏢"],
+        ["Чистая прибыль",fmt(netProfit),netProfit>=0?D.green:D.red,"📊"],
+      ].map(([l,v,c,ico])=>(
+        <div key={l} style={{background:D.card,border:`1px solid ${c==="D.text"?D.border:c+"30"}`,
+          borderRadius:14,padding:"14px 16px",borderTop:`3px solid ${c}`}}>
+          <div style={{fontSize:11,color:D.muted,marginBottom:6}}>{ico} {l}</div>
+          <div style={{fontSize:22,fontWeight:900,color:c,letterSpacing:"-0.04em"}}>{v}</div>
+        </div>
+      ))}
+    </div>
+
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+
+      {/* Fixed Costs */}
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:14}}>
+          🏢 Постоянные затраты в месяц
+          <span style={{marginLeft:8,color:D.red,fontWeight:900}}>{fmt(totalFixed)}</span>
+        </div>
+        {fixedCosts.map(c=>(
+          <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,
+            padding:"6px 10px",background:D.surface,borderRadius:8}}>
+            <input value={c.name} onChange={e=>setFixedCosts(p=>p.map(x=>x.id===c.id?{...x,name:e.target.value}:x))}
+              style={{flex:1,background:"transparent",border:"none",color:D.text,fontSize:12,outline:"none"}}/>
+            <div style={{display:"flex",alignItems:"center",gap:4}}>
+              <span style={{fontSize:11,color:D.muted}}>₪</span>
+              <input type="number" value={c.amount}
+                onChange={e=>setFixedCosts(p=>p.map(x=>x.id===c.id?{...x,amount:+e.target.value||0}:x))}
+                style={{width:80,background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,
+                  padding:"3px 6px",color:D.red,fontSize:12,fontWeight:700,outline:"none",textAlign:"right"}}/>
+            </div>
+            <button onClick={()=>setFixedCosts(p=>p.filter(x=>x.id!==c.id))}
+              style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:2}}>
+              <Trash2 size={12}/>
+            </button>
+          </div>
+        ))}
+        {/* Add new */}
+        <div style={{display:"flex",gap:6,marginTop:10}}>
+          <input value={newCost.name} onChange={e=>setNewCost(p=>({...p,name:e.target.value}))}
+            placeholder="Название затраты..."
+            style={{flex:1,background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
+              padding:"6px 10px",color:D.text,fontSize:12,outline:"none"}}/>
+          <input type="number" value={newCost.amount} onChange={e=>setNewCost(p=>({...p,amount:e.target.value}))}
+            placeholder="₪"
+            style={{width:70,background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
+              padding:"6px 8px",color:D.text,fontSize:12,outline:"none",textAlign:"right"}}/>
+          <Btn onClick={()=>{
+            if(!newCost.name||!newCost.amount)return;
+            setFixedCosts(p=>[...p,{id:Date.now(),name:newCost.name,amount:+newCost.amount}]);
+            setNewCost({name:"",amount:""});
+          }} small><Plus size={12}/></Btn>
+        </div>
+      </div>
+
+      {/* Breakeven */}
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:16}}>
+          🎯 Точка безубыточности
+        </div>
+        {/* Gauge */}
+        <div style={{textAlign:"center",marginBottom:20}}>
+          <svg viewBox="0 0 200 110" style={{width:"100%",maxWidth:220}}>
+            {/* Background arc */}
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={D.surface} strokeWidth="16" strokeLinecap="round"/>
+            {/* Progress arc */}
+            {breakevenPct>0&&<path d="M 20 100 A 80 80 0 0 1 180 100" fill="none"
+              stroke={gaugeColor} strokeWidth="16" strokeLinecap="round"
+              strokeDasharray={`${breakevenPct*2.51} 251`}/>}
+            <text x="100" y="78" textAnchor="middle" style={{fontSize:"28px",fontWeight:900,fill:gaugeColor}}>{breakevenPct}%</text>
+            <text x="100" y="98" textAnchor="middle" style={{fontSize:"11px",fill:"#64748b"}}>выполнение плана</text>
+            <text x="20" y="112" textAnchor="middle" style={{fontSize:"9px",fill:"#94a3b8"}}>0</text>
+            <text x="180" y="112" textAnchor="middle" style={{fontSize:"9px",fill:"#94a3b8"}}>100%</text>
+          </svg>
+        </div>
+        {[
+          ["Нужно выручки",fmt(breakevenRevenue),D.yellow],
+          ["Получено",fmt(totalPaid),D.green],
+          ["До безубыточности",fmt(Math.max(0,breakevenRevenue-totalPaid)),netProfit>=0?D.green:D.red],
+          ["Мин. заказов/мес",breakevenOrders+" шт",D.accentLight],
+        ].map(([l,v,c])=>(
+          <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8,padding:"5px 0",borderBottom:`1px solid ${D.border}`}}>
+            <span style={{fontSize:11,color:D.muted}}>{l}</span>
+            <span style={{fontSize:13,fontWeight:700,color:c}}>{v}</span>
+          </div>
+        ))}
+        <div style={{fontSize:10,color:D.muted,marginTop:8,padding:"6px 10px",background:D.surface,borderRadius:6}}>
+          *Расчёт: постоянные ₪{totalFixed.toLocaleString()} / маржа {avgMargin}% = точка безубыточности
+        </div>
+      </div>
+    </div>
+
+    {/* Monthly Goals */}
+    <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>🎯 Цели на месяц</div>
+        <Btn onClick={()=>{setGoalForm({...goals});setEditGoals(!editGoals);}} variant="ghost" small>
+          {editGoals?"✓ Сохранить":"✏️ Изменить"}
+        </Btn>
+      </div>
+      {editGoals?(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:10}}>
+          {[["Лиды","leads"],["Замеры","measures"],["Заказы","orders"],["Выручка ₪","revenue"],["Маржа %","margin"]].map(([l,k])=>(
+            <div key={k}>
+              <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>{l}</div>
+              <input type="number" value={goalForm[k]}
+                onChange={e=>setGoalForm(p=>({...p,[k]:+e.target.value||0}))}
+                style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,
+                  padding:"7px 10px",color:D.text,fontSize:13,fontWeight:700,outline:"none",boxSizing:"border-box"}}/>
+            </div>
+          ))}
+        </div>
+      ):null}
+      {editGoals&&<Btn onClick={()=>{setGoals(goalForm);setEditGoals(false);}} small><Check size={12}/> Сохранить цели</Btn>}
+      {!editGoals&&(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+        <div>
+          <GoalBar label="👤 Лидов" current={fLeads} target={goals.leads} color={D.accentLight}/>
+          <GoalBar label="📐 Замеров" current={fMeasures} target={goals.measures} color={D.purple}/>
+          <GoalBar label="📦 Заказов" current={fOrders} target={goals.orders} color={D.yellow}/>
+        </div>
+        <div>
+          <GoalBar label="💰 Выручка" current={totalPaid} target={goals.revenue} color={D.green} fmt={fmt}/>
+          <div style={{marginTop:16,background:D.surface,borderRadius:10,padding:14}}>
+            <div style={{fontSize:11,color:D.muted,marginBottom:8}}>📊 Итог месяца</div>
+            {[
+              ["Выручка получена",fmt(totalPaid),D.green],
+              ["Постоянные затраты",fmt(totalFixed),D.red],
+              ["Валовая прибыль (~35%)",fmt(grossProfit),D.accentLight],
+              ["Чистая прибыль",fmt(netProfit),netProfit>=0?D.green:D.red],
+            ].map(([l,v,c])=>(
+              <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                <span style={{fontSize:11,color:D.muted}}>{l}</span>
+                <span style={{fontSize:12,fontWeight:800,color:c}}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>)}
+    </div>
+
+    {/* Follow-up alerts */}
+    {(()=>{
+      const today=new Date().toISOString().split("T")[0];
+      const overdue=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+      const todayFu=leads.filter(l=>l.followUp===today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+      if(overdue.length===0&&todayFu.length===0)return null;
+      return(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:14}}>
+          🔔 Follow-up напоминания
+        </div>
+        {overdue.length>0&&(<div style={{marginBottom:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:D.red,marginBottom:8}}>🔴 Просрочено ({overdue.length})</div>
+          {overdue.map(l=>(
+            <div key={l.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+              padding:"8px 12px",background:D.red+"10",border:`1px solid ${D.red}30`,borderRadius:8,marginBottom:6}}>
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:D.text}}>{l.name}</div>
+                <div style={{fontSize:10,color:D.muted}}>{l.status} · Должен был: {l.followUp}</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                {l.phone&&<a href={`tel:${l.phone}`} style={{background:D.green+"20",border:`1px solid ${D.green}40`,
+                  borderRadius:6,padding:"4px 8px",color:D.green,fontSize:11,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>
+                  <Phone size={11}/>Звонок
+                </a>}
+                {l.phone&&<a href={`https://wa.me/${l.phone.replace(/[^0-9]/g,"").replace(/^0/,"972")}`}
+                  target="_blank" rel="noreferrer"
+                  style={{background:"#25D36620",border:"1px solid #25D36640",borderRadius:6,
+                    padding:"4px 8px",color:"#25D366",fontSize:11,fontWeight:700,textDecoration:"none"}}>
+                  WA
+                </a>}
+              </div>
+            </div>
+          ))}
+        </div>)}
+        {todayFu.length>0&&(<div>
+          <div style={{fontSize:11,fontWeight:700,color:D.yellow,marginBottom:8}}>🟡 Сегодня ({todayFu.length})</div>
+          {todayFu.map(l=>(
+            <div key={l.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+              padding:"8px 12px",background:D.yellow+"10",border:`1px solid ${D.yellow}30`,borderRadius:8,marginBottom:6}}>
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:D.text}}>{l.name}</div>
+                <div style={{fontSize:10,color:D.muted}}>{l.status} · {l.phone}</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                {l.phone&&<a href={`tel:${l.phone}`} style={{background:D.green+"20",border:`1px solid ${D.green}40`,
+                  borderRadius:6,padding:"4px 8px",color:D.green,fontSize:11,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>
+                  <Phone size={11}/>Звонок
+                </a>}
+              </div>
+            </div>
+          ))}
+        </div>)}
+      </div>);
+    })()}
+  </div>);
+}
+
 function KPI({kpi,setKpi,leads,measurements,orders,payments}){
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({month:"Апр",leads:"",measures:"",orders:"",revenue:"",cogs:"",opex:"",adSpend:""});
@@ -3324,6 +3616,7 @@ const PAGES=[
   {id:"inventory",icon:Package,label:"Склад"},
   {id:"payments",icon:Wallet,label:"Касса"},
   {id:"quotes",icon:FileText,label:"КП История"},
+  {id:"finance",icon:TrendingUp,label:"P&L · Финансы"},
   {id:"kpi",icon:BarChart2,label:"KPI"},
   {id:"calc",icon:Calculator,label:"Калькулятор"},
 ];
@@ -3369,7 +3662,9 @@ export default function App(){
     pendInst,
     inventory.filter(i=>i.qty<i.minQty).length,
     payments.filter(p=>p.status==="Ожидается").length,
-    null,null,null
+    null,null,
+    overdueFollowUps.length,
+    null,null
   ];
 
   const SidebarContent=()=>(<>
@@ -3486,6 +3781,7 @@ export default function App(){
         {page==="inventory"&&<Inventory inventory={inventory} setInventory={setInventory}/>}
         {page==="payments"&&<Payments payments={payments} setPayments={setPayments} onClientClick={setClientCard}/>}
         {page==="quotes"&&<Quotes quotes={quotes} setQuotes={setQuotes} onClientClick={setClientCard}/>}
+        {page==="finance"&&<FinancePL orders={orders} payments={payments} leads={leads} measurements={measurements} kpi={kpi}/>}
         {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
         {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes} templates={templates} setTemplates={setTemplates}/>}
       </div>
