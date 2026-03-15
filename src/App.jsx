@@ -13,7 +13,8 @@ import {
 
 // ── STORAGE ──────────────────────────────────────────────────
 const KEYS = { leads:"wb:leads", orders:"wb:orders", inventory:"wb:inventory",
-  payments:"wb:payments", kpi:"wb:kpi", measurements:"wb:measurements", installations:"wb:installations" };
+  payments:"wb:payments", kpi:"wb:kpi", measurements:"wb:measurements",
+  installations:"wb:installations", quotes:"wb:quotes" };
 const load=(key,fb)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):fb;}catch{return fb;}};
 const save=(key,data)=>{try{localStorage.setItem(key,JSON.stringify(data));}catch{}};
 
@@ -1288,7 +1289,7 @@ function newItem(name,op,profile,w,h,qty){
     glass:"none",screen:"none",shutter:"none",install:1.10};
 }
 
-function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
+function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuotes}){
   const [tab,setTab]=useState("quick");
   const [items,setItems]=useState([newItem("Окно 1")]);
   const [client,setClient]=useState("");
@@ -1357,9 +1358,24 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
     const id="WB-"+String(orders.length+1).padStart(3,"0");
     setOrders(p=>[...p,{id,client,city:"",windows:items.reduce((s,i)=>s+i.qty,0),total:saleTotal,paid:0,
       status:"Ожидает материалов",progress:10,created:new Date().toISOString().split("T")[0],delivery:""}]);
-    // Auto-update lead: status → "Закрыт (выиграли)", value → actual price
     setLeads(p=>p.map(l=>l.name===client?{...l,status:"Закрыт (выиграли)",value:saleTotal}:l));
     alert(`Заказ ${id} создан! Лид обновлён.`);
+  };
+
+  const saveQuote=()=>{
+    if(!client)return alert("Укажи имя клиента");
+    if(!setQuotes)return;
+    const id="QT-"+Date.now().toString().slice(-6);
+    const rec={id,client,date:new Date().toISOString().split("T")[0],
+      total:saleTotal,margin,split,status:"Черновик",
+      items:calced.filter(c=>c.valid).map(c=>({
+        name:c.name,w:c.w,h:c.h,qty:c.qty,op:c.op,profile:c.profile,
+        glass:c.glass,screen:c.screen,shutter:c.shutter,
+        totalCost:c.totalCost,code:c.code
+      })),
+      extras:{...extras},notes:""};
+    setQuotes(p=>[rec,...p]);
+    alert(`КП ${id} сохранено в историю!`);
   };
 
   // Size validation for current item
@@ -1446,6 +1462,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
         <div style={{fontSize:13,color:D.muted}}>Dekel 2022 × 1.13 (цены 2026)</div></div>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={()=>printKP(client,calced,saleTotal,margin,split,extras)} variant="success"><Download size={13}/> PDF КП</Btn>
+        <Btn onClick={saveQuote} variant="teal"><FileText size={13}/> Сохранить КП</Btn>
         <Btn onClick={()=>exportCSV(["Позиция","Ш","В","м²","Тип","Профиль","Стекло","Кол","Код","Себест.","Цена"],
           calced.map(c=>[c.name,c.w,c.h,c.area.toFixed(2),c.op,c.profile,c.glass,c.qty,c.code,Math.round(c.totalCost),Math.round(c.totalCost*(1+margin/100))]),"кп.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
         <Btn onClick={addItem}><Plus size={13}/> Добавить окно</Btn>
@@ -2481,6 +2498,212 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
+// GLOBAL SEARCH
+// ═══════════════════════════════════════════════════════════════
+function GlobalSearch({q,leads,measurements,orders,payments,installations,onClientClick,onClose}){
+  const inp=q.trim().toLowerCase();
+  if(!inp)return null;
+
+  const results=[];
+  leads.forEach(l=>{
+    if(l.name.toLowerCase().includes(inp)||l.phone?.includes(inp)||l.city?.toLowerCase().includes(inp))
+      results.push({type:"lead",icon:"👤",title:l.name,sub:`${l.status} · ${l.phone||""} · ${l.city||""}`,
+        action:()=>{onClientClick(l.name);onClose();}});
+  });
+  measurements.forEach(m=>{
+    if(m.client.toLowerCase().includes(inp)||m.address?.toLowerCase().includes(inp)||m.phone?.includes(inp))
+      results.push({type:"measure",icon:"📐",title:m.client,sub:`Замер · ${m.date} · ${m.address||""}`,
+        action:()=>{onClientClick(m.client);onClose();}});
+  });
+  orders.forEach(o=>{
+    if(o.client.toLowerCase().includes(inp)||o.id?.toLowerCase().includes(inp))
+      results.push({type:"order",icon:"📦",title:o.client,sub:`${o.id} · ${o.status} · ${fmt(o.total)}`,
+        action:()=>{onClientClick(o.client);onClose();}});
+  });
+  payments.forEach(p=>{
+    if(p.client.toLowerCase().includes(inp)||p.order?.toLowerCase().includes(inp))
+      results.push({type:"payment",icon:"💰",title:p.client,sub:`${p.type} · ${fmt(p.amount)} · ${p.status}`,
+        action:()=>{onClientClick(p.client);onClose();}});
+  });
+  installations.forEach(i=>{
+    if(i.client.toLowerCase().includes(inp)||i.address?.toLowerCase().includes(inp))
+      results.push({type:"install",icon:"🔧",title:i.client,sub:`Монтаж · ${i.status} · ${i.scheduledDate||""}`,
+        action:()=>{onClientClick(i.client);onClose();}});
+  });
+
+  // Deduplicate by title+type
+  const seen=new Set();
+  const unique=results.filter(r=>{const k=r.type+r.title;if(seen.has(k))return false;seen.add(k);return true;});
+
+  return(
+    <div style={{position:"absolute",top:"100%",left:0,right:0,background:D.card,
+      border:`1px solid ${D.border}`,borderRadius:12,marginTop:4,zIndex:500,
+      boxShadow:"0 8px 32px #00000060",maxHeight:400,overflowY:"auto"}}>
+      {unique.length===0?(
+        <div style={{padding:"20px",textAlign:"center",color:D.muted,fontSize:12}}>Ничего не найдено</div>
+      ):(
+        <>
+          <div style={{padding:"8px 14px 4px",fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>
+            {unique.length} результатов
+          </div>
+          {unique.map((r,i)=>(
+            <button key={i} onClick={r.action}
+              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 14px",
+                background:"none",border:"none",cursor:"pointer",textAlign:"left",
+                borderTop:i>0?`1px solid ${D.border}`:"none"}}
+              onMouseEnter={e=>e.currentTarget.style.background=D.accent+"12"}
+              onMouseLeave={e=>e.currentTarget.style.background="none"}>
+              <span style={{fontSize:16}}>{r.icon}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:D.text}}>{r.title}</div>
+                <div style={{fontSize:10,color:D.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.sub}</div>
+              </div>
+              <ChevronRight size={12} color={D.muted}/>
+            </button>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// QUOTES — saved commercial proposals
+// ═══════════════════════════════════════════════════════════════
+function Quotes({quotes,setQuotes,onClientClick}){
+  const [search,setSearch]=useState("");
+  const [filter,setFilter]=useState("Все");
+  const filtered=quotes.filter(q=>{
+    const matchSearch=q.client.toLowerCase().includes(search.toLowerCase())||q.id?.includes(search);
+    const matchFilter=filter==="Все"||q.status===filter;
+    return matchSearch&&matchFilter;
+  });
+  const QSTATUS=["Черновик","Отправлено","Принято","Отклонено","Истекло"];
+  const QSC={Черновик:D.muted,Отправлено:D.yellow,Принято:D.green,Отклонено:D.red,Истекло:"#94a3b8"};
+
+  const updateStatus=(id,status)=>setQuotes(p=>p.map(q=>q.id===id?{...q,status}:q));
+  const deleteQuote=(id)=>setQuotes(p=>p.filter(q=>q.id!==id));
+
+  return(<div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+      <div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>КП — История</div>
+        <div style={{fontSize:13,color:D.muted}}>{quotes.length} предложений сохранено</div>
+      </div>
+      <Btn onClick={()=>exportCSV(
+        ["ID","Клиент","Дата","Сумма","Статус","Позиций"],
+        quotes.map(q=>[q.id,q.client,q.date,q.total,q.status,q.items?.length||0]),"КП_история.csv"
+      )} variant="ghost"><Download size={13}/> CSV</Btn>
+    </div>
+
+    {/* Stats */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
+      {[
+        ["Всего КП",quotes.length,D.accentLight],
+        ["Принято",quotes.filter(q=>q.status==="Принято").length,D.green],
+        ["Ожидают ответа",quotes.filter(q=>q.status==="Отправлено").length,D.yellow],
+        ["Сумма принятых",fmt(quotes.filter(q=>q.status==="Принято").reduce((s,q)=>s+q.total,0)),D.teal],
+      ].map(([l,v,c])=>(
+        <div key={l} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:12,padding:"12px 16px"}}>
+          <div style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:4}}>{l}</div>
+          <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
+        </div>
+      ))}
+    </div>
+
+    {/* Filters */}
+    <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+      <div style={{position:"relative",flex:1,minWidth:200}}>
+        <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по клиенту или ID..."
+          style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
+            padding:"7px 10px 7px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+      </div>
+      {["Все",...QSTATUS].map(s=>(
+        <button key={s} onClick={()=>setFilter(s)} style={{padding:"5px 12px",borderRadius:8,fontSize:11,fontWeight:700,
+          cursor:"pointer",border:`1px solid ${filter===s?(QSC[s]||D.accent):D.border}`,
+          background:filter===s?(QSC[s]||D.accent)+"20":"transparent",
+          color:filter===s?(QSC[s]||D.accentLight):D.muted}}>{s}</button>
+      ))}
+    </div>
+
+    {/* List */}
+    {filtered.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,
+      padding:40,textAlign:"center",color:D.muted}}>Нет сохранённых КП. Создай КП в Калькуляторе и нажми «Сохранить КП».</div>}
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      {filtered.map(q=>(
+        <div key={q.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:"16px 20px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+            <div style={{display:"flex",gap:12,alignItems:"center"}}>
+              <div style={{background:D.accent+"20",border:`1px solid ${D.accent}40`,borderRadius:8,
+                padding:"3px 10px",fontSize:11,fontWeight:800,color:D.accentLight}}>{q.id}</div>
+              <div>
+                <div onClick={()=>onClientClick&&onClientClick(q.client)}
+                  style={{fontSize:15,fontWeight:800,color:D.text,cursor:"pointer"}}>{q.client}</div>
+                <div style={{fontSize:11,color:D.muted}}>📅 {q.date} · {q.items?.length||0} позиций</div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <select value={q.status} onChange={e=>updateStatus(q.id,e.target.value)}
+                style={{background:(QSC[q.status]||D.muted)+"18",color:QSC[q.status]||D.muted,
+                  border:`1px solid ${(QSC[q.status]||D.muted)}40`,borderRadius:6,
+                  padding:"4px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                {QSTATUS.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+              </select>
+              <button onClick={()=>deleteQuote(q.id)}
+                style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:3}}>
+                <Trash2 size={13}/>
+              </button>
+            </div>
+          </div>
+
+          {/* Items preview */}
+          {q.items&&q.items.length>0&&(
+            <div style={{background:D.surface,borderRadius:8,overflow:"hidden",marginBottom:10}}>
+              {q.items.slice(0,3).map((it,i)=>(
+                <div key={i} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",
+                  padding:"5px 10px",gap:8,borderBottom:i<Math.min(q.items.length,3)-1?`1px solid ${D.border}`:"none",
+                  background:i%2===0?D.card+"60":D.surface}}>
+                  <div style={{fontSize:11,color:D.text,fontWeight:600}}>{it.name}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{it.w}×{it.h} см</div>
+                  <div style={{fontSize:10,color:D.muted}}>×{it.qty}</div>
+                  <div style={{fontSize:11,fontWeight:700,color:D.green,textAlign:"right"}}>
+                    {fmt(Math.round(it.totalCost*(1+(q.margin||40)/100)*it.qty))}
+                  </div>
+                </div>
+              ))}
+              {q.items.length>3&&<div style={{padding:"5px 10px",fontSize:10,color:D.muted}}>
+                + ещё {q.items.length-3} позиций
+              </div>}
+            </div>
+          )}
+
+          {/* Totals */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12}}>
+            {[
+              ["Итого КП",fmt(q.total),D.accentLight],
+              ["Маржа",q.margin+"%",D.green],
+              ["Аванс "+q.split+"%",fmt(Math.round(q.total*q.split/100)),D.yellow],
+              ["Остаток "+(100-q.split)+"%",fmt(q.total-Math.round(q.total*q.split/100)),D.muted],
+            ].map(([l,v,c])=>(
+              <div key={l} style={{textAlign:"center"}}>
+                <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:2}}>{l}</div>
+                <div style={{fontSize:14,fontWeight:800,color:c}}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Notes */}
+          {q.notes&&<div style={{marginTop:10,fontSize:11,color:D.muted,background:D.surface,borderRadius:6,padding:"6px 10px"}}>
+            📝 {q.notes}
+          </div>}
+        </div>
+      ))}
+    </div>
+  </div>);
+}
+
+// ═══════════════════════════════════════════════════════════════
 // CLIENT CARD — full profile side panel
 // ═══════════════════════════════════════════════════════════════
 function ClientCard({clientName,leads,measurements,orders,installations,payments,onClose,onOpenCalc,setPage}){
@@ -2650,6 +2873,7 @@ const PAGES=[
   {id:"installation",icon:Wrench,label:"Монтаж"},
   {id:"inventory",icon:Package,label:"Склад"},
   {id:"payments",icon:Wallet,label:"Касса"},
+  {id:"quotes",icon:FileText,label:"КП История"},
   {id:"kpi",icon:BarChart2,label:"KPI"},
   {id:"calc",icon:Calculator,label:"Калькулятор"},
 ];
@@ -2666,18 +2890,22 @@ export default function App(){
   const [calcPreload,setCalcPreload]=useState(null);
   const [clientCard,setClientCard]=useState(null); // client name to show card
   const [sidebarOpen,setSidebarOpen]=useState(false); // mobile sidebar
+  const [quotes,setQuotes]=useState(()=>load(KEYS.quotes,[]));
   const [installations,setInstallations]=useState(()=>load(KEYS.installations,II_INST));
 
   useEffect(()=>{setSaved(false);save(KEYS.leads,leads);setTimeout(()=>setSaved(true),600);},[leads]);
   useEffect(()=>{save(KEYS.measurements,measurements);},[measurements]);
   useEffect(()=>{save(KEYS.orders,orders);},[orders]);
   useEffect(()=>{save(KEYS.installations,installations);},[installations]);
+  useEffect(()=>{save(KEYS.quotes,quotes);},[quotes]);
   useEffect(()=>{save(KEYS.inventory,inventory);},[inventory]);
   useEffect(()=>{save(KEYS.payments,payments);},[payments]);
   useEffect(()=>{save(KEYS.kpi,kpi);},[kpi]);
 
   const openCalc=(measurement)=>{setCalcPreload(measurement);setPage("calc");setSidebarOpen(false);};
   const navTo=(pg)=>{setPage(pg);setSidebarOpen(false);};
+  const [globalSearch,setGlobalSearch]=useState("");
+  const [searchFocus,setSearchFocus]=useState(false);
 
   const today=new Date().toISOString().split("T")[0];
   const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
@@ -2772,6 +3000,32 @@ export default function App(){
       </div>
 
       <div style={{flex:1,padding:"18px 16px",overflowY:"auto"}}>
+        {/* GLOBAL SEARCH BAR */}
+        <div style={{position:"relative",marginBottom:18}}>
+          <Search size={13} style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:D.muted,pointerEvents:"none"}}/>
+          <input
+            value={globalSearch}
+            onChange={e=>setGlobalSearch(e.target.value)}
+            onFocus={()=>setSearchFocus(true)}
+            onBlur={()=>setTimeout(()=>setSearchFocus(false),200)}
+            placeholder="🔍 Глобальный поиск — клиент, телефон, заказ, адрес..."
+            style={{width:"100%",background:D.card,border:`1px solid ${searchFocus?D.accent:D.border}`,
+              borderRadius:10,padding:"9px 12px 9px 36px",color:D.text,fontSize:13,
+              outline:"none",boxSizing:"border-box",transition:"border-color 0.2s"}}/>
+          {globalSearch&&<button onClick={()=>setGlobalSearch("")}
+            style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
+              background:"none",border:"none",cursor:"pointer",color:D.muted,padding:2}}>
+            <X size={14}/>
+          </button>}
+          {(searchFocus||globalSearch)&&globalSearch.trim()&&(
+            <GlobalSearch
+              q={globalSearch} leads={leads} measurements={measurements} orders={orders}
+              payments={payments} installations={installations}
+              onClientClick={setClientCard}
+              onClose={()=>setGlobalSearch("")}
+            />
+          )}
+        </div>
         {page==="dashboard"&&<Dashboard leads={leads} orders={orders} payments={payments} inventory={inventory} kpi={kpi} measurements={measurements} installations={installations} onClientClick={setClientCard}/>}
         {page==="leads"&&<Leads leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
         {page==="measurements"&&<Measurements measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc} leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
@@ -2779,8 +3033,9 @@ export default function App(){
         {page==="installation"&&<Installation installations={installations} setInstallations={setInstallations} orders={orders} onClientClick={setClientCard}/>}
         {page==="inventory"&&<Inventory inventory={inventory} setInventory={setInventory}/>}
         {page==="payments"&&<Payments payments={payments} setPayments={setPayments} onClientClick={setClientCard}/>}
+        {page==="quotes"&&<Quotes quotes={quotes} setQuotes={setQuotes} onClientClick={setClientCard}/>}
         {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
-        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads}/>}
+        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes}/>}
       </div>
     </div>
 
