@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   LayoutDashboard, Users, ShoppingCart, Package, Wallet,
   Calculator, Plus, Search, X, Check, Clock, AlertTriangle,
   TrendingUp, Trash2, Download, BarChart2, DollarSign, Eye,
-  Ruler, Image, Paperclip, Zap, List, ArrowRight, Wrench, ClipboardCheck
+  Ruler, Image, Paperclip, Zap, List, ArrowRight, Wrench, ClipboardCheck,
+  Phone, MessageCircle, Menu, ChevronRight, History, FileText
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
@@ -649,7 +650,7 @@ const EMPTY_LEAD=()=>({name:"",phone:"",city:"",type:"Частный",jobType:"�
   windows:"1",source:"Google Ads",status:"Новый лид",priority:"normal",
   value:"",followUp:"",notes:""});
 
-function Leads({leads,setLeads}){
+function Leads({leads,setLeads,onClientClick}){
   const [view,setView]=useState("kanban");
   const [search,setSearch]=useState("");
   const [modal,setModal]=useState(false);
@@ -683,7 +684,8 @@ function Leads({leads,setLeads}){
       borderLeft:`3px solid ${SC[l.status]||D.muted}`}}
       onClick={()=>openEdit(l)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-        <div style={{fontSize:13,fontWeight:800,color:D.text,lineHeight:1.3,flex:1,paddingRight:4}}>{l.name}</div>
+        <div onClick={()=>onClientClick&&onClientClick(l.name)} style={{fontSize:13,fontWeight:800,color:D.text,lineHeight:1.3,flex:1,paddingRight:4,cursor:"pointer"}}
+          title="Открыть карточку клиента">{l.name}</div>
         <span style={{fontSize:9,color:pColor(l.priority),fontWeight:800,whiteSpace:"nowrap"}}>{pLabel(l.priority)}</span>
       </div>
       {l.jobType&&<div style={{display:"inline-block",background:D.surface,border:`1px solid ${D.border}`,
@@ -777,10 +779,12 @@ function Leads({leads,setLeads}){
             background:overdueFollowUp(l)?D.red+"08":i%2===0?D.card:D.surface,
             borderTop:`1px solid ${D.border}`,borderLeft:`3px solid ${SC[l.status]||D.muted}`}}>
             <div>
-              <div style={{fontSize:13,fontWeight:700,color:D.text}}>{l.name}</div>
+              <div onClick={()=>onClientClick&&onClientClick(l.name)} style={{fontSize:13,fontWeight:700,color:D.text,cursor:"pointer"}}>{l.name}</div>
               <div style={{fontSize:10,color:D.muted}}>{l.jobType||l.type} · {l.source} · {l.date}</div>
             </div>
-            <div style={{fontSize:12,color:D.muted}}>{l.phone}</div>
+            <a href={`tel:${l.phone}`} style={{fontSize:12,color:D.green,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:3}}>
+              <Phone size={10}/>{l.phone}
+            </a>
             <div style={{fontSize:12,color:D.muted}}>{l.city}</div>
             <div style={{fontSize:11,fontWeight:700,color:pColor(l.priority)}}>{pLabel(l.priority)}</div>
             <select value={l.status} onChange={e=>setLeads(p=>p.map(x=>x.id===l.id?{...x,status:e.target.value}:x))}
@@ -850,7 +854,7 @@ function Leads({leads,setLeads}){
 // Lead status pipeline helper
 const MSTATUS_TO_LSTATUS={"Запланирован":"Замер назначен","Выполнен":"КП отправлено","Утверждён":"Follow-up"};
 
-function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads}){
+function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,onClientClick}){
   const [modal,setModal]=useState(false);
   const [viewM,setViewM]=useState(null);
   const [editId,setEditId]=useState(null);
@@ -912,7 +916,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads}){
             <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
               <div style={{background:D.teal+"20",borderRadius:10,padding:10,marginTop:2}}><Ruler size={16} color={D.teal}/></div>
               <div>
-                <div style={{fontSize:15,fontWeight:800,color:D.text}}>{m.client}</div>
+                <div onClick={()=>onClientClick&&onClientClick(m.client)} style={{fontSize:15,fontWeight:800,color:D.text,cursor:"pointer"}}>{m.client}</div>
                 <div style={{fontSize:11,color:D.muted,marginTop:2}}>{m.address}</div>
                 <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
                   <span style={{fontSize:11,color:D.muted}}>📅 {m.date}</span>
@@ -1877,7 +1881,7 @@ function printAct(inst,order){
 // ═══════════════════════════════════════════════════════════════
 // INSTALLATION MODULE
 // ═══════════════════════════════════════════════════════════════
-function Installation({installations,setInstallations,orders}){
+function Installation({installations,setInstallations,orders,onClientClick}){
   const [modal,setModal]=useState(false);
   const [viewId,setViewId]=useState(null);
   const ef=()=>({client:"",phone:"",address:"",orderId:"",specialist:"",
@@ -2069,7 +2073,7 @@ function Installation({installations,setInstallations,orders}){
 // ═══════════════════════════════════════════════════════════════
 // ORDERS (with P&L)
 // ═══════════════════════════════════════════════════════════════
-function Orders({orders,setOrders,setPayments}){
+function Orders({orders,setOrders,setPayments,onClientClick}){
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({client:"",city:"",windows:"1",total:"",delivery:""});
   const [plModal,setPlModal]=useState(null); // orderId with P&L open
@@ -2116,7 +2120,7 @@ function Orders({orders,setOrders,setPayments}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
             <div style={{display:"flex",gap:12,alignItems:"center"}}>
               <div style={{background:D.accent+"20",border:`1px solid ${D.accent}40`,borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:800,color:D.accentLight}}>{o.id}</div>
-              <div><div style={{fontSize:15,fontWeight:800,color:D.text}}>{o.client}</div>
+              <div><div onClick={()=>onClientClick&&onClientClick(o.client)} style={{fontSize:15,fontWeight:800,color:D.text,cursor:"pointer"}}>{o.client}</div>
                 <div style={{fontSize:11,color:D.muted}}>{o.city} · {o.windows} окон · Сдача: {o.delivery}</div></div>
             </div>
             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
@@ -2245,7 +2249,7 @@ function Inventory({inventory,setInventory}){
 // ═══════════════════════════════════════════════════════════════
 // PAYMENTS
 // ═══════════════════════════════════════════════════════════════
-function Payments({payments,setPayments}){
+function Payments({payments,setPayments,onClientClick}){
   const rcv=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
   const pnd=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
   return(<div>
@@ -2476,6 +2480,168 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
 // ═══════════════════════════════════════════════════════════════
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// CLIENT CARD — full profile side panel
+// ═══════════════════════════════════════════════════════════════
+function ClientCard({clientName,leads,measurements,orders,installations,payments,onClose,onOpenCalc,setPage}){
+  const lead=leads.find(l=>l.name===clientName);
+  const cMeasures=measurements.filter(m=>m.client===clientName);
+  const cOrders=orders.filter(o=>o.client===clientName);
+  const cInst=installations.filter(i=>i.client===clientName);
+  const cPay=payments.filter(p=>p.client===clientName);
+  const paid=cPay.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
+  const pending=cPay.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const phone=lead?.phone||cMeasures[0]?.phone||"";
+  const waNum=phone.replace(/[^0-9]/g,"").replace(/^0/,"972");
+
+  const Section=({icon:Icon,title,children,color=D.accentLight})=>(
+    <div style={{marginBottom:16}}>
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,paddingBottom:6,borderBottom:`1px solid ${D.border}`}}>
+        <Icon size={12} color={color}/>
+        <span style={{fontSize:10,fontWeight:800,color,textTransform:"uppercase",letterSpacing:"0.05em"}}>{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+
+  return(
+    <div style={{position:"fixed",top:0,right:0,bottom:0,zIndex:1000,display:"flex"}}>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{position:"fixed",inset:0,background:"#00000060",zIndex:999}}/>
+      {/* Panel */}
+      <div style={{position:"relative",zIndex:1000,width:380,maxWidth:"100vw",background:D.surface,
+        borderLeft:`1px solid ${D.border}`,overflowY:"auto",display:"flex",flexDirection:"column",
+        boxShadow:"-8px 0 32px #00000040"}}>
+        {/* Header */}
+        <div style={{padding:"20px 20px 16px",background:`linear-gradient(135deg,${D.accent}18,${D.surface})`,
+          borderBottom:`1px solid ${D.border}`,position:"sticky",top:0,zIndex:10,backdropFilter:"blur(8px)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div>
+              <div style={{fontSize:20,fontWeight:900,color:D.text}}>{clientName}</div>
+              {lead&&<div style={{fontSize:11,color:D.muted,marginTop:2}}>{lead.type} · {lead.city||"—"} · {lead.source}</div>}
+              {lead&&<div style={{display:"inline-block",marginTop:6,background:(SC[lead.status]||D.muted)+"20",
+                color:SC[lead.status]||D.muted,border:`1px solid ${(SC[lead.status]||D.muted)}40`,
+                borderRadius:12,padding:"2px 10px",fontSize:10,fontWeight:700}}>{lead.status}</div>}
+            </div>
+            <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}><X size={18}/></button>
+          </div>
+          {/* Action buttons */}
+          {phone&&(<div style={{display:"flex",gap:8,marginTop:14}}>
+            <a href={`tel:${phone}`} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",
+              gap:6,background:D.green+"20",border:`1px solid ${D.green}40`,borderRadius:8,
+              padding:"9px",color:D.green,fontWeight:700,fontSize:12,textDecoration:"none"}}>
+              <Phone size={14}/> {phone}
+            </a>
+            <a href={`https://wa.me/${waNum}`} target="_blank" rel="noreferrer"
+              style={{display:"flex",alignItems:"center",justifyContent:"center",gap:5,
+                background:"#25D36620",border:"1px solid #25D36640",borderRadius:8,
+                padding:"9px 14px",color:"#25D366",fontWeight:700,fontSize:12,textDecoration:"none"}}>
+              <MessageCircle size={14}/> WA
+            </a>
+          </div>)}
+        </div>
+
+        <div style={{padding:"16px 20px",flex:1}}>
+          {/* Financial summary */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+            {[
+              ["КП сумма",fmt(cOrders.reduce((s,o)=>s+o.total,0)),D.text],
+              ["Оплачено",fmt(paid),D.green],
+              ["Ожидается",fmt(pending),D.yellow],
+            ].map(([l,v,c])=>(
+              <div key={l} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                <div style={{fontSize:8,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{l}</div>
+                <div style={{fontSize:14,fontWeight:800,color:c}}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Measurements */}
+          <Section icon={Ruler} title={`Замеры (${cMeasures.length})`} color={D.purple}>
+            {cMeasures.length===0&&<div style={{fontSize:11,color:D.muted}}>Нет замеров</div>}
+            {cMeasures.map(m=>(
+              <div key={m.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
+                padding:"8px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:D.text}}>📅 {m.date} · {m.address||"—"}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{m.openings.length} проёмов · {m.mode==="По чертежу"?"📄 По чертежу":"🚗 Выезд"}</div>
+                </div>
+                <div style={{display:"flex",gap:5,alignItems:"center"}}>
+                  <Badge status={m.status}/>
+                  <button onClick={()=>{onOpenCalc(m);onClose();}} style={{background:D.yellow+"20",border:`1px solid ${D.yellow}40`,
+                    borderRadius:6,padding:"3px 7px",color:D.yellow,fontSize:9,fontWeight:700,cursor:"pointer"}}>
+                    КП →
+                  </button>
+                </div>
+              </div>
+            ))}
+          </Section>
+
+          {/* Orders */}
+          <Section icon={ShoppingCart} title={`Заказы (${cOrders.length})`} color={D.accentLight}>
+            {cOrders.length===0&&<div style={{fontSize:11,color:D.muted}}>Нет заказов</div>}
+            {cOrders.map(o=>(
+              <div key={o.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 10px",marginBottom:6}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <span style={{fontSize:11,fontWeight:800,color:D.accentLight}}>{o.id}</span>
+                  <Badge status={o.status}/>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between"}}>
+                  <span style={{fontSize:11,color:D.muted}}>{o.windows} окон · {o.created}</span>
+                  <span style={{fontSize:12,fontWeight:700,color:D.green}}>{fmt(o.paid)} / {fmt(o.total)}</span>
+                </div>
+                <PBar value={o.progress} color={o.progress===100?D.green:D.accent}/>
+              </div>
+            ))}
+          </Section>
+
+          {/* Installation */}
+          {cInst.length>0&&(<Section icon={Wrench} title={`Монтаж (${cInst.length})`} color={D.teal}>
+            {cInst.map(i=>(
+              <div key={i.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 10px",marginBottom:6,
+                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:D.text}}>📅 {i.scheduledDate}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{i.specialist||"—"} · {i.checklist.filter(Boolean).length}/{i.checklist.length} шагов</div>
+                </div>
+                <Badge status={i.status}/>
+              </div>
+            ))}
+          </Section>)}
+
+          {/* Payments */}
+          {cPay.length>0&&(<Section icon={Wallet} title={`Платежи (${cPay.length})`} color={D.green}>
+            {cPay.map(p=>(
+              <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                padding:"6px 0",borderBottom:`1px solid ${D.border}`}}>
+                <div>
+                  <div style={{fontSize:11,color:D.text}}>{p.type} · {p.date}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{p.method}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:13,fontWeight:800,color:p.status==="Получен"?D.green:D.yellow}}>{fmt(p.amount)}</div>
+                  <Badge status={p.status}/>
+                </div>
+              </div>
+            ))}
+          </Section>)}
+
+          {/* Notes */}
+          {lead?.notes&&(<Section icon={FileText} title="Заметки" color={D.muted}>
+            <div style={{fontSize:12,color:D.text,background:D.card,borderRadius:8,padding:10}}>{lead.notes}</div>
+          </Section>)}
+
+          {/* Follow-up */}
+          {lead?.followUp&&(<div style={{background:D.teal+"15",border:`1px solid ${D.teal}30`,borderRadius:8,padding:"8px 12px"}}>
+            <div style={{fontSize:10,fontWeight:700,color:D.teal,textTransform:"uppercase"}}>Follow-up</div>
+            <div style={{fontSize:13,fontWeight:800,color:D.text,marginTop:2}}>📅 {lead.followUp}</div>
+          </div>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const PAGES=[
   {id:"dashboard",icon:LayoutDashboard,label:"Dashboard"},
   {id:"leads",icon:Users,label:"Лиды / CRM"},
@@ -2498,7 +2664,8 @@ export default function App(){
   const [kpi,setKpi]=useState(()=>load(KEYS.kpi,IK));
   const [saved,setSaved]=useState(true);
   const [calcPreload,setCalcPreload]=useState(null);
-
+  const [clientCard,setClientCard]=useState(null); // client name to show card
+  const [sidebarOpen,setSidebarOpen]=useState(false); // mobile sidebar
   const [installations,setInstallations]=useState(()=>load(KEYS.installations,II_INST));
 
   useEffect(()=>{setSaved(false);save(KEYS.leads,leads);setTimeout(()=>setSaved(true),600);},[leads]);
@@ -2509,7 +2676,8 @@ export default function App(){
   useEffect(()=>{save(KEYS.payments,payments);},[payments]);
   useEffect(()=>{save(KEYS.kpi,kpi);},[kpi]);
 
-  const openCalc=(measurement)=>{setCalcPreload(measurement);setPage("calc");};
+  const openCalc=(measurement)=>{setCalcPreload(measurement);setPage("calc");setSidebarOpen(false);};
+  const navTo=(pg)=>{setPage(pg);setSidebarOpen(false);};
 
   const today=new Date().toISOString().split("T")[0];
   const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
@@ -2524,59 +2692,118 @@ export default function App(){
     null,null,null
   ];
 
-  return(<div style={{display:"flex",height:"100vh",background:D.bg,fontFamily:"'Segoe UI',Arial,sans-serif",overflow:"hidden"}}>
-    {/* SIDEBAR */}
-    <div style={{width:210,background:D.surface,borderRight:`1px solid ${D.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
-      <div style={{padding:"16px 14px 12px",borderBottom:`1px solid ${D.border}`}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{width:34,height:34,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🏭</div>
-          <div>
-            <div style={{fontSize:13,fontWeight:900,color:D.text}}>WindowOS</div>
-            <div style={{display:"flex",alignItems:"center",gap:4,marginTop:1}}>
-              <div style={{width:6,height:6,borderRadius:"50%",background:saved?D.green:D.yellow}}/>
-              <span style={{fontSize:9,color:D.muted,fontWeight:600}}>{saved?"Сохранено":"Сохраняю..."}</span>
-            </div>
+  const SidebarContent=()=>(<>
+    <div style={{padding:"16px 14px 12px",borderBottom:`1px solid ${D.border}`}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <div style={{width:34,height:34,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🏭</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:900,color:D.text}}>WindowOS</div>
+          <div style={{display:"flex",alignItems:"center",gap:4,marginTop:1}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:saved?D.green:D.yellow}}/>
+            <span style={{fontSize:9,color:D.muted,fontWeight:600}}>{saved?"Сохранено":"Сохраняю..."}</span>
           </div>
         </div>
+        <button onClick={()=>setSidebarOpen(false)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4,display:window.innerWidth<768?"flex":"none",alignItems:"center"}}>
+          <X size={16}/>
+        </button>
       </div>
-      <nav style={{flex:1,padding:"8px 6px"}}>
-        {PAGES.map(({id,icon:Icon,label},pi)=>{
-          const active=page===id;const badge=alerts[pi];
-          return(<button key={id} onClick={()=>setPage(id)} style={{display:"flex",alignItems:"center",gap:9,
-            width:"100%",padding:"8px 10px",borderRadius:9,marginBottom:2,cursor:"pointer",border:"none",
-            background:active?"linear-gradient(135deg,#2563EB18,#1D4ED808)":"transparent",
-            borderLeft:active?`3px solid ${D.accent}`:"3px solid transparent",color:active?D.accentLight:D.muted}}>
-            <Icon size={14}/>
-            <span style={{fontSize:12,fontWeight:active?700:500,flex:1}}>{label}</span>
-            {badge>0&&<span style={{background:D.yellow+"30",color:D.yellow,fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 5px"}}>{badge}</span>}
-          </button>);
-        })}
-      </nav>
-      <div style={{padding:"8px",borderTop:`1px solid ${D.border}`}}>
-        {[
-          leads.filter(l=>l.status==="Новый лид").length>0&&[`👤 ${leads.filter(l=>l.status==="Новый лид").length} новых лидов`,"leads"],
-          overdueFollowUps.length>0&&[`🔴 ${overdueFollowUps.length} просроченных follow-up`,"leads"],
-          pendM>0&&[`📐 ${pendM} замеров ждут`,"measurements"],
-          pendInst>0&&[`🔧 ${pendInst} монтажей активно`,"installation"],
-          inventory.filter(i=>i.qty<i.minQty).length>0&&[`📦 нужна закупка`,"inventory"],
-          payments.filter(p=>p.status==="Ожидается").length>0&&[`💰 ожидаются платежи`,"payments"],
-        ].filter(Boolean).map(([a,pg],i)=>(<button key={i} onClick={()=>setPage(pg)} style={{display:"block",width:"100%",textAlign:"left",background:D.yellow+"12",border:`1px solid ${D.yellow}25`,borderRadius:7,padding:"5px 8px",marginBottom:3,fontSize:9,fontWeight:700,color:D.yellow,cursor:"pointer",transition:"background 0.15s"}}
-          onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
-          onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
-      </div>
-      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.9 🇮🇱</div>
     </div>
+    <nav style={{flex:1,padding:"8px 6px",overflowY:"auto"}}>
+      {PAGES.map(({id,icon:Icon,label},pi)=>{
+        const active=page===id;const badge=alerts[pi];
+        return(<button key={id} onClick={()=>navTo(id)} style={{display:"flex",alignItems:"center",gap:9,
+          width:"100%",padding:"9px 10px",borderRadius:9,marginBottom:2,cursor:"pointer",border:"none",
+          background:active?"linear-gradient(135deg,#2563EB18,#1D4ED808)":"transparent",
+          borderLeft:active?`3px solid ${D.accent}`:"3px solid transparent",color:active?D.accentLight:D.muted}}>
+          <Icon size={14}/>
+          <span style={{fontSize:12,fontWeight:active?700:500,flex:1}}>{label}</span>
+          {badge>0&&<span style={{background:D.yellow+"30",color:D.yellow,fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 5px"}}>{badge}</span>}
+        </button>);
+      })}
+    </nav>
+    <div style={{padding:"8px",borderTop:`1px solid ${D.border}`}}>
+      {[
+        leads.filter(l=>l.status==="Новый лид").length>0&&[`👤 ${leads.filter(l=>l.status==="Новый лид").length} новых лидов`,"leads"],
+        overdueFollowUps.length>0&&[`🔴 ${overdueFollowUps.length} просрочен follow-up`,"leads"],
+        pendM>0&&[`📐 ${pendM} замеров ждут`,"measurements"],
+        pendInst>0&&[`🔧 ${pendInst} монтажей активно`,"installation"],
+        inventory.filter(i=>i.qty<i.minQty).length>0&&[`📦 нужна закупка`,"inventory"],
+        payments.filter(p=>p.status==="Ожидается").length>0&&[`💰 ожидаются платежи`,"payments"],
+      ].filter(Boolean).map(([a,pg],i)=>(<button key={i} onClick={()=>navTo(pg)}
+        style={{display:"block",width:"100%",textAlign:"left",background:D.yellow+"12",border:`1px solid ${D.yellow}25`,
+          borderRadius:7,padding:"5px 8px",marginBottom:3,fontSize:9,fontWeight:700,color:D.yellow,cursor:"pointer"}}
+        onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
+        onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
+    </div>
+    <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v4.0 🇮🇱</div>
+  </>);
+
+  return(<div style={{display:"flex",height:"100vh",background:D.bg,fontFamily:"'Segoe UI',Arial,sans-serif",overflow:"hidden",position:"relative"}}>
+    {/* DESKTOP SIDEBAR */}
+    <div className="desktop-sidebar" style={{width:210,background:D.surface,borderRight:`1px solid ${D.border}`,display:"flex",flexDirection:"column",flexShrink:0,
+      '@media (max-width: 768px)':{display:"none"}}}>
+      <SidebarContent/>
+    </div>
+
+    {/* MOBILE SIDEBAR OVERLAY */}
+    {sidebarOpen&&(<>
+      <div onClick={()=>setSidebarOpen(false)} style={{position:"fixed",inset:0,background:"#00000070",zIndex:900}}/>
+      <div style={{position:"fixed",left:0,top:0,bottom:0,width:240,background:D.surface,
+        borderRight:`1px solid ${D.border}`,display:"flex",flexDirection:"column",zIndex:901,
+        boxShadow:"4px 0 24px #00000050"}}>
+        <SidebarContent/>
+      </div>
+    </>)}
+
     {/* MAIN */}
-    <div style={{flex:1,overflowY:"auto",padding:"22px 24px"}}>
-      {page==="dashboard"&&<Dashboard leads={leads} orders={orders} payments={payments} inventory={inventory} kpi={kpi} measurements={measurements} installations={installations}/>}
-      {page==="leads"&&<Leads leads={leads} setLeads={setLeads}/>}
-      {page==="measurements"&&<Measurements measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc} leads={leads} setLeads={setLeads}/>}
-      {page==="orders"&&<Orders orders={orders} setOrders={setOrders} setPayments={setPayments}/>}
-      {page==="installation"&&<Installation installations={installations} setInstallations={setInstallations} orders={orders}/>}
-      {page==="inventory"&&<Inventory inventory={inventory} setInventory={setInventory}/>}
-      {page==="payments"&&<Payments payments={payments} setPayments={setPayments}/>}
-      {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
-      {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads}/>}
+    <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",minWidth:0}}>
+      {/* MOBILE TOP BAR */}
+      <div style={{display:"none",padding:"10px 14px",background:D.surface,borderBottom:`1px solid ${D.border}`,
+        alignItems:"center",gap:10,position:"sticky",top:0,zIndex:100,
+        // Inline style can't do media queries, use a class approach - we'll show it always on small viewport
+        // We handle this with JS-based isMobile
+        }} id="mobile-topbar">
+        <button onClick={()=>setSidebarOpen(true)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}>
+          <Menu size={20}/>
+        </button>
+        <div style={{fontSize:14,fontWeight:900,color:D.text}}>WindowOS</div>
+        <div style={{fontSize:11,color:D.muted,flex:1}}>{PAGES.find(p=>p.id===page)?.label||""}</div>
+        <div style={{width:8,height:8,borderRadius:"50%",background:saved?D.green:D.yellow}}/>
+      </div>
+
+      <div style={{flex:1,padding:"18px 16px",overflowY:"auto"}}>
+        {page==="dashboard"&&<Dashboard leads={leads} orders={orders} payments={payments} inventory={inventory} kpi={kpi} measurements={measurements} installations={installations} onClientClick={setClientCard}/>}
+        {page==="leads"&&<Leads leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
+        {page==="measurements"&&<Measurements measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc} leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
+        {page==="orders"&&<Orders orders={orders} setOrders={setOrders} setPayments={setPayments} onClientClick={setClientCard}/>}
+        {page==="installation"&&<Installation installations={installations} setInstallations={setInstallations} orders={orders} onClientClick={setClientCard}/>}
+        {page==="inventory"&&<Inventory inventory={inventory} setInventory={setInventory}/>}
+        {page==="payments"&&<Payments payments={payments} setPayments={setPayments} onClientClick={setClientCard}/>}
+        {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
+        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads}/>}
+      </div>
     </div>
+
+    {/* CLIENT CARD PANEL */}
+    {clientCard&&(<ClientCard
+      clientName={clientCard}
+      leads={leads} measurements={measurements} orders={orders}
+      installations={installations} payments={payments}
+      onClose={()=>setClientCard(null)}
+      onOpenCalc={openCalc}
+      setPage={navTo}
+    />)}
+
+    {/* Mobile sidebar toggle - always visible on small screens via inline script */}
+    <style>{`
+      @media (max-width: 768px) {
+        .desktop-sidebar { display: none !important; }
+        #mobile-topbar { display: flex !important; }
+        body { font-size: 14px; }
+      }
+      @media (min-width: 769px) {
+        #mobile-topbar { display: none !important; }
+      }
+    `}</style>
   </div>);
 }
