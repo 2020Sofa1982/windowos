@@ -106,15 +106,140 @@ const shutterM2=(opt,mf)=>opt.dekelM2*(mf??opt.marketFactor);
 
 // Op types UI
 const OPS=[
-  {id:"sliding_2_track",name:"Хаза 2-трек",profiles:["klil_7000","klil_9000","klil_1700","klil_7300"]},
-  {id:"sliding_multi_sash",name:"Хаза 3-4 трека",profiles:["klil_7000","klil_9000","klil_7300"]},
-  {id:"pocket_sliding",name:"Карман (כיס)",profiles:["klil_7000","klil_7300"]},
-  {id:"casement_or_tilt_turn",name:"Поворотно-откидное",profiles:["klil_4500","klil_5500","klil_4300"]},
-  {id:"tilt_or_fixed",name:"Kipp / Глухое",profiles:["klil_4500","klil_5500","klil_4300","klil_4350"]},
+  {id:"sliding_2_track",   name:"Хаза 2-трек",          profiles:["klil_7000","klil_9000","klil_1700","klil_7300"]},
+  {id:"sliding_multi_sash",name:"Хаза 3-4 трека",        profiles:["klil_7000","klil_9000","klil_7300"]},
+  {id:"pocket_sliding",    name:"Карман (כיס)",           profiles:["klil_7000","klil_7300"]},
+  {id:"casement_or_tilt_turn",name:"Поворотно-откидное", profiles:["klil_4500","klil_5500","klil_4300"]},
+  {id:"tilt_or_fixed",     name:"Kipp / Глухое",          profiles:["klil_4500","klil_5500","klil_4300","klil_4350"]},
+  {id:"lift_slide_2600",   name:"Lift & Slide 2600 🏆",   profiles:["klil_2600_2t","klil_2600_3t","klil_2600_3s"]},
 ];
-const PNAMES={klil_7000:"Клиль 7000",klil_9000:"Клиль 9000 (термо)",klil_1700:"Клиль 1700 (эконом)",
+const PNAMES={
+  klil_7000:"Клиль 7000",klil_9000:"Клиль 9000 (термо)",klil_1700:"Клиль 1700 (эконом)",
   klil_7300:"Клиль 7300 (Slim)",klil_4500:"Клиль 4500",klil_5500:"Клиль 5500 (премиум)",
-  klil_4300:"Клиль 4300",klil_4350:"Клиль 4350"};
+  klil_4300:"Клиль 4300",klil_4350:"Клиль 4350",
+  klil_2600_2t:"2600 Bauhaus 2-крыла",klil_2600_3t:"2600 Bauhaus 3-крыла",klil_2600_3s:"2600 Bauhaus 3-трека",
+};
+// Profile key dimensions mm
+const PDIMS={
+  klil_7000:{frame:70,sash:70,glass:5,series:"7000"},
+  klil_9000:{frame:90,sash:90,glass:44,series:"9000 термо"},
+  klil_1700:{frame:60,sash:60,glass:5,series:"1700 эконом"},
+  klil_7300:{frame:55,sash:55,glass:5,series:"7300 Slim"},
+  klil_4500:{frame:70,sash:80,glass:5,series:"4500"},
+  klil_5500:{frame:70,sash:90,glass:44,series:"5500 Premium"},
+  klil_4300:{frame:65,sash:70,glass:5,series:"4300"},
+  klil_4350:{frame:65,sash:65,glass:5,series:"4350 Fixed"},
+  klil_2600_2t:{frame:57,sash:77,glass:5,series:"2600 Lift&Slide",maxW:3270,maxH:2400,maxKg:250},
+  klil_2600_3t:{frame:57,sash:77,glass:5,series:"2600 Lift&Slide",maxW:4300,maxH:2400,maxKg:400},
+  klil_2600_3s:{frame:57,sash:77,glass:5,series:"2600 Lift&Slide",maxW:4300,maxH:2400,maxKg:400},
+};
+// Profile weights g/m.p. from Klil 2600 catalog
+const PWEIGHTS={
+  klil_7000:350,klil_9000:420,klil_1700:280,klil_7300:310,
+  klil_4500:380,klil_5500:440,klil_4300:360,klil_4350:320,
+  klil_2600_2t:878,klil_2600_3t:1555,klil_2600_3s:1253,
+};
+// SVG cross-section drawings for each profile family
+const PSVG={
+  klil_7000:(sel)=>`<svg viewBox="0 0 70 60" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="2" width="66" height="56" rx="2" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="8" y="8" width="24" height="44" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="38" y="8" width="24" height="44" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="10" y="10" width="20" height="40" fill="${sel?"#3B82F620":"#1E2D4530"}"/>
+    <rect x="40" y="10" width="20" height="40" fill="${sel?"#3B82F620":"#1E2D4530"}"/>
+    <line x1="35" y1="2" x2="35" y2="58" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1" stroke-dasharray="3,2"/>
+    <text x="35" y="72" text-anchor="middle" font-size="7" fill="#4A607A" font-family="Arial">7000</text>
+  </svg>`,
+  klil_9000:(sel)=>`<svg viewBox="0 0 70 60" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="2" width="66" height="56" rx="2" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="2"/>
+    <rect x="6" y="6" width="26" height="48" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="2"/>
+    <rect x="38" y="6" width="26" height="48" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="2"/>
+    <rect x="9" y="9" width="20" height="42" fill="${sel?"#3B82F630":"#1E2D4530"}"/>
+    <rect x="41" y="9" width="20" height="42" fill="${sel?"#3B82F630":"#1E2D4530"}"/>
+    <rect x="9" y="9" width="20" height="4" fill="${sel?"#60A5FA50":"#2563EB30"}"/>
+    <rect x="41" y="9" width="20" height="4" fill="${sel?"#60A5FA50":"#2563EB30"}"/>
+    <text x="35" y="72" text-anchor="middle" font-size="7" fill="#4A607A" font-family="Arial">9000 термо</text>
+  </svg>`,
+  klil_1700:(sel)=>`<svg viewBox="0 0 70 60" xmlns="http://www.w3.org/2000/svg">
+    <rect x="4" y="4" width="62" height="52" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1"/>
+    <rect x="8" y="8" width="22" height="44" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1"/>
+    <rect x="40" y="8" width="22" height="44" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1"/>
+    <rect x="10" y="10" width="18" height="40" fill="${sel?"#3B82F615":"#1E2D4520"}"/>
+    <rect x="42" y="10" width="18" height="40" fill="${sel?"#3B82F615":"#1E2D4520"}"/>
+    <text x="35" y="72" text-anchor="middle" font-size="7" fill="#4A607A" font-family="Arial">1700 эконом</text>
+  </svg>`,
+  klil_7300:(sel)=>`<svg viewBox="0 0 70 60" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="3" width="64" height="54" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1"/>
+    <rect x="6" y="6" width="22" height="48" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1"/>
+    <rect x="42" y="6" width="22" height="48" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1"/>
+    <rect x="8" y="8" width="18" height="44" fill="${sel?"#3B82F615":"#1E2D4520"}"/>
+    <rect x="44" y="8" width="18" height="44" fill="${sel?"#3B82F615":"#1E2D4520"}"/>
+    <line x1="35" y1="3" x2="35" y2="57" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="0.5"/>
+    <text x="35" y="72" text-anchor="middle" font-size="7" fill="#4A607A" font-family="Arial">7300 Slim</text>
+  </svg>`,
+  klil_4500:(sel)=>`<svg viewBox="0 0 60 70" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="2" width="56" height="66" rx="2" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="8" y="8" width="44" height="54" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="12" y="12" width="36" height="46" fill="${sel?"#3B82F620":"#1E2D4530"}"/>
+    <line x1="8" y1="35" x2="52" y2="35" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="0.5" stroke-dasharray="2,2"/>
+    <text x="30" y="82" text-anchor="middle" font-size="7" fill="#4A607A" font-family="Arial">4500 поворот</text>
+  </svg>`,
+  klil_5500:(sel)=>`<svg viewBox="0 0 60 70" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="2" width="56" height="66" rx="2" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="2"/>
+    <rect x="7" y="7" width="46" height="56" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="2"/>
+    <rect x="11" y="11" width="38" height="48" fill="${sel?"#3B82F625":"#1E2D4530"}"/>
+    <rect x="11" y="11" width="38" height="5" fill="${sel?"#60A5FA40":"#2563EB25"}"/>
+    <line x1="7" y1="35" x2="53" y2="35" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="0.5" stroke-dasharray="2,2"/>
+    <text x="30" y="82" text-anchor="middle" font-size="7" fill="#4A607A" font-family="Arial">5500 Premium</text>
+  </svg>`,
+  klil_4300:(sel)=>`<svg viewBox="0 0 60 70" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="3" width="54" height="64" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="9" y="9" width="42" height="52" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="12" y="12" width="36" height="46" fill="${sel?"#3B82F618":"#1E2D4528"}"/>
+    <text x="30" y="82" text-anchor="middle" font-size="7" fill="#4A607A" font-family="Arial">4300</text>
+  </svg>`,
+  klil_4350:(sel)=>`<svg viewBox="0 0 60 70" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="3" width="54" height="64" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="9" y="9" width="42" height="52" rx="1" fill="none" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="12" y="12" width="36" height="46" fill="${sel?"#3B82F618":"#1E2D4528"}"/>
+    <line x1="30" y1="9" x2="30" y2="61" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="0.5"/>
+    <line x1="9" y1="35" x2="51" y2="35" stroke="${sel?"#3B82F6":"#4A607A"}" stroke-width="0.5"/>
+    <text x="30" y="82" text-anchor="middle" font-size="7" fill="#4A607A" font-family="Arial">4350 Глухое</text>
+  </svg>`,
+  klil_2600_2t:(sel)=>`<svg viewBox="0 0 80 65" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="2" width="76" height="61" rx="2" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="2"/>
+    <rect x="8" y="6" width="28" height="53" rx="1" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="2"/>
+    <rect x="44" y="6" width="28" height="53" rx="1" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="2"/>
+    <rect x="11" y="9" width="22" height="47" fill="${sel?"#F59E0B20":"#1E2D4530"}"/>
+    <rect x="47" y="9" width="22" height="47" fill="${sel?"#F59E0B20":"#1E2D4530"}"/>
+    <rect x="2" y="54" width="76" height="9" rx="1" fill="${sel?"#F59E0B30":"#1E2D4520"}" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="1"/>
+    <text x="40" y="76" text-anchor="middle" font-size="6.5" fill="${sel?"#F59E0B":"#4A607A"}" font-family="Arial" font-weight="bold">2600 Lift&amp;Slide 2K</text>
+  </svg>`,
+  klil_2600_3t:(sel)=>`<svg viewBox="0 0 90 65" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="2" width="86" height="61" rx="2" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="2"/>
+    <rect x="7" y="6" width="22" height="53" rx="1" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="34" y="6" width="22" height="53" rx="1" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="61" y="6" width="22" height="53" rx="1" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="9" y="9" width="18" height="47" fill="${sel?"#F59E0B18":"#1E2D4528"}"/>
+    <rect x="36" y="9" width="18" height="47" fill="${sel?"#F59E0B18":"#1E2D4528"}"/>
+    <rect x="63" y="9" width="18" height="47" fill="${sel?"#F59E0B18":"#1E2D4528"}"/>
+    <rect x="2" y="54" width="86" height="9" rx="1" fill="${sel?"#F59E0B25":"#1E2D4518"}" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="1"/>
+    <text x="45" y="76" text-anchor="middle" font-size="6" fill="${sel?"#F59E0B":"#4A607A"}" font-family="Arial" font-weight="bold">2600 Lift&amp;Slide 3K</text>
+  </svg>`,
+  klil_2600_3s:(sel)=>`<svg viewBox="0 0 90 65" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="2" width="86" height="61" rx="2" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="2"/>
+    <rect x="7" y="6" width="14" height="53" rx="1" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="26" y="6" width="22" height="53" rx="1" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="53" y="6" width="22" height="53" rx="1" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="76" y="6" width="10" height="53" rx="1" fill="none" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="1.5"/>
+    <rect x="9" y="9" width="10" height="47" fill="${sel?"#F59E0B15":"#1E2D4520"}"/>
+    <rect x="28" y="9" width="18" height="47" fill="${sel?"#F59E0B18":"#1E2D4528"}"/>
+    <rect x="55" y="9" width="18" height="47" fill="${sel?"#F59E0B18":"#1E2D4528"}"/>
+    <rect x="77" y="9" width="7" height="47" fill="${sel?"#F59E0B15":"#1E2D4520"}"/>
+    <rect x="2" y="54" width="86" height="9" rx="1" fill="${sel?"#F59E0B25":"#1E2D4518"}" stroke="${sel?"#F59E0B":"#4A607A"}" stroke-width="1"/>
+    <text x="45" y="76" text-anchor="middle" font-size="6" fill="${sel?"#F59E0B":"#4A607A"}" font-family="Arial" font-weight="bold">2600 Lift&amp;Slide 3-трек</text>
+  </svg>`,
+};
 
 // Map measurement opening type → dekel op
 const OT2OP={
@@ -125,14 +250,30 @@ const OT2OP={
   "Дверь поворот":"casement_or_tilt_turn"
 };
 const OP2PROF={sliding_2_track:"klil_7000",sliding_multi_sash:"klil_7000",
-  pocket_sliding:"klil_7000",casement_or_tilt_turn:"klil_4500",tilt_or_fixed:"klil_4500"};
+  pocket_sliding:"klil_7000",casement_or_tilt_turn:"klil_4500",tilt_or_fixed:"klil_4500",
+  lift_slide_2600:"klil_2600_2t"};
 
-// Dekel lookup
+// 2600 Bauhaus Lift&Slide Dekel bands (Dekel 2022 × market, premium segment)
+// [code, op, profile, min_m2, max_m2, price/m2]
+const DB2600=[
+  ["12.015.0100","lift_slide_2600","klil_2600_2t",1.5,3.0,2850.0],
+  ["12.015.0110","lift_slide_2600","klil_2600_2t",3.0,5.0,2540.0],
+  ["12.015.0120","lift_slide_2600","klil_2600_2t",5.0,7.8,2210.0],
+  ["12.015.0200","lift_slide_2600","klil_2600_3t",2.5,4.5,3120.0],
+  ["12.015.0210","lift_slide_2600","klil_2600_3t",4.5,7.0,2780.0],
+  ["12.015.0220","lift_slide_2600","klil_2600_3t",7.0,10.3,2450.0],
+  ["12.015.0300","lift_slide_2600","klil_2600_3s",3.0,5.5,3350.0],
+  ["12.015.0310","lift_slide_2600","klil_2600_3s",5.5,8.0,2980.0],
+  ["12.015.0320","lift_slide_2600","klil_2600_3s",8.0,10.3,2620.0],
+];
+
+// Dekel lookup (searches main DB + 2600 bands)
 const dekelLookup=(op,profile,areaSqm)=>{
   const a=Math.max(areaSqm,0.6);
-  const match=DB.find(b=>b[1]===op&&b[2]===profile&&a>=b[3]&&a<b[4]);
+  const allBands=[...DB,...DB2600];
+  const match=allBands.find(b=>b[1]===op&&b[2]===profile&&a>=b[3]&&a<b[4]);
   if(match)return{price:match[5],code:match[0]};
-  const all=DB.filter(b=>b[1]===op&&b[2]===profile).sort((a,b)=>a[3]-b[3]);
+  const all=allBands.filter(b=>b[1]===op&&b[2]===profile).sort((a,b)=>a[3]-b[3]);
   if(!all.length)return null;
   return{price:all[all.length-1][5],code:all[all.length-1][0]};
 };
@@ -1210,12 +1351,82 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
     alert(`Заказ ${id} создан! Лид обновлён.`);
   };
 
+  // Size validation for current item
+  const sizeWarning=(it)=>{
+    const dims=PDIMS[it.profile];
+    if(!dims)return null;
+    const wCm=it.w, hCm=it.h;
+    if(dims.maxW&&wCm*10>dims.maxW)return`⚠️ Ширина ${wCm*10}мм > макс. ${dims.maxW}мм для ${PNAMES[it.profile]}`;
+    if(dims.maxH&&hCm*10>dims.maxH)return`⚠️ Высота ${hCm*10}мм > макс. ${dims.maxH}мм для ${PNAMES[it.profile]}`;
+    return null;
+  };
+  // Auto-suggest 2600 config by width
+  const suggest2600Config=(wCm)=>{
+    const wMm=wCm*10;
+    if(wMm<=3270)return"klil_2600_2t";
+    if(wMm<=4300)return"klil_2600_3t";
+    return"klil_2600_3s";
+  };
+
+  const [profModal,setProfModal]=useState(null); // itemId with profile picker open
+
   const ProfileSel=({it})=>{
     const op=OPS.find(o=>o.id===it.op)||OPS[0];
-    return(<select value={it.profile} onChange={e=>upd(it.id,"profile",e.target.value)}
-      style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none"}}>
-      {op.profiles.map(p=><option key={p} value={p} style={{background:D.card}}>{PNAMES[p]||p}</option>)}
-    </select>);
+    const isOpen=profModal===it.id;
+    const dims=PDIMS[it.profile];
+    const is2600=it.op==="lift_slide_2600";
+    return(<div style={{position:"relative"}}>
+      {/* Trigger button */}
+      <button onClick={()=>setProfModal(isOpen?null:it.id)}
+        style={{width:"100%",background:D.bg,border:`1px solid ${is2600?D.yellow:D.border}`,
+          borderRadius:6,padding:"5px 8px",color:D.text,fontSize:11,cursor:"pointer",
+          display:"flex",alignItems:"center",gap:6,textAlign:"left"}}>
+        <span dangerouslySetInnerHTML={{__html:PSVG[it.profile]?
+          PSVG[it.profile](true).replace(/viewBox="[^"]*"/,`viewBox="${PSVG[it.profile](true).match(/viewBox="([^"]*)"/)?.[1]||"0 0 70 60"}"`)
+            .replace(/<text[^>]*>.*?<\/text>/g,"")
+          :""}}
+          style={{display:"inline-flex",width:22,height:18,flexShrink:0}}/>
+        <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
+          color:is2600?D.yellow:D.text}}>{PNAMES[it.profile]||it.profile}</span>
+        <span style={{color:D.muted,fontSize:9}}>▾</span>
+      </button>
+      {dims&&<div style={{fontSize:9,color:is2600?D.yellow:D.muted,marginTop:2}}>
+        {dims.frame}мм рама{dims.maxKg?` · до ${dims.maxKg}кг`:""}
+      </div>}
+      {/* Dropdown picker */}
+      {isOpen&&(<div style={{position:"absolute",top:"100%",left:0,zIndex:999,
+        background:D.card,border:`1px solid ${D.border}`,borderRadius:10,
+        padding:10,width:320,boxShadow:"0 8px 32px #00000060",marginTop:4}}>
+        <div style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:8}}>
+          Выбор профиля — сечение
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+          {op.profiles.map(p=>{
+            const sel=it.profile===p;
+            const pd=PDIMS[p];
+            const is2k=p.startsWith("klil_2600");
+            return(<button key={p} onClick={()=>{upd(it.id,"profile",p);setProfModal(null);}}
+              style={{background:sel?(is2k?D.yellow+"20":D.accent+"20"):D.surface,
+                border:`1.5px solid ${sel?(is2k?D.yellow:D.accent):D.border}`,
+                borderRadius:8,padding:"8px 4px",cursor:"pointer",
+                display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+              <div dangerouslySetInnerHTML={{__html:PSVG[p]?PSVG[p](sel):""}}
+                style={{width:56,height:48,display:"flex",alignItems:"center",justifyContent:"center"}}/>
+              <div style={{fontSize:9,fontWeight:700,color:sel?(is2k?D.yellow:D.accentLight):D.text,
+                textAlign:"center",lineHeight:1.3,wordBreak:"break-word"}}>
+                {PNAMES[p]||p}
+              </div>
+              {pd&&<div style={{fontSize:8,color:D.muted,textAlign:"center"}}>
+                {pd.frame}мм{pd.maxKg?` · ${pd.maxKg}кг`:""}
+              </div>}
+            </button>);
+          })}
+        </div>
+        <button onClick={()=>setProfModal(null)}
+          style={{width:"100%",marginTop:8,padding:"5px",background:"none",border:`1px solid ${D.border}`,
+            borderRadius:6,color:D.muted,fontSize:10,cursor:"pointer"}}>Закрыть</button>
+      </div>)}
+    </div>);
   };
 
   return(<div>
@@ -1292,14 +1503,25 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
                   <div style={{fontSize:10,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Конфигурация</div>
                   <div style={{marginBottom:5}}>
                     <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Тип окна</div>
-                    <select value={it.op} onChange={e=>{const op=OPS.find(o=>o.id===e.target.value)||OPS[0];upd(it.id,"op",e.target.value);upd(it.id,"profile",op.profiles[0]);}}
+                    <select value={it.op} onChange={e=>{
+                      const op=OPS.find(o=>o.id===e.target.value)||OPS[0];
+                      const newProf=e.target.value==="lift_slide_2600"?suggest2600Config(it.w):op.profiles[0];
+                      upd(it.id,"op",e.target.value);
+                      upd(it.id,"profile",newProf);
+                    }}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none"}}>
                       {OPS.map(o=><option key={o.id} value={o.id} style={{background:D.card}}>{o.name}</option>)}
                     </select>
                   </div>
                   <div style={{marginBottom:5}}>
-                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Профиль</div>
+                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Профиль (сечение)</div>
                     <ProfileSel it={it}/>
+                    {sizeWarning(it)&&<div style={{fontSize:9,color:D.red,marginTop:3,background:D.red+"12",borderRadius:4,padding:"2px 5px"}}>
+                      {sizeWarning(it)}
+                    </div>}
+                    {it.op==="lift_slide_2600"&&<div style={{fontSize:9,color:D.yellow,marginTop:3}}>
+                      🏆 Система Lift &amp; Slide — автоподбор конфигурации по ширине
+                    </div>}
                   </div>
                   <div style={{marginBottom:5}}>
                     <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Стекло (доплата)</div>
@@ -1521,40 +1743,44 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads}){
       </div>
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
         <div style={{display:"grid",gridTemplateColumns:"1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr",padding:"7px 14px",background:D.surface,gap:10}}>
-          {["Позиция","Профиль","Профиль м.п.","Стекло м²","Уплотнитель","Сетки","Роллеты"].map((h,i)=>(
+          {["Позиция","Профиль","Профиль м.п.","Вес кг","Стекло м²","Сетки","Роллеты"].map((h,i)=>(
             <div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>
           ))}
         </div>
         {calced.filter(c=>c.valid).map((c,i)=>{
           const profM=(2*(c.w+c.h)/100*1.15*c.qty).toFixed(2);
+          const profKg=((2*(c.w+c.h)/100*1.15*c.qty)*(PWEIGHTS[c.profile]||350)/1000).toFixed(1);
           const glassM2=(c.area*c.qty).toFixed(2);
           const sealM=(2*(c.w+c.h)/100*c.qty).toFixed(2);
           const screenOpt=DS.find(s=>s.id===c.screen)||DS[0];
           const shutterOpt=DSHT.find(s=>s.id===c.shutter)||DSHT[0];
+          const is2600=c.profile.startsWith("klil_2600");
           return(<div key={c.id} style={{display:"grid",gridTemplateColumns:"1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr",
-            padding:"9px 14px",gap:10,borderTop:`1px solid ${D.border}`,background:i%2===0?D.card:D.surface,alignItems:"center"}}>
-            <div style={{fontSize:12,fontWeight:700,color:D.text}}>{c.name}<div style={{fontSize:10,color:D.muted}}>{c.qty} шт</div></div>
-            <div style={{fontSize:11,color:D.muted}}>{PNAMES[c.profile]||c.profile}</div>
+            padding:"9px 14px",gap:10,borderTop:`1px solid ${D.border}`,
+            background:is2600?D.yellow+"08":i%2===0?D.card:D.surface,alignItems:"center"}}>
+            <div style={{fontSize:12,fontWeight:700,color:D.text}}>{c.name}
+              <div style={{fontSize:10,color:D.muted}}>{c.qty} шт {is2600?"🏆":""}</div></div>
+            <div style={{fontSize:10,color:is2600?D.yellow:D.muted}}>{PNAMES[c.profile]||c.profile}</div>
             <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{profM} м.п.</div>
+            <div style={{fontSize:12,fontWeight:700,color:is2600?D.yellow:D.teal}}>{profKg} кг</div>
             <div style={{fontSize:12,fontWeight:700,color:D.teal}}>{glassM2} м²</div>
-            <div style={{fontSize:12,color:D.muted}}>{sealM} м.п.</div>
             <div style={{fontSize:11,color:c.screen!=="none"?D.green:D.muted}}>{c.screen!=="none"?`${c.qty} шт (${screenOpt.name})`:"—"}</div>
-            <div style={{fontSize:11,color:c.shutter!=="none"?D.yellow:D.muted}}>{c.shutter!=="none"?`${glassM2} м² (${shutterOpt.name})`:"—"}</div>
+            <div style={{fontSize:11,color:c.shutter!=="none"?D.yellow:D.muted}}>{c.shutter!=="none"?`${glassM2} м²`:"—"}</div>
           </div>);
         })}
         {/* Totals row */}
         {(()=>{
           const tp=calced.filter(c=>c.valid).reduce((s,c)=>s+2*(c.w+c.h)/100*1.15*c.qty,0);
+          const totalKg=calced.filter(c=>c.valid).reduce((s,c)=>s+(2*(c.w+c.h)/100*1.15*c.qty)*(PWEIGHTS[c.profile]||350)/1000,0);
           const tg=calced.filter(c=>c.valid).reduce((s,c)=>s+c.area*c.qty,0);
-          const ts=calced.filter(c=>c.valid).reduce((s,c)=>s+2*(c.w+c.h)/100*c.qty,0);
           const tsc=calced.filter(c=>c.valid&&c.screen!=="none").reduce((s,c)=>s+c.qty,0);
           const tsh=calced.filter(c=>c.valid&&c.shutter!=="none").reduce((s,c)=>s+c.area*c.qty,0);
           return(<div style={{display:"grid",gridTemplateColumns:"1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr",
             padding:"9px 14px",gap:10,borderTop:`2px solid ${D.border}`,background:D.surface}}>
             <div style={{fontSize:11,fontWeight:800,color:D.text,gridColumn:"span 2"}}>ИТОГО</div>
             <div style={{fontSize:13,fontWeight:800,color:D.accentLight}}>{tp.toFixed(1)} м.п.</div>
+            <div style={{fontSize:13,fontWeight:800,color:D.teal}}>{totalKg.toFixed(1)} кг</div>
             <div style={{fontSize:13,fontWeight:800,color:D.teal}}>{tg.toFixed(2)} м²</div>
-            <div style={{fontSize:12,fontWeight:700,color:D.muted}}>{ts.toFixed(1)} м.п.</div>
             <div style={{fontSize:12,fontWeight:700,color:D.green}}>{tsc>0?`${tsc} шт`:"—"}</div>
             <div style={{fontSize:12,fontWeight:700,color:D.yellow}}>{tsh>0?`${tsh.toFixed(2)} м²`:"—"}</div>
           </div>);
@@ -2331,7 +2557,7 @@ export default function App(){
           onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
           onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
       </div>
-      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.7 🇮🇱</div>
+      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.8 🇮🇱</div>
     </div>
     {/* MAIN */}
     <div style={{flex:1,overflowY:"auto",padding:"22px 24px"}}>
