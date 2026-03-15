@@ -114,10 +114,17 @@ const OPS=[
   {id:"lift_slide_2600",   name:"Lift & Slide 2600 🏆",   profiles:["klil_2600_2t","klil_2600_3t","klil_2600_3s"]},
 ];
 const PNAMES={
-  klil_7000:"Клиль 7000",klil_9000:"Клиль 9000 (термо)",klil_1700:"Клиль 1700 (эконом)",
-  klil_7300:"Клиль 7300 (Slim)",klil_4500:"Клиль 4500",klil_5500:"Клиль 5500 (премиум)",
-  klil_4300:"Клиль 4300",klil_4350:"Клиль 4350",
-  klil_2600_2t:"2600 Bauhaus 2-крыла",klil_2600_3t:"2600 Bauhaus 3-крыла",klil_2600_3s:"2600 Bauhaus 3-трека",
+  klil_7000:"Клиль 7000 | קליל 7000",
+  klil_9000:"Клиль 9000 (термо) | קליל 9000 תרמי",
+  klil_1700:"Клиль 1700 (эконом) | קליל 1700 חסכוני",
+  klil_7300:"Клиль 7300 (Slim) | קליל 7300 סלים",
+  klil_4500:"Клиль 4500 | קליל 4500",
+  klil_5500:"Клиль 5500 (премиум) | קליל 5500 פרמיום",
+  klil_4300:"Клиль 4300 | קליל 4300",
+  klil_4350:"Клиль 4350 | קליל 4350",
+  klil_2600_2t:"2600 Bauhaus 2-крыла | 2600 באוהאוס 2 כנפיים",
+  klil_2600_3t:"2600 Bauhaus 3-крыла | 2600 באוהאוס 3 כנפיים",
+  klil_2600_3s:"2600 Bauhaus 3-трека | 2600 באוהאוס 3 מסלולים",
 };
 // Profile key dimensions mm
 const PDIMS={
@@ -530,7 +537,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
               <span style={{fontSize:12,fontWeight:800,color}}>{value}</span>
             </div>
             <div style={{background:D.surface,borderRadius:4,height:6}}>
-              <div style={{width:max>0?`${value/max*100}%`:"0%",height:"100%",borderRadius:4,background:color,transition:"width 0.4s"}}/>
+              <div style={{width:max>0?`${Math.min(value/max*100,100)}%`:"0%",height:"100%",borderRadius:4,background:color,transition:"width 0.4s"}}/>
             </div>
           </div>
         ))}
@@ -2347,7 +2354,7 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
               <span style={{fontSize:14,fontWeight:900,color}}>{value}</span>
             </div>
             <div style={{background:D.surface,borderRadius:6,height:10,overflow:"hidden"}}>
-              <div style={{width:fLeads>0?`${value/fLeads*100}%`:"0%",height:"100%",
+              <div style={{width:fLeads>0?`${Math.min(value/fLeads*100,100)}%`:"0%",height:"100%",
                 background:`linear-gradient(90deg,${color},${color}88)`,borderRadius:6,transition:"width 0.5s"}}/>
             </div>
           </div>
@@ -2557,7 +2564,7 @@ export default function App(){
           onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
           onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
       </div>
-      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.8 🇮🇱</div>
+      <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v3.9 🇮🇱</div>
     </div>
     {/* MAIN */}
     <div style={{flex:1,overflowY:"auto",padding:"22px 24px"}}>
