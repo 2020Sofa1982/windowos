@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import * as XLSX from "xlsx";
 import {
   LayoutDashboard, Users, ShoppingCart, Package, Wallet,
   Calculator, Plus, Search, X, Check, Clock, AlertTriangle,
@@ -2634,100 +2633,151 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
   const last=kpi[kpi.length-1]||{revenue:0,cogs:0,opex:0,leads:0,measures:0,orders:0};
   const ebitda=last.revenue-last.cogs-last.opex;
 
+  // Pure-JS Excel export (no dependencies) — generates .xls via HTML table
   const exportExcel=()=>{
-    const wb=XLSX.utils.book_new();
+    const style=`
+      <style>
+        body{font-family:Arial,sans-serif;font-size:11pt}
+        .h1{background:#1E3A8A;color:#fff;font-size:14pt;font-weight:bold;padding:6px}
+        .h2{background:#2563EB;color:#fff;font-size:11pt;font-weight:bold;padding:4px}
+        .th{background:#1E293B;color:#fff;font-weight:bold;border:1px solid #ccc;padding:4px 8px}
+        .td{border:1px solid #ddd;padding:3px 8px}
+        .num{text-align:right;border:1px solid #ddd;padding:3px 8px}
+        .pct{text-align:right;color:#16a34a;border:1px solid #ddd;padding:3px 8px;font-weight:bold}
+        .tot{background:#f0f9ff;font-weight:bold;border:1px solid #ccc;padding:4px 8px}
+        .pos{color:#16a34a;font-weight:bold}
+        .neg{color:#dc2626;font-weight:bold}
+        .tag{background:#EFF6FF;color:#1D4ED8;font-size:9pt;padding:1px 5px;border-radius:3px}
+        tr:nth-child(even) td, tr:nth-child(even) .num{background:#F8FAFC}
+      </style>`;
 
-    // ── Sheet 1: Dashboard KPIs ──
-    const dash=[
-      ["WindowOS — KPI Dashboard","","",""],
-      ["Дата экспорта",new Date().toLocaleDateString("ru-RU"),"",""],
-      ["","","",""],
-      ["📊 ОСНОВНЫЕ ПОКАЗАТЕЛИ","","",""],
-      ["Показатель","Значение","",""],
-      ["Лидов всего",fLeads,"",""],
-      ["Замеров",fMeasured,"",""],
-      ["Заказов",fOrders,"",""],
-      ["Закрыто (выиграли)",fWon,"",""],
-      ["","","",""],
-      ["💰 ФИНАНСЫ","","",""],
-      ["Показатель","₪","",""],
-      ["Сумма контрактов",totalContracted,"",""],
-      ["Получено",totalPaid,"",""],
-      ["Ожидается",totalContracted-totalPaid,"",""],
-      ["Средний чек",avgDeal,"",""],
-      ["","","",""],
-      ["🎯 КОНВЕРСИЯ","","",""],
-      ["Лид → Замер",convLM+"%","",""],
-      ["Замер → Заказ",convMO+"%","",""],
-      ["Лид → Заказ",convLO+"%","",""],
-      ["Win Rate",winRate+"%","",""],
-      ["","","",""],
-      ["📣 ИСТОЧНИКИ ЛИДОВ","","",""],
-      ["Источник","Кол-во","Доля %",""],
-      ...sources.map(([s,c])=>[s,c,fLeads>0?Math.round(c/fLeads*100)+"%":""]),
-    ];
-    const ws1=XLSX.utils.aoa_to_sheet(dash);
-    ws1["!cols"]=[{wch:30},{wch:18},{wch:12},{wch:12}];
-    // Styling via cell format
-    ["A1","A4","A11","A17","A23"].forEach(cell=>{
-      if(ws1[cell])ws1[cell].s={font:{bold:true,sz:13,color:{rgb:"2563EB"}},fill:{fgColor:{rgb:"EFF6FF"}}};
-    });
-    ws1["A1"].s={font:{bold:true,sz:16,color:{rgb:"1E3A8A"}},fill:{fgColor:{rgb:"DBEAFE"}}};
-    XLSX.utils.book_append_sheet(wb,ws1,"Dashboard");
+    const srcRows=sources.map(([s,c])=>`
+      <tr><td class="td">${s}</td><td class="num">${c}</td>
+      <td class="pct">${fLeads>0?Math.round(c/fLeads*100):0}%</td></tr>`).join("");
 
-    // ── Sheet 2: Leads ──
-    const leadsData=[
-      ["Имя","Телефон","Город","Тип","Работа","Статус","Приоритет","Оценка ₪","Follow-up","Источник","Дата"],
-      ...leads.map(l=>[l.name,l.phone||"",l.city||"",l.type||"",l.jobType||"",
-        l.status,l.priority||"normal",l.value||0,l.followUp||"",l.source||"",l.date||""])
-    ];
-    const ws2=XLSX.utils.aoa_to_sheet(leadsData);
-    ws2["!cols"]=[{wch:22},{wch:14},{wch:14},{wch:12},{wch:18},{wch:20},{wch:12},{wch:12},{wch:12},{wch:16},{wch:12}];
-    XLSX.utils.book_append_sheet(wb,ws2,"Лиды");
+    const orderRows=orders.map(o=>{
+      const debt=o.total-o.paid;
+      return`<tr>
+        <td class="td"><b>${o.id}</b></td>
+        <td class="td">${o.client}</td>
+        <td class="td">${o.city||"—"}</td>
+        <td class="num">${o.windows}</td>
+        <td class="num">₪${o.total.toLocaleString()}</td>
+        <td class="num ${o.paid>0?"pos":""}">${o.paid>0?"₪"+o.paid.toLocaleString():"—"}</td>
+        <td class="num ${debt>0?"neg":""}">${debt>0?"₪"+debt.toLocaleString():"—"}</td>
+        <td class="td"><span class="tag">${o.status}</span></td>
+        <td class="td">${o.created||""}</td></tr>`;}).join("");
 
-    // ── Sheet 3: Orders ──
-    const ordersData=[
-      ["ID","Клиент","Город","Окон","Сумма ₪","Оплачено ₪","Остаток ₪","Статус","Создан","Сдача"],
-      ...orders.map(o=>[o.id,o.client,o.city||"",o.windows,o.total,o.paid,o.total-o.paid,o.status,o.created||"",o.delivery||""])
-    ];
-    const ws3=XLSX.utils.aoa_to_sheet(ordersData);
-    ws3["!cols"]=[{wch:10},{wch:22},{wch:14},{wch:8},{wch:12},{wch:12},{wch:12},{wch:20},{wch:12},{wch:12}];
-    XLSX.utils.book_append_sheet(wb,ws3,"Заказы");
+    const leadRows=leads.map(l=>`<tr>
+      <td class="td"><b>${l.name}</b></td>
+      <td class="td">${l.phone||""}</td>
+      <td class="td">${l.city||""}</td>
+      <td class="td">${l.type||""}</td>
+      <td class="td">${l.jobType||""}</td>
+      <td class="td"><span class="tag">${l.status}</span></td>
+      <td class="num ${l.value>0?"pos":""}">${l.value>0?"₪"+l.value.toLocaleString():"—"}</td>
+      <td class="td">${l.followUp||"—"}</td>
+      <td class="td">${l.source||""}</td>
+      <td class="td">${l.date||""}</td></tr>`).join("");
 
-    // ── Sheet 4: Payments ──
-    const payData=[
-      ["Заказ","Клиент","Тип","Сумма ₪","Дата","Метод","Статус"],
-      ...payments.map(p=>[p.order||"",p.client,p.type,p.amount,p.date||"",p.method||"",p.status])
-    ];
-    const ws4=XLSX.utils.aoa_to_sheet(payData);
-    ws4["!cols"]=[{wch:10},{wch:22},{wch:14},{wch:12},{wch:12},{wch:12},{wch:12}];
-    XLSX.utils.book_append_sheet(wb,ws4,"Платежи");
+    const payRows=payments.map(p=>`<tr>
+      <td class="td">${p.order||""}</td>
+      <td class="td"><b>${p.client}</b></td>
+      <td class="td">${p.type}</td>
+      <td class="num"><b>₪${p.amount.toLocaleString()}</b></td>
+      <td class="td">${p.date||""}</td>
+      <td class="td">${p.method||""}</td>
+      <td class="td"><span class="tag">${p.status}</span></td></tr>`).join("");
 
-    // ── Sheet 5: KPI History ──
-    if(kpi.length>0){
-      const kpiData=[
-        ["Месяц","Лидов","Замеров","Заказов","Выручка ₪","Себест. ₪","OPEX ₪","EBITDA ₪","Маржа %"],
-        ...kpi.map(d=>{
-          const e=d.revenue-d.cogs-d.opex;
-          return[d.month,d.leads,d.measures,d.orders,d.revenue,d.cogs,d.opex,e,
-            d.revenue>0?Math.round(e/d.revenue*100)+"%":"—"];
-        }),
-        ["ИТОГО",
-          "=SUM(B2:B"+(kpi.length+1)+")",
-          "=SUM(C2:C"+(kpi.length+1)+")",
-          "=SUM(D2:D"+(kpi.length+1)+")",
-          "=SUM(E2:E"+(kpi.length+1)+")",
-          "=SUM(F2:F"+(kpi.length+1)+")",
-          "=SUM(G2:G"+(kpi.length+1)+")",
-          "=SUM(H2:H"+(kpi.length+1)+")",
-          ""],
-      ];
-      const ws5=XLSX.utils.aoa_to_sheet(kpiData);
-      ws5["!cols"]=[{wch:8},{wch:8},{wch:10},{wch:10},{wch:14},{wch:14},{wch:12},{wch:14},{wch:10}];
-      XLSX.utils.book_append_sheet(wb,ws5,"KPI История");
-    }
+    const kpiRows=kpi.map(d=>{
+      const e=d.revenue-d.cogs-d.opex;
+      const m=d.revenue>0?Math.round(e/d.revenue*100):0;
+      return`<tr>
+        <td class="td"><b>${d.month}</b></td>
+        <td class="num">${d.leads}</td><td class="num">${d.measures}</td><td class="num">${d.orders}</td>
+        <td class="num">₪${d.revenue.toLocaleString()}</td>
+        <td class="num">₪${d.cogs.toLocaleString()}</td>
+        <td class="num">₪${d.opex.toLocaleString()}</td>
+        <td class="num ${e>=0?"pos":"neg"}"><b>₪${e.toLocaleString()}</b></td>
+        <td class="pct">${m}%</td></tr>`;}).join("");
 
-    XLSX.writeFile(wb,`WindowOS_KPI_${new Date().toISOString().slice(0,10)}.xlsx`);
+    const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="UTF-8">${style}
+    <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>
+      <x:ExcelWorksheet><x:Name>Dashboard</x:Name><x:WorksheetOptions><x:Selected/></x:WorksheetOptions></x:ExcelWorksheet>
+      <x:ExcelWorksheet><x:Name>Лиды</x:Name></x:ExcelWorksheet>
+      <x:ExcelWorksheet><x:Name>Заказы</x:Name></x:ExcelWorksheet>
+      <x:ExcelWorksheet><x:Name>Платежи</x:Name></x:ExcelWorksheet>
+      ${kpi.length?"<x:ExcelWorksheet><x:Name>KPI История</x:Name></x:ExcelWorksheet>":""}
+    </x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+    </head><body>
+
+    <!-- Dashboard sheet -->
+    <table style="margin-bottom:30px;width:600px">
+      <tr><td colspan="3" class="h1">🏭 WindowOS — KPI Dashboard &nbsp;·&nbsp; ${new Date().toLocaleDateString("ru-RU")}</td></tr>
+      <tr><td colspan="3" style="padding:6px 0"></td></tr>
+      <tr><td colspan="3" class="h2">📊 Воронка конверсии</td></tr>
+      <tr class="th"><td class="th">Показатель</td><td class="th">Значение</td><td class="th">%</td></tr>
+      <tr><td class="td">Лидов всего</td><td class="num"><b>${fLeads}</b></td><td class="pct">—</td></tr>
+      <tr><td class="td">Замеров</td><td class="num"><b>${fMeasured}</b></td><td class="pct">${convLM}%</td></tr>
+      <tr><td class="td">Заказов</td><td class="num"><b>${fOrders}</b></td><td class="pct">${convLO}%</td></tr>
+      <tr><td class="td">Закрыто (выиграли)</td><td class="num pos"><b>${fWon}</b></td><td class="pct">${winRate}%</td></tr>
+      <tr><td colspan="3" style="padding:4px 0"></td></tr>
+      <tr><td colspan="3" class="h2">💰 Финансы</td></tr>
+      <tr><td class="td">Сумма контрактов</td><td class="num"><b>₪${totalContracted.toLocaleString()}</b></td><td class="td"></td></tr>
+      <tr><td class="td">Получено</td><td class="num pos"><b>₪${totalPaid.toLocaleString()}</b></td><td class="td"></td></tr>
+      <tr><td class="td">Ожидается</td><td class="num neg">₪${(totalContracted-totalPaid).toLocaleString()}</td><td class="td"></td></tr>
+      <tr><td class="td">Средний чек</td><td class="num"><b>₪${avgDeal.toLocaleString()}</b></td><td class="td"></td></tr>
+      <tr><td colspan="3" style="padding:4px 0"></td></tr>
+      <tr><td colspan="3" class="h2">📣 Источники лидов</td></tr>
+      <tr><td class="th">Источник</td><td class="th">Кол-во</td><td class="th">Доля</td></tr>
+      ${srcRows}
+    </table>
+
+    <!-- Leads sheet -->
+    <table style="margin-bottom:30px" x-sheet="Лиды">
+      <tr><td colspan="10" class="h1">👤 Лиды — всего ${leads.length}</td></tr>
+      <tr><td class="th">Имя</td><td class="th">Телефон</td><td class="th">Город</td><td class="th">Тип</td><td class="th">Работа</td><td class="th">Статус</td><td class="th">Оценка ₪</td><td class="th">Follow-up</td><td class="th">Источник</td><td class="th">Дата</td></tr>
+      ${leadRows}
+    </table>
+
+    <!-- Orders sheet -->
+    <table style="margin-bottom:30px" x-sheet="Заказы">
+      <tr><td colspan="9" class="h1">📦 Заказы — всего ${orders.length}</td></tr>
+      <tr><td class="th">ID</td><td class="th">Клиент</td><td class="th">Город</td><td class="th">Окон</td><td class="th">Сумма ₪</td><td class="th">Получено ₪</td><td class="th">Остаток ₪</td><td class="th">Статус</td><td class="th">Создан</td></tr>
+      ${orderRows}
+      <tr>
+        <td class="tot" colspan="4">ИТОГО</td>
+        <td class="tot num">₪${totalContracted.toLocaleString()}</td>
+        <td class="tot num pos">₪${totalPaid.toLocaleString()}</td>
+        <td class="tot num neg">₪${(totalContracted-totalPaid).toLocaleString()}</td>
+        <td colspan="2" class="tot"></td>
+      </tr>
+    </table>
+
+    <!-- Payments sheet -->
+    <table style="margin-bottom:30px" x-sheet="Платежи">
+      <tr><td colspan="7" class="h1">💰 Платежи — всего ${payments.length}</td></tr>
+      <tr><td class="th">Заказ</td><td class="th">Клиент</td><td class="th">Тип</td><td class="th">Сумма ₪</td><td class="th">Дата</td><td class="th">Метод</td><td class="th">Статус</td></tr>
+      ${payRows}
+    </table>
+
+    ${kpi.length?`
+    <!-- KPI History sheet -->
+    <table x-sheet="KPI История">
+      <tr><td colspan="9" class="h1">📈 KPI по месяцам</td></tr>
+      <tr><td class="th">Месяц</td><td class="th">Лиды</td><td class="th">Замеры</td><td class="th">Заказы</td><td class="th">Выручка ₪</td><td class="th">Себест. ₪</td><td class="th">OPEX ₪</td><td class="th">EBITDA ₪</td><td class="th">Маржа</td></tr>
+      ${kpiRows}
+    </table>`:""}
+    </body></html>`;
+
+    const blob=new Blob(["\uFEFF"+html],{type:"application/vnd.ms-excel;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download=`WindowOS_KPI_${new Date().toISOString().slice(0,10)}.xls`;
+    a.click();URL.revokeObjectURL(url);
   };
   const addMonth=()=>{
     if(!form.month)return;
