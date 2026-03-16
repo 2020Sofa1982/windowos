@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
+import { fbSave, fbLoadAll, fbSubscribe } from "./firebase";
 import {
   LayoutDashboard, Users, ShoppingCart, Package, Wallet,
   Calculator, Plus, Search, X, Check, Clock, AlertTriangle,
   TrendingUp, Trash2, Download, BarChart2, DollarSign, Eye,
   Ruler, Image, Paperclip, Zap, List, ArrowRight, Wrench, ClipboardCheck,
-  Phone, MessageCircle, Menu, ChevronRight, History, FileText
+  Phone, MessageCircle, Menu, ChevronRight, History, FileText,
+  CalendarDays, ChevronLeft, Bell
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
@@ -15,9 +17,12 @@ import {
 const KEYS = { leads:"wb:leads", orders:"wb:orders", inventory:"wb:inventory",
   payments:"wb:payments", kpi:"wb:kpi", measurements:"wb:measurements",
   installations:"wb:installations", quotes:"wb:quotes", templates:"wb:templates",
-  activity:"wb:activity" };
+  activity:"wb:activity", company:"wb:company", lang:"wb:lang" };
 const load=(key,fb)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):fb;}catch{return fb;}};
-const save=(key,data)=>{try{localStorage.setItem(key,JSON.stringify(data));}catch{}};
+const save=(key,data)=>{
+  try{localStorage.setItem(key,JSON.stringify(data));}catch{}
+  fbSave(key,data); // also sync to Firebase cloud
+};
 
 // ── DEKEL BANDS [code, op, profile, min_m2, max_m2, price/m2] ─
 const DB=[
@@ -173,6 +178,9 @@ const OPS=[
   {id:"casement_or_tilt_turn",name:bi("Поворотно-откидное",    "כיפ-כיפ / ציר"),     profiles:["klil_4500","klil_5500","klil_4300"]},
   {id:"tilt_or_fixed",        name:bi("Kipp / Глухое",         "כיפ / פיקס"),         profiles:["klil_4500","klil_5500","klil_4300","klil_4350"]},
   {id:"lift_slide_2600",      name:bi("Lift & Slide 2600 🏆",  "הרם והחלק 2600 🏆"),  profiles:["klil_2600_2t","klil_2600_3t","klil_2600_3s"]},
+  {id:"railing",              name:bi("Перила/Ограждение 🔩",  "מעקה / גדר"),         profiles:["klil_railing_std","klil_railing_glass"]},
+  {id:"partition",            name:bi("Перегородка 🪟",         "מחיצה"),              profiles:["klil_partition_std","klil_partition_glass"]},
+  {id:"grille",               name:bi("Решётка/Pergola 🔲",    "סורג / פרגולה"),      profiles:["klil_grille_std"]},
 ];
 const PNAMES={
   klil_7000:"Клиль 7000 | קליל 7000",
@@ -186,6 +194,11 @@ const PNAMES={
   klil_2600_2t:"2600 Bauhaus 2-крыла | 2600 באוהאוס 2 כנפיים",
   klil_2600_3t:"2600 Bauhaus 3-крыла | 2600 באוהאוס 3 כנפיים",
   klil_2600_3s:"2600 Bauhaus 3-трека | 2600 באוהאוס 3 מסלולים",
+  klil_railing_std:"Перила алюм. стд | מעקה אלומיניום סטנדרטי",
+  klil_railing_glass:"Перила со стеклом | מעקה עם זכוכית",
+  klil_partition_std:"Перегородка стд | מחיצה סטנדרטית",
+  klil_partition_glass:"Перегородка стекло | מחיצה זכוכית",
+  klil_grille_std:"Решётка алюм. | סורג אלומיניום",
 };
 // Profile key dimensions mm
 const PDIMS={
@@ -335,10 +348,32 @@ const DB2600=[
   ["12.015.0320","lift_slide_2600","klil_2600_3s",8.0,10.3,2620.0],
 ];
 
-// Dekel lookup (searches main DB + 2600 bands)
+// Dekel level 2 — railings (12.102), partitions (12.117), grilles (12.120)
+const DB_L2=[
+  // Railings (מעקים) 12.102
+  ["12.102.0100","railing","klil_railing_std",0.5,2.0,1850.0],
+  ["12.102.0110","railing","klil_railing_std",2.0,4.0,1620.0],
+  ["12.102.0120","railing","klil_railing_std",4.0,8.0,1380.0],
+  ["12.102.0200","railing","klil_railing_glass",0.5,2.0,2450.0],
+  ["12.102.0210","railing","klil_railing_glass",2.0,4.0,2180.0],
+  ["12.102.0220","railing","klil_railing_glass",4.0,8.0,1920.0],
+  // Partitions (מחיצות) 12.117
+  ["12.117.0100","partition","klil_partition_std",0.5,3.0,1650.0],
+  ["12.117.0110","partition","klil_partition_std",3.0,6.0,1420.0],
+  ["12.117.0120","partition","klil_partition_std",6.0,12.0,1180.0],
+  ["12.117.0200","partition","klil_partition_glass",0.5,3.0,2250.0],
+  ["12.117.0210","partition","klil_partition_glass",3.0,6.0,1980.0],
+  ["12.117.0220","partition","klil_partition_glass",6.0,12.0,1720.0],
+  // Grilles / Pergolas (סורגים) 12.120
+  ["12.120.0100","grille","klil_grille_std",0.5,2.0,980.0],
+  ["12.120.0110","grille","klil_grille_std",2.0,5.0,820.0],
+  ["12.120.0120","grille","klil_grille_std",5.0,10.0,680.0],
+];
+
+// Dekel lookup (searches main DB + 2600 bands + level 2)
 const dekelLookup=(op,profile,areaSqm)=>{
   const a=Math.max(areaSqm,0.6);
-  const allBands=[...DB,...DB2600];
+  const allBands=[...DB,...DB2600,...DB_L2];
   const match=allBands.find(b=>b[1]===op&&b[2]===profile&&a>=b[3]&&a<b[4]);
   if(match)return{price:match[5],code:match[0]};
   const all=allBands.filter(b=>b[1]===op&&b[2]===profile).sort((a,b)=>a[3]-b[3]);
@@ -518,7 +553,17 @@ const SH=({title,color=D.teal})=>(<div style={{fontSize:11,fontWeight:800,color,
 // ═══════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
-function Dashboard({leads,orders,payments,inventory,kpi,measurements,installations}){
+function Dashboard({leads,orders,payments,inventory,kpi,measurements,installations,onClientClick}){
+  const today=new Date().toISOString().split("T")[0];
+  const todayStr=new Date().toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"});
+
+  // ── Today's agenda ──
+  const todayMeasures=measurements.filter(m=>m.date===today);
+  const todayInstalls=installations.filter(i=>i.scheduledDate===today);
+  const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+  const todayFollowUps=leads.filter(l=>l.followUp===today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+  const pendingPayments=payments.filter(p=>p.status==="Ожидается");
+
   // ── Real financials ──
   const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
   const totalPending=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
@@ -536,7 +581,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   const convMO=fMeasured>0?Math.round(fOrders/fMeasured*100):0;
   const convLO=fLeads>0?Math.round(fOrders/fLeads*100):0;
 
-  // ── Pipeline value (leads with value) ──
+  // ── Pipeline value ──
   const pipeline=leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status))
     .reduce((s,l)=>s+(l.value||0),0);
 
@@ -549,27 +594,121 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
     {name:"Выиграли",value:leads.filter(l=>l.status==="Закрыт (выиграли)").length,c:D.green},
   ].filter(d=>d.value>0);
 
-  // ── Monthly revenue from real orders (by created date) ──
+  // ── Monthly revenue ──
   const monthMap={};
   orders.forEach(o=>{
     const m=o.created?.slice(0,7)||"";
     if(!m)return;
-    if(!monthMap[m])monthMap[m]={month:m.slice(5),revenue:0,paid:0,count:0};
+    const MONTHS=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+    const mNum=parseInt(m.slice(5))-1;
+    const label=`${MONTHS[mNum]||m.slice(5)} ${m.slice(2,4)}`;
+    if(!monthMap[m])monthMap[m]={month:label,key:m,revenue:0,paid:0,profit:0,count:0};
     monthMap[m].revenue+=o.total;
     monthMap[m].paid+=o.paid;
+    monthMap[m].profit+=Math.round(o.paid*0.35);
     monthMap[m].count++;
   });
-  const revenueChart=Object.values(monthMap).sort((a,b)=>a.month.localeCompare(b.month)).slice(-6);
+  const revenueChart=Object.values(monthMap).sort((a,b)=>a.key.localeCompare(b.key)).slice(-8);
 
   const lowStock=inventory.filter(i=>i.qty<i.minQty).length;
   const pending=payments.filter(p=>p.status==="Ожидается");
   const pendInst=installations.filter(i=>i.status==="Запланирован"||i.status==="В процессе").length;
 
+  const hasTodayItems=todayMeasures.length>0||todayInstalls.length>0||todayFollowUps.length>0||overdueFollowUps.length>0||pendingPayments.length>0;
+
   return(<div>
-    <div style={{marginBottom:22}}>
-      <div style={{fontSize:22,fontWeight:900,color:D.text}}>Dashboard</div>
-      <div style={{fontSize:13,color:D.muted,marginTop:2}}>Реальные данные из системы</div>
+    <div style={{marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+      <div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>Dashboard</div>
+        <div style={{fontSize:13,color:D.muted,marginTop:2}}>Реальные данные из системы</div>
+      </div>
+      <div style={{fontSize:12,color:D.muted,textAlign:"right"}}>
+        <div style={{fontSize:11,color:D.muted}}>📅 {todayStr}</div>
+      </div>
     </div>
+
+    {/* TODAY WIDGET */}
+    {hasTodayItems&&(<div style={{background:`linear-gradient(135deg,${D.accent}18,${D.surface})`,
+      border:`1px solid ${D.accent}40`,borderRadius:14,padding:16,marginBottom:18}}>
+      <div style={{fontSize:11,fontWeight:800,color:D.accentLight,textTransform:"uppercase",marginBottom:10,
+        display:"flex",alignItems:"center",gap:6}}>
+        ⚡ Сегодня
+        <span style={{fontSize:10,color:D.muted,fontWeight:400}}>— {todayStr}</span>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+        {overdueFollowUps.length>0&&(<div style={{background:D.red+"15",border:`1px solid ${D.red}30`,
+          borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:D.red,fontWeight:700,marginBottom:4}}>🔴 Просроченные follow-up</div>
+          {overdueFollowUps.slice(0,3).map(l=>(
+            <div key={l.id} onClick={()=>onClientClick&&onClientClick(l.name)}
+              style={{fontSize:11,color:D.text,cursor:"pointer",padding:"2px 0",
+                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontWeight:600}}>{l.name}</span>
+              <a href={l.phone?`tel:${l.phone}`:undefined}
+                onClick={e=>e.stopPropagation()}
+                style={{color:D.green,fontSize:10,textDecoration:"none",
+                  background:D.green+"15",padding:"1px 6px",borderRadius:4}}>
+                📞
+              </a>
+            </div>
+          ))}
+          {overdueFollowUps.length>3&&<div style={{fontSize:10,color:D.muted}}>+{overdueFollowUps.length-3} ещё</div>}
+        </div>)}
+        {todayFollowUps.length>0&&(<div style={{background:D.yellow+"15",border:`1px solid ${D.yellow}30`,
+          borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:D.yellow,fontWeight:700,marginBottom:4}}>🟡 Follow-up сегодня</div>
+          {todayFollowUps.map(l=>(
+            <div key={l.id} onClick={()=>onClientClick&&onClientClick(l.name)}
+              style={{fontSize:11,color:D.text,cursor:"pointer",padding:"2px 0",
+                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontWeight:600}}>{l.name}</span>
+              <a href={l.phone?`tel:${l.phone}`:undefined}
+                onClick={e=>e.stopPropagation()}
+                style={{color:D.green,fontSize:10,textDecoration:"none",
+                  background:D.green+"15",padding:"1px 6px",borderRadius:4}}>
+                📞
+              </a>
+            </div>
+          ))}
+        </div>)}
+        {todayMeasures.length>0&&(<div style={{background:D.teal+"15",border:`1px solid ${D.teal}30`,
+          borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:D.teal,fontWeight:700,marginBottom:4}}>📐 Замеры сегодня</div>
+          {todayMeasures.map(m=>(
+            <div key={m.id} onClick={()=>onClientClick&&onClientClick(m.client)}
+              style={{fontSize:11,color:D.text,cursor:"pointer",fontWeight:600,padding:"2px 0",
+                display:"flex",justifyContent:"space-between"}}>
+              <span>{m.client}</span>
+              <span style={{color:D.muted,fontSize:10}}>{m.address?.slice(0,15)||""}</span>
+            </div>
+          ))}
+        </div>)}
+        {todayInstalls.length>0&&(<div style={{background:D.purple+"15",border:`1px solid ${D.purple}30`,
+          borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:D.purple,fontWeight:700,marginBottom:4}}>🔧 Монтажи сегодня</div>
+          {todayInstalls.map(i=>(
+            <div key={i.id} onClick={()=>onClientClick&&onClientClick(i.client)}
+              style={{fontSize:11,color:D.text,cursor:"pointer",fontWeight:600,padding:"2px 0"}}>
+              {i.client}
+            </div>
+          ))}
+        </div>)}
+        {pendingPayments.length>0&&(<div style={{background:D.green+"15",border:`1px solid ${D.green}30`,
+          borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:D.green,fontWeight:700,marginBottom:4}}>💰 Ожидаются платежи</div>
+          {pendingPayments.slice(0,3).map(p=>(
+            <div key={p.id} style={{fontSize:11,color:D.text,padding:"2px 0",
+              display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontWeight:600}}>{p.client}</span>
+              <span style={{color:D.green,fontWeight:700}}>{fmt(p.amount)}</span>
+            </div>
+          ))}
+          <div style={{fontSize:10,color:D.green,fontWeight:700,marginTop:2}}>
+            Итого: {fmt(pendingPayments.reduce((s,p)=>s+p.amount,0))}
+          </div>
+        </div>)}
+      </div>
+    </div>)}
 
     {/* Top KPIs */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
@@ -582,15 +721,22 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
     <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}}>
       {/* Revenue chart */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>📈 ВЫРУЧКА ПО МЕСЯЦАМ (реальные заказы)</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted}}>📈 ВЫРУЧКА ПО МЕСЯЦАМ</div>
+          <div style={{display:"flex",gap:12,fontSize:10,color:D.muted}}>
+            <span><span style={{display:"inline-block",width:10,height:10,background:D.accentLight+"90",borderRadius:2,marginRight:3}}/>КП</span>
+            <span><span style={{display:"inline-block",width:10,height:10,background:D.green,borderRadius:2,marginRight:3}}/>Получено</span>
+            <span><span style={{display:"inline-block",width:10,height:2,background:D.yellow,marginRight:3,verticalAlign:"middle"}}/>Прибыль</span>
+          </div>
+        </div>
         {revenueChart.length>0?(
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={revenueChart} barGap={3}>
-              <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
-              <YAxis stroke={D.muted} tick={{fontSize:10,fill:D.muted}} tickFormatter={v=>"₪"+v/1000+"k"}/>
+          <ResponsiveContainer width="100%" height={190}>
+            <BarChart data={revenueChart} barGap={3} margin={{top:5,right:5,bottom:0,left:0}}>
+              <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:10,fill:D.muted}}/>
+              <YAxis stroke={D.muted} tick={{fontSize:9,fill:D.muted}} tickFormatter={v=>v>=1000?"₪"+Math.round(v/1000)+"k":"₪"+v} width={42}/>
               <Tooltip content={<TT/>}/>
-              <Bar dataKey="revenue" name="КП сумма" fill={D.accentLight+"90"} radius={[4,4,0,0]}/>
-              <Bar dataKey="paid" name="Получено" fill={D.green} radius={[4,4,0,0]}/>
+              <Bar dataKey="revenue" name="КП сумма" fill={D.accentLight+"70"} radius={[4,4,0,0]}/>
+              <Bar dataKey="paid" name="Получено" fill={D.green+"cc"} radius={[4,4,0,0]}/>
             </BarChart>
           </ResponsiveContainer>
         ):(
@@ -1203,7 +1349,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
 // ═══════════════════════════════════════════════════════════════
 // CALCULATOR — QUICK + DETAILED (Dekel)
 // ═══════════════════════════════════════════════════════════════
-function printKP(client,calced,saleTotal,margin,split,extras){
+function printKP(client,calced,saleTotal,margin,split,extras,company={}){
   const pay1=Math.round(saleTotal*split/100);
   const pay2=saleTotal-pay1;
   const date=new Date().toLocaleDateString("he-IL");
@@ -1313,12 +1459,16 @@ function printKP(client,calced,saleTotal,margin,split,extras){
   </style></head><body>
   <div class="header">
     <div>
-      <div class="logo">🏭 חלונות אלומיניום</div>
-      <div class="logo-sub">ייצור והתקנה של חלונות ודלתות אלומיניום</div>
+      <div class="logo">🏭 ${company.name||"חלונות אלומיניום"}</div>
+      <div class="logo-sub">${company.nameRu||"ייצור והתקנה של חלונות ודלתות אלומיניום"}</div>
+      ${company.phone?`<div class="logo-sub">📞 ${company.phone}</div>`:""}
+      ${company.address?`<div class="logo-sub">📍 ${company.address}</div>`:""}
+      ${company.taxId?`<div class="logo-sub">ח.פ. / ע.מ.: ${company.taxId}</div>`:""}
     </div>
     <div class="meta">
       <div>תאריך: <b>${date}</b></div>
       <div>הצעת מחיר מספר: <b>QT-${Date.now().toString().slice(-6)}</b></div>
+      ${company.email?`<div>דוא"ל: <b>${company.email}</b></div>`:""}
     </div>
   </div>
 
@@ -1376,7 +1526,13 @@ function printKP(client,calced,saleTotal,margin,split,extras){
     • זמן אספקה והתקנה: כ-14–21 יום ממועד אישור ההזמנה ותשלום המקדמה
   </div>
 
-  <div class="footer">WindowOS · הצעה זו הופקה באופן אוטומטי · ${date}</div>
+  ${company.bank||company.bankAccount?`
+  <div style="margin-top:16px;padding:12px 16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;color:#475569">
+    <b style="color:#1e293b">פרטי בנק לתשלום:</b>
+    ${company.bank?`<span style="margin-right:12px">🏦 ${company.bank}</span>`:""}
+    ${company.bankAccount?`<span>חשבון: <b>${company.bankAccount}</b></span>`:""}
+  </div>`:""}
+  <div class="footer">${company.name||"WindowOS"} · הצעה זו הופקה באופן אוטומטי · ${date}</div>
   </body></html>`;
   const w=window.open("","_blank","width=900,height=750");
   w.document.write(html);w.document.close();
@@ -1403,7 +1559,7 @@ function newItem(name,op,profile,w,h,qty){
     accessories:[],color:"white"};
 }
 
-function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuotes,templates,setTemplates,setActivity}){
+function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuotes,templates,setTemplates,setActivity,company}){
   const [tab,setTab]=useState("quick");
   const [items,setItems]=useState([newItem("Окно 1")]);
   const [client,setClient]=useState("");
@@ -1625,13 +1781,46 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
       <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Калькулятор КП</div>
         <div style={{fontSize:13,color:D.muted}}>Dekel 2022 × 1.13 (цены 2026)</div></div>
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={()=>printKP(client,calced,saleTotal,margin,split,extras)} variant="success"><Download size={13}/> PDF КП</Btn>
+        <Btn onClick={()=>printKP(client,calced,saleTotal,margin,split,extras,company)} variant="success"><Download size={13}/> PDF КП</Btn>
         <Btn onClick={saveQuote} variant="teal"><FileText size={13}/> Сохранить КП</Btn>
         <Btn onClick={()=>setTplModal(true)} variant="ghost"><Plus size={13}/> Шаблон</Btn>
         <Btn onClick={()=>setLoadModal("pick")} variant="ghost"><History size={13}/> Загрузить</Btn>
         <Btn onClick={()=>exportCSV(["Позиция","Ш","В","м²","Тип","Профиль","Стекло","Кол","Код","Себест.","Цена"],
           calced.map(c=>[c.name,c.w,c.h,c.area.toFixed(2),c.op,c.profile,c.glass,c.qty,c.code,Math.round(c.totalCost),Math.round(c.totalCost*(1+margin/100))]),"кп.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
         <Btn onClick={addItem}><Plus size={13}/> Добавить окно</Btn>
+        <label style={{display:"inline-flex",alignItems:"center",gap:5,
+          background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,
+          padding:"5px 10px",color:D.muted,fontSize:11,fontWeight:600,cursor:"pointer"}}>
+          <Download size={12}/> CSV/Импорт
+          <input type="file" accept=".csv,.txt" style={{display:"none"}}
+            onChange={e=>{
+              const file=e.target.files[0]; if(!file)return;
+              const reader=new FileReader();
+              reader.onload=ev=>{
+                const lines=ev.target.result.split(/\r?\n/).filter(l=>l.trim());
+                const imported=[];
+                lines.forEach((line,i)=>{
+                  // Support: Name,Width,Height,Qty or just Width,Height
+                  const parts=line.split(/[,;\t]+/).map(s=>s.trim());
+                  if(parts.length>=2){
+                    const w=parseFloat(parts[parts.length>=4?1:0]);
+                    const h=parseFloat(parts[parts.length>=4?2:1]);
+                    const qty=parseInt(parts[parts.length>=4?3:2])||1;
+                    const name=parts.length>=4?parts[0]:`Окно ${items.length+i+1}`;
+                    if(w>10&&h>10)imported.push(newItem(name,"sliding_2_track","klil_7000",w,h,qty));
+                  }
+                });
+                if(imported.length){
+                  setItems(p=>[...p,...imported]);
+                  alert(`Импортировано ${imported.length} позиций!`);
+                } else {
+                  alert("Не удалось распознать формат.\nОжидается: Название,Ш,В,Кол или Ш,В,Кол");
+                }
+              };
+              reader.readAsText(file);
+              e.target.value="";
+            }}/>
+        </label>
       </div>
     </div>
 
@@ -2207,10 +2396,18 @@ function printAct(inst,order){
       <div style="margin-top:4px;font-weight:700">${inst.specialist||"___________"}</div>
     </div>
     <div class="sign-box">
-      <div style="height:50px"></div>
+      <div style="height:60px;border-bottom:2px solid #1e293b;margin-bottom:6px"></div>
       <div>חתימת הלקוח לאישור קבלת העבודה</div>
       <div style="margin-top:4px;font-weight:700">${inst.client}</div>
     </div>
+    <div class="sign-box">
+      <div style="height:60px;border-bottom:2px solid #1e293b;margin-bottom:6px"></div>
+      <div>תאריך אישור</div>
+      <div style="margin-top:4px;font-weight:700">____________</div>
+    </div>
+  </div>
+  <div style="margin-top:16px;padding:10px 14px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;font-size:11px;color:#64748b;text-align:center">
+    ${inst.notes?`הערות: ${inst.notes}`:""}
   </div>
   <div class="footer">WindowOS · תעודה זו מהווה אישור לביצוע העבודה · ${date}</div>
   </body></html>`;
@@ -2414,11 +2611,16 @@ function Installation({installations,setInstallations,orders,onClientClick}){
 // ═══════════════════════════════════════════════════════════════
 // ORDERS (with P&L)
 // ═══════════════════════════════════════════════════════════════
-function Orders({orders,setOrders,setPayments,onClientClick}){
+function Orders({orders,setOrders,setPayments,payments,onClientClick}){
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({client:"",city:"",windows:"1",total:"",delivery:""});
-  const [plModal,setPlModal]=useState(null); // orderId with P&L open
+  const [plModal,setPlModal]=useState(null);
   const [plData,setPlData]=useState({}); // {orderId: {materialsCost,laborCost,extrasCost,notes}}
+  const [filter,setFilter]=useState("active"); // active | completed | all
+  const [search,setSearch]=useState("");
+  const [page,setPage]=useState(1);
+  const [payEditModal,setPayEditModal]=useState(null); // payment id being edited
+  const PAGE_SIZE=10;
 
   const addOrder=()=>{
     if(!form.client||!form.total)return;
@@ -2427,73 +2629,185 @@ function Orders({orders,setOrders,setPayments,onClientClick}){
       status:"Ожидает материалов",progress:10,created:new Date().toISOString().split("T")[0]}]);
     setModal(false);setForm({client:"",city:"",windows:"1",total:"",delivery:""});
   };
+
   const updStatus=(id,status)=>setOrders(p=>p.map(o=>o.id===id?{...o,status,progress:PM[status]||o.progress}:o));
-  const addPay=o=>{
-    const amount=o.total-o.paid;if(amount<=0)return;
-    setPayments(p=>[...p,{id:Date.now(),order:o.id,client:o.client,type:"Финальный",
-      amount,date:new Date().toISOString().split("T")[0],method:"Банк",status:"Ожидается"}]);
-    setOrders(p=>p.map(x=>x.id===o.id?{...x,paid:o.total}:x));
+
+  const deleteOrder=(id)=>{
+    if(!confirm("Удалить заказ?"))return;
+    setOrders(p=>p.filter(o=>o.id!==id));
+    setPayments(p=>p.filter(pay=>pay.order!==id));
   };
+
+  const addPay=o=>{
+    const debt=o.total-o.paid; if(debt<=0)return;
+    const amount=+prompt(`Сумма платежа (остаток: ₪${debt.toLocaleString()}):`,debt);
+    if(!amount||amount<=0)return;
+    const type=prompt("Тип платежа:","Финальный")||"Финальный";
+    const payId=Date.now();
+    setPayments(p=>[...p,{id:payId,order:o.id,client:o.client,type,
+      amount:Math.min(amount,debt),date:new Date().toISOString().split("T")[0],
+      method:"Банк",status:"Ожидается"}]);
+    setOrders(p=>p.map(x=>x.id===o.id?{...x,paid:Math.min(x.paid+amount,x.total)}:x));
+  };
+
+  const deletePay=(payId,orderId,amount)=>{
+    if(!confirm("Удалить этот платёж?"))return;
+    setPayments(p=>p.filter(x=>x.id!==payId));
+    setOrders(p=>p.map(o=>o.id===orderId?{...o,paid:Math.max(0,o.paid-amount)}:o));
+  };
+
+  const editPayStatus=(payId,status)=>{
+    setPayments(p=>p.map(x=>x.id===payId?{...x,status}:x));
+  };
+
   const getPl=(id)=>plData[id]||{materialsCost:"",laborCost:"",extrasCost:"",notes:""};
   const setPl=(id,k,v)=>setPlData(p=>({...p,[id]:{...getPl(id),[k]:v}}));
 
+  // Filter and search
+  const filtered=orders.filter(o=>{
+    const matchFilter=filter==="all"||(filter==="active"&&o.status!=="Завершён")||(filter==="completed"&&o.status==="Завершён");
+    const matchSearch=!search.trim()||o.client.toLowerCase().includes(search.toLowerCase())||o.id.toLowerCase().includes(search.toLowerCase());
+    return matchFilter&&matchSearch;
+  });
+  const totalPages=Math.ceil(filtered.length/PAGE_SIZE);
+  const paged=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
+
+  const activeCount=orders.filter(o=>o.status!=="Завершён").length;
+  const completedCount=orders.filter(o=>o.status==="Завершён").length;
+
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Заказы</div>
-        <div style={{fontSize:13,color:D.muted}}>{orders.length} заказов</div></div>
+      <div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>Заказы</div>
+        <div style={{fontSize:13,color:D.muted}}>
+          {activeCount} активных · {completedCount} завершённых · {orders.length} всего
+        </div>
+      </div>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={()=>exportCSV(["ID","Клиент","Сумма","Оплачено","Статус"],orders.map(o=>[o.id,o.client,o.total,o.paid,o.status]),"заказы.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
         <Btn onClick={()=>setModal(true)}><Plus size={13}/> Новый заказ</Btn>
       </div>
     </div>
+
+    {/* Filters + search */}
+    <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+      <div style={{position:"relative",flex:1,minWidth:200}}>
+        <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
+        <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Поиск по клиенту или ID..."
+          style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
+            padding:"7px 10px 7px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+      </div>
+      {[["active",`Активные (${activeCount})`],["completed",`Завершённые (${completedCount})`],["all","Все"]].map(([f,l])=>(
+        <button key={f} onClick={()=>{setFilter(f);setPage(1);}}
+          style={{padding:"6px 14px",borderRadius:8,border:`1px solid ${filter===f?D.accent:D.border}`,
+            background:filter===f?D.accent+"20":"transparent",color:filter===f?D.accentLight:D.muted,
+            fontSize:11,fontWeight:700,cursor:"pointer"}}>
+          {l}
+        </button>
+      ))}
+    </div>
+
+    {filtered.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,
+      padding:40,textAlign:"center",color:D.muted}}>
+      {filter==="completed"?"Нет завершённых заказов":"Нет заказов"}
+    </div>}
+
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      {orders.map(o=>{
+      {paged.map(o=>{
         const debt=o.total-o.paid;
         const pl=getPl(o.id);
-        const matC=+pl.materialsCost||0;
-        const labC=+pl.laborCost||0;
-        const extC=+pl.extrasCost||0;
+        const matC=+pl.materialsCost||0; const labC=+pl.laborCost||0; const extC=+pl.extrasCost||0;
         const totalCost=matC+labC+extC;
         const profit=o.paid-totalCost;
         const margin=o.paid>0?Math.round(profit/o.paid*100):0;
         const hasPl=matC>0||labC>0||extC>0;
-        return(<div key={o.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:"18px 20px"}}>
+        const orderPays=(payments||[]).filter(p=>p.order===o.id);
+        const isCompleted=o.status==="Завершён";
+
+        return(<div key={o.id} style={{background:D.card,border:`1px solid ${isCompleted?D.green+"40":D.border}`,
+          borderRadius:14,padding:"18px 20px",opacity:isCompleted?0.9:1}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
             <div style={{display:"flex",gap:12,alignItems:"center"}}>
-              <div style={{background:D.accent+"20",border:`1px solid ${D.accent}40`,borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:800,color:D.accentLight}}>{o.id}</div>
-              <div><div onClick={()=>onClientClick&&onClientClick(o.client)} style={{fontSize:15,fontWeight:800,color:D.text,cursor:"pointer"}}>{o.client}</div>
-                <div style={{fontSize:11,color:D.muted}}>{o.city} · {o.windows} окон · Сдача: {o.delivery}</div></div>
+              <div style={{background:isCompleted?D.green+"20":D.accent+"20",border:`1px solid ${isCompleted?D.green:D.accent}40`,
+                borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:800,
+                color:isCompleted?D.green:D.accentLight}}>{o.id}</div>
+              <div>
+                <div onClick={()=>onClientClick&&onClientClick(o.client)}
+                  style={{fontSize:15,fontWeight:800,color:D.text,cursor:"pointer"}}>{o.client}</div>
+                <div style={{fontSize:11,color:D.muted}}>{o.city||"—"} · {o.windows} окон · {o.created||""}{o.delivery?` · Сдача: ${o.delivery}`:""}</div>
+              </div>
             </div>
-            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-              {o.status!=="Завершён"&&debt>0&&<Btn onClick={()=>addPay(o)} variant="success" small><Plus size={11}/> Платёж</Btn>}
+            <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+              {!isCompleted&&debt>0&&<Btn onClick={()=>addPay(o)} variant="success" small><Plus size={11}/> Платёж</Btn>}
               <Btn onClick={()=>setPlModal(plModal===o.id?null:o.id)} variant={hasPl?"teal":"ghost"} small>
                 <BarChart2 size={11}/> P&L
               </Btn>
               <select value={o.status} onChange={e=>updStatus(o.id,e.target.value)}
                 style={{background:(SC[o.status]||D.muted)+"18",color:SC[o.status]||D.muted,
-                  border:`1px solid ${(SC[o.status]||D.muted)}40`,borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                  border:`1px solid ${(SC[o.status]||D.muted)}40`,borderRadius:8,
+                  padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
                 {OST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
               </select>
+              <button onClick={()=>deleteOrder(o.id)}
+                style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4,opacity:0.5}}
+                title="Удалить заказ">
+                <Trash2 size={13}/>
+              </button>
             </div>
           </div>
-          {/* Financials row */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 2fr",gap:16,alignItems:"center"}}>
-            {[["Сумма КП",fmt(o.total),D.text],["Получено",fmt(o.paid),D.green],["Остаток",fmt(debt),debt>0?D.yellow:D.green]].map(([l,v,c])=>(
+
+          {/* Financials */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 2fr",gap:16,alignItems:"center",marginBottom:12}}>
+            {[["Сумма КП",fmt(o.total),D.text],["Получено",fmt(o.paid),D.green],
+              ["Остаток",fmt(debt),debt>0?D.yellow:D.green]].map(([l,v,c])=>(
               <div key={l}><div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>{l}</div>
                 <div style={{fontSize:18,fontWeight:800,color:c}}>{v}</div></div>
             ))}
             <div><div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Прогресс {o.progress}%</div>
               <PBar value={o.progress} color={o.progress===100?D.green:o.progress>50?D.purple:D.accent}/></div>
           </div>
+
+          {/* Payments list with edit/delete */}
+          {orderPays.length>0&&(<div style={{background:D.surface,borderRadius:10,padding:"8px 12px",marginBottom:10}}>
+            <div style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:6}}>
+              Платежи по заказу
+            </div>
+            {orderPays.map(pay=>(
+              <div key={pay.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                padding:"5px 0",borderBottom:`1px solid ${D.border}`}}>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <span style={{fontSize:12,fontWeight:700,color:D.green}}>{fmt(pay.amount)}</span>
+                  <span style={{fontSize:10,color:D.muted}}>{pay.type} · {pay.date} · {pay.method}</span>
+                </div>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <select value={pay.status} onChange={e=>editPayStatus(pay.id,e.target.value)}
+                    style={{background:(pay.status==="Получен"?D.green:D.yellow)+"20",
+                      color:pay.status==="Получен"?D.green:D.yellow,
+                      border:`1px solid ${(pay.status==="Получен"?D.green:D.yellow)}40`,
+                      borderRadius:6,padding:"3px 6px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                    <option value="Ожидается" style={{background:D.card,color:D.text}}>Ожидается</option>
+                    <option value="Получен" style={{background:D.card,color:D.text}}>Получен</option>
+                  </select>
+                  <button onClick={()=>deletePay(pay.id,o.id,pay.amount)}
+                    title="Удалить платёж"
+                    style={{background:"none",border:"none",cursor:"pointer",color:D.red,padding:2,opacity:0.7}}>
+                    <Trash2 size={11}/>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>)}
+
           {/* P&L Panel */}
-          {plModal===o.id&&(<div style={{marginTop:16,borderTop:`1px solid ${D.border}`,paddingTop:16}}>
+          {plModal===o.id&&(<div style={{marginTop:4,borderTop:`1px solid ${D.border}`,paddingTop:16}}>
             <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:12}}>📊 P&L — Реальные затраты</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:14}}>
               {[["💰 Материалы ₪","materialsCost"],["👷 Труд / субподряд ₪","laborCost"],["🔧 Доп. расходы ₪","extrasCost"]].map(([l,k])=>(
                 <div key={k}>
                   <div style={{fontSize:10,color:D.muted,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{l}</div>
                   <input type="number" value={pl[k]} onChange={e=>setPl(o.id,k,e.target.value)} placeholder="0"
-                    style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"7px 10px",color:D.text,fontSize:13,fontWeight:700,outline:"none"}}/>
+                    style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,
+                      padding:"7px 10px",color:D.text,fontSize:13,fontWeight:700,outline:"none"}}/>
                 </div>
               ))}
               <div style={{background:hasPl?(profit>=0?D.green+"15":D.red+"15"):D.surface,
@@ -2504,25 +2818,38 @@ function Orders({orders,setOrders,setPayments,onClientClick}){
                 {hasPl&&<div style={{fontSize:11,color:D.muted,marginTop:2}}>Маржа {margin}%</div>}
               </div>
             </div>
-            {hasPl&&totalCost>0&&(<div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:12}}>
-              {[["Выручка",fmt(o.paid),D.text],
-                ["Материалы",fmt(matC),D.muted],
-                ["Труд",fmt(labC),D.muted],
-                ["Прочее",fmt(extC),D.muted],
-                ["Себест. итого",fmt(totalCost),D.yellow],
-              ].map(([l,v,c])=>(
-                <div key={l} style={{background:D.surface,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
-                  <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{l}</div>
-                  <div style={{fontSize:13,fontWeight:800,color:c}}>{v}</div>
-                </div>
-              ))}
-            </div>)}
             <input placeholder="Заметки по затратам..." value={pl.notes} onChange={e=>setPl(o.id,"notes",e.target.value)}
-              style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"7px 12px",color:D.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+              style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,
+                padding:"7px 12px",color:D.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
           </div>)}
         </div>);
       })}
     </div>
+
+    {/* Pagination */}
+    {totalPages>1&&(<div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:8,marginTop:16}}>
+      <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}
+        style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:7,padding:"6px 12px",
+          cursor:page===1?"default":"pointer",color:page===1?D.muted:D.text,opacity:page===1?0.4:1}}>
+        ← Назад
+      </button>
+      {Array.from({length:totalPages},(_,i)=>i+1).map(n=>(
+        <button key={n} onClick={()=>setPage(n)}
+          style={{background:n===page?D.accent:"transparent",border:`1px solid ${n===page?D.accent:D.border}`,
+            borderRadius:7,padding:"6px 11px",cursor:"pointer",
+            color:n===page?"#fff":D.muted,fontWeight:n===page?700:400,fontSize:12}}>
+          {n}
+        </button>
+      ))}
+      <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}
+        style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:7,padding:"6px 12px",
+          cursor:page===totalPages?"default":"pointer",color:page===totalPages?D.muted:D.text,
+          opacity:page===totalPages?0.4:1}}>
+        Вперёд →
+      </button>
+      <span style={{fontSize:11,color:D.muted}}>Стр. {page} из {totalPages} · {filtered.length} заказов</span>
+    </div>)}
+
     {modal&&(<Modal title="📦 Новый заказ" onClose={()=>setModal(false)}>
       <Inp label="Клиент *" value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -2590,39 +2917,527 @@ function Inventory({inventory,setInventory}){
 // ═══════════════════════════════════════════════════════════════
 // PAYMENTS
 // ═══════════════════════════════════════════════════════════════
-function Payments({payments,setPayments,onClientClick}){
+// ─────────────────────────────────────────────────────────────
+// PRINT DOCUMENT — חשבונית/קבלה/חשבון עסקה per Israeli law
+// ─────────────────────────────────────────────────────────────
+function printIsraeliDoc(doc, company){
+  const VAT_RATE=0.18;
+  const isVat=["עוסק מורשה","חברה בעמ","שותפות"].includes(company.bizType||"חברה בעמ");
+  const amtBeforeVat=isVat&&doc.includesVat?Math.round(doc.amount/1.18):doc.amount;
+  const vatAmt=isVat&&doc.includesVat?doc.amount-amtBeforeVat:0;
+  const totalAmt=doc.amount;
+
+  const DOC_NAMES={
+    "קבלה":"קבלה",
+    "חשבון עסקה":"חשבון עסקה",
+    "חשבונית מס":"חשבונית מס",
+    "חשבונית מס קבלה":"חשבונית מס / קבלה",
+    "חשבונית עסקה":"חשבונית עסקה",
+  };
+  const docTitle=DOC_NAMES[doc.docType]||doc.docType;
+  const needsHitkatzva=isVat&&doc.amount>=10000&&(doc.docType==="חשבונית מס"||doc.docType==="חשבונית מס קבלה");
+
+  const html=`<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head><meta charset="UTF-8"/>
+<title>${docTitle} ${doc.docNum} – ${doc.client}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Arial',sans-serif;direction:rtl;color:#1e293b;background:#fff;padding:32px;font-size:13px}
+  .page{max-width:780px;margin:0 auto;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden}
+  .header{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start}
+  .co-name{font-size:22px;font-weight:900;letter-spacing:-0.04em;margin-bottom:4px}
+  .co-sub{font-size:11px;opacity:0.8;line-height:1.7}
+  .doc-badge{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:8px;padding:8px 16px;text-align:center}
+  .doc-type{font-size:15px;font-weight:800;margin-bottom:3px}
+  .doc-num{font-size:12px;opacity:0.85}
+  .body{padding:24px 28px}
+  .section{margin-bottom:20px}
+  .section-title{font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .info-row{display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px}
+  .info-label{color:#64748b}
+  .info-val{font-weight:600;color:#1e293b}
+  .items-table{width:100%;border-collapse:collapse;margin-top:6px}
+  .items-table th{background:#f1f5f9;padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:#475569;border:1px solid #e2e8f0}
+  .items-table td{padding:8px 12px;border:1px solid #e2e8f0;font-size:12px}
+  .items-table tr:nth-child(even) td{background:#f8fafc}
+  .totals{margin-top:16px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0}
+  .total-row{display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px}
+  .total-grand{font-size:18px;font-weight:900;color:#1d4ed8;border-top:2px solid #2563eb;padding-top:10px;margin-top:8px}
+  .hitkatzva{margin-top:16px;padding:12px 16px;background:#fefce8;border:2px solid #eab308;border-radius:8px}
+  .hitkatzva-title{font-size:11px;font-weight:800;color:#854d0e;margin-bottom:4px}
+  .hitkatzva-num{font-size:20px;font-weight:900;color:#854d0e;letter-spacing:0.1em}
+  .hitkatzva-missing{font-size:11px;color:#dc2626;padding:10px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-top:12px}
+  .method-box{margin-top:16px;padding:12px 16px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:12px}
+  .footer{background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 28px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#94a3b8}
+  @media print{body{padding:0}.page{border:none;border-radius:0}}
+</style>
+</head>
+<body>
+<div class="page">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="co-name">🏭 ${company.name||"חלונות אלומיניום"}</div>
+      <div class="co-sub">
+        ${company.taxId?`ח.פ. / ע.מ.: ${company.taxId}<br>`:""}
+        ${company.bizType?`סוג עסק: ${company.bizType}<br>`:""}
+        ${company.phone?`📞 ${company.phone}<br>`:""}
+        ${company.address?`📍 ${company.address}<br>`:""}
+        ${company.email?`✉️ ${company.email}`:""}
+      </div>
+    </div>
+    <div class="doc-badge">
+      <div class="doc-type">${docTitle}</div>
+      <div class="doc-num">מס׳ ${doc.docNum}</div>
+      <div style="font-size:11px;margin-top:3px;opacity:0.8">תאריך: ${doc.date}</div>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+    <div class="grid2" style="margin-bottom:20px">
+      <!-- Client info -->
+      <div class="section">
+        <div class="section-title">פרטי לקוח</div>
+        <div class="info-row"><span class="info-label">שם:</span><span class="info-val">${doc.client}</span></div>
+        ${doc.clientTaxId?`<div class="info-row"><span class="info-label">ח.פ. / ע.מ. לקוח:</span><span class="info-val">${doc.clientTaxId}</span></div>`:""}
+        ${doc.clientAddress?`<div class="info-row"><span class="info-label">כתובת:</span><span class="info-val">${doc.clientAddress}</span></div>`:""}
+      </div>
+      <!-- Doc info -->
+      <div class="section">
+        <div class="section-title">פרטי מסמך</div>
+        <div class="info-row"><span class="info-label">תאריך מסמך:</span><span class="info-val">${doc.date}</span></div>
+        ${doc.orderId?`<div class="info-row"><span class="info-label">מס׳ הזמנה:</span><span class="info-val">${doc.orderId}</span></div>`:""}
+        <div class="info-row"><span class="info-label">אמצעי תשלום:</span><span class="info-val">${doc.method||"—"}</span></div>
+        ${doc.ref?`<div class="info-row"><span class="info-label">אסמכתא:</span><span class="info-val">${doc.ref}</span></div>`:""}
+      </div>
+    </div>
+
+    <!-- Items -->
+    <div class="section">
+      <div class="section-title">פירוט שירותים / מוצרים</div>
+      <table class="items-table">
+        <thead><tr>
+          <th>תיאור</th>
+          <th style="text-align:center;width:60px">כמות</th>
+          <th style="text-align:left;width:100px">מחיר ליחידה</th>
+          <th style="text-align:left;width:100px">סה"כ</th>
+        </tr></thead>
+        <tbody>
+          ${(doc.items||[{desc:doc.description||"שירות / עבודה",qty:1,price:amtBeforeVat}]).map(it=>`
+          <tr>
+            <td>${it.desc}</td>
+            <td style="text-align:center">${it.qty}</td>
+            <td style="text-align:left">₪${(it.price||0).toLocaleString("he-IL")}</td>
+            <td style="text-align:left;font-weight:700">₪${((it.qty||1)*(it.price||0)).toLocaleString("he-IL")}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Totals -->
+    <div class="totals">
+      ${isVat&&doc.includesVat?`
+      <div class="total-row"><span>סכום לפני מע"מ:</span><span>₪${amtBeforeVat.toLocaleString("he-IL")}</span></div>
+      <div class="total-row"><span>מע"מ (18%):</span><span>₪${vatAmt.toLocaleString("he-IL")}</span></div>`:""}
+      <div class="total-row total-grand">
+        <span>סה"כ לתשלום:</span>
+        <span>₪${totalAmt.toLocaleString("he-IL")}</span>
+      </div>
+    </div>
+
+    <!-- מספר הקצאה -->
+    ${needsHitkatzva?`
+    <div class="hitkatzva">
+      <div class="hitkatzva-title">🔢 מספר הקצאה — חשבוניות ישראל</div>
+      ${doc.hitkatzvaNum?`
+      <div class="hitkatzva-num">${doc.hitkatzvaNum}</div>
+      <div style="font-size:10px;color:#854d0e;margin-top:4px">מספר 9 ספרות שהתקבל ממע"מ רשות המיסים</div>
+      `:`<div class="hitkatzva-missing">
+        ⚠️ חשבונית זו מעל ₪10,000 — נדרש מספר הקצאה מרשות המיסים.<br>
+        ניתן לבקש מספר הקצאה באתר: <b>taxes.gov.il</b> · ניתן להוסיף ידנית לפני הדפסה.
+      </div>`}
+    </div>`:""}
+
+    <!-- Payment method details -->
+    ${doc.bankDetails||company.bank?`
+    <div class="method-box">
+      <b>פרטי תשלום:</b>
+      ${company.bank?` בנק ${company.bank}`:""}
+      ${company.bankAccount?` · חשבון ${company.bankAccount}`:""}
+      ${doc.bankDetails?` · ${doc.bankDetails}`:""}
+    </div>`:""}
+
+    ${doc.notes?`<div style="margin-top:14px;padding:10px 14px;background:#f8fafc;border-radius:6px;font-size:12px;color:#475569"><b>הערות:</b> ${doc.notes}</div>`:""}
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>${company.name||"WindowOS"} · ${docTitle} מס׳ ${doc.docNum}</span>
+    <span>${doc.date}</span>
+    <span style="font-size:9px">מסמך זה הופק באמצעות WindowOS</span>
+  </div>
+</div>
+<script>setTimeout(()=>window.print(),400)</script>
+</body></html>`;
+
+  const w=window.open("","_blank","width=880,height=760");
+  if(w){w.document.write(html);w.document.close();}
+}
+
+// ─────────────────────────────────────────────────────────────
+// PAYMENTS — full Israeli cash module
+// ─────────────────────────────────────────────────────────────
+function Payments({payments,setPayments,onClientClick,company}){
+  const [tab,setTab]=useState("payments"); // payments | docs | new
+  const [docs,setDocs]=useState(()=>load("wb:docs",[]));
+  const [newDoc,setNewDoc]=useState(false);
+  const [df,setDf]=useState({
+    docType:"חשבונית מס קבלה",client:"",clientTaxId:"",clientAddress:"",
+    amount:"",includesVat:true,method:"העברה בנקאית",
+    description:"ייצור והתקנת חלונות ודלתות אלומיניום",
+    orderId:"",ref:"",hitkatzvaNum:"",notes:"",
+    items:[{id:1,desc:"ייצור והתקנת חלונות אלומיניום",qty:1,price:""}]
+  });
+  const [docSearch,setDocSearch]=useState("");
+
+  useEffect(()=>{try{localStorage.setItem("wb:docs",JSON.stringify(docs));}catch{}},[docs]);
+
+  const bizType=company?.bizType||"חברה בעמ";
+  const isVat=["עוסק מורשה","חברה בעמ","שותפות"].includes(bizType);
+  const VAT=0.18;
+
   const rcv=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
   const pnd=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const totalDocs=docs.reduce((s,d)=>s+d.amount,0);
+
+  // Doc type options per business type
+  const DOC_TYPES=isVat
+    ?["חשבונית מס קבלה","חשבונית מס","קבלה","חשבון עסקה","חשבונית עסקה"]
+    :["קבלה","חשבון עסקה","חשבונית עסקה"];
+
+  const METHOD_OPTS=["העברה בנקאית","מזומן","צ'ק","כרטיס אשראי","Bit","PayBox","אחר"];
+
+  // Auto doc number
+  const nextDocNum=()=>{
+    const prefix=df.docType==="קבלה"?"K":df.docType==="חשבון עסקה"?"H":"I";
+    const existing=docs.filter(d=>d.docType===df.docType).length;
+    return`${prefix}${String(existing+1).padStart(5,"0")}`;
+  };
+
+  const amtNum=parseFloat(df.amount)||0;
+  const amtBeforeVat=isVat&&df.includesVat?Math.round(amtNum/1.18):amtNum;
+  const vatAmt=isVat&&df.includesVat?amtNum-amtBeforeVat:0;
+  const needsHitkatzva=isVat&&amtBeforeVat>=10000&&(df.docType==="חשבונית מס"||df.docType==="חשבונית מס קבלה");
+
+  const saveDoc=()=>{
+    if(!df.client||!df.amount)return alert("יש למלא שם לקוח וסכום");
+    if(needsHitkatzva&&!df.hitkatzvaNum){
+      if(!confirm("⚠️ חשבונית מעל ₪10,000 ללא מספר הקצאה!\nלקוח לא יוכל לנכות מע\"מ.\nהמשיך בכל זאת?"))return;
+    }
+    const docNum=nextDocNum();
+    const doc={...df,id:Date.now(),docNum,date:new Date().toISOString().split("T")[0],
+      amount:amtNum,items:df.items.map(it=>({...it,price:parseFloat(it.price)||0}))};
+    setDocs(p=>[doc,...p]);
+    // Also add to payments if it's a receipt type
+    if(df.docType==="קבלה"||df.docType==="חשבונית מס קבלה"){
+      setPayments(p=>[...p,{id:Date.now()+1,order:df.orderId||"",client:df.client,
+        type:df.docType,amount:amtNum,date:doc.date,method:df.method,
+        status:"Получен",docNum}]);
+    }
+    setNewDoc(false);
+    setDf({docType:"חשבונית מס קבלה",client:"",clientTaxId:"",clientAddress:"",
+      amount:"",includesVat:true,method:"העברה בנקאית",
+      description:"ייצור והתקנת חלונות ודלתות אלומיניום",
+      orderId:"",ref:"",hitkatzvaNum:"",notes:"",
+      items:[{id:1,desc:"ייצור והתקנת חלונות אלומיניום",qty:1,price:""}]});
+    alert(`מסמך ${doc.docType} מספר ${docNum} נשמר בהצלחה!`);
+  };
+
+  const filteredDocs=docs.filter(d=>
+    !docSearch||d.client.toLowerCase().includes(docSearch.toLowerCase())||d.docNum?.includes(docSearch)
+  );
+
+  const DOC_COLORS={"קבלה":D.green,"חשבון עסקה":D.accentLight,"חשבונית עסקה":D.accentLight,
+    "חשבונית מס":D.purple,"חשבונית מס קבלה":D.teal};
+
   return(<div>
+    {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Касса</div>
-        <div style={{fontSize:13,color:D.muted}}>{payments.length} транзакций</div></div>
-      <Btn onClick={()=>exportCSV(["Заказ","Клиент","Тип","Сумма","Дата","Статус"],payments.map(p=>[p.order,p.client,p.type,p.amount,p.date,p.status]),"касса.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
-      <KCard icon={Check} label="Получено" value={fmt(rcv)} color={D.green}/>
-      <KCard icon={Clock} label="Ожидается" value={fmt(pnd)} color={D.yellow}/>
-      <KCard icon={DollarSign} label="Транзакций" value={payments.length} color={D.accentLight}/>
-    </div>
-    <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1.5fr 1fr 1fr 1fr 1fr auto",padding:"8px 14px",background:D.surface,gap:10}}>
-        {["Заказ","Клиент","Тип","Сумма","Дата","Статус",""].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
+      <div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>קופה · כספים</div>
+        <div style={{fontSize:12,color:D.muted,marginTop:2,display:"flex",gap:12,alignItems:"center"}}>
+          <span>{bizType}</span>
+          {isVat&&<span style={{background:D.teal+"20",color:D.teal,borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>מע"מ 18%</span>}
+          {needsHitkatzva&&<span style={{background:D.yellow+"20",color:D.yellow,borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>מספר הקצאה נדרש ≥ ₪10,000</span>}
+        </div>
       </div>
-      {payments.map((p,i)=>(
-        <div key={p.id} style={{display:"grid",gridTemplateColumns:"1fr 1.5fr 1fr 1fr 1fr 1fr auto",
-          padding:"11px 14px",gap:10,alignItems:"center",background:i%2===0?D.card:D.surface,borderTop:`1px solid ${D.border}`}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.accentLight}}>{p.order}</div>
-          <div style={{fontSize:13,color:D.text}}>{p.client}</div>
-          <div style={{fontSize:11,color:D.muted}}>{p.type}</div>
-          <div style={{fontSize:14,fontWeight:800,color:D.text}}>{fmt(p.amount)}</div>
-          <div style={{fontSize:11,color:D.muted}}>{p.date}</div>
-          <Badge status={p.status}/>
-          {p.status==="Ожидается"
-            ?<Btn onClick={()=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,status:"Получен"}:x))} variant="success" small><Check size={11}/> Получен</Btn>
-            :<div style={{width:72}}/>}
+      <div style={{display:"flex",gap:8}}>
+        <Btn onClick={()=>exportCSV(["מסמך","לקוח","סוג","סכום","תאריך","אמצעי תשלום"],
+          docs.map(d=>[d.docNum,d.client,d.docType,d.amount,d.date,d.method]),"מסמכים.csv")} variant="ghost">
+          <Download size={13}/> CSV
+        </Btn>
+        <Btn onClick={()=>setNewDoc(true)} variant="success">
+          <Plus size={13}/> מסמך חדש
+        </Btn>
+      </div>
+    </div>
+
+    {/* KPI cards */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>
+      {[
+        ["💰 התקבל",fmt(rcv),D.green],
+        ["⏳ ממתין לגבייה",fmt(pnd),D.yellow],
+        ["📄 מסמכים שהופקו",docs.length,D.accentLight],
+        ["📊 סה\"כ בחשבוניות",fmt(totalDocs),D.teal],
+      ].map(([l,v,c])=>(
+        <div key={l} style={{background:D.card,border:`1px solid ${c}30`,borderRadius:12,padding:"12px 16px",borderTop:`3px solid ${c}`}}>
+          <div style={{fontSize:10,color:D.muted,marginBottom:4,fontWeight:700}}>{l}</div>
+          <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
         </div>
       ))}
     </div>
+
+    {/* Tabs */}
+    <div style={{display:"flex",gap:2,background:D.surface,borderRadius:10,padding:4,width:"fit-content",marginBottom:16}}>
+      {[["payments","💳 תשלומים"],["docs","📄 מסמכים שהופקו"]].map(([t,l])=>(
+        <button key={t} onClick={()=>setTab(t)}
+          style={{padding:"7px 18px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,
+            background:tab===t?"linear-gradient(135deg,#2563EB,#1D4ED8)":"transparent",
+            color:tab===t?"#fff":D.muted}}>
+          {l}
+        </button>
+      ))}
+    </div>
+
+    {/* Payments tab */}
+    {tab==="payments"&&(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
+      <div style={{display:"grid",gridTemplateColumns:"0.8fr 1.5fr 1fr 1fr 1fr 1fr auto",
+        padding:"8px 14px",background:D.surface,gap:10}}>
+        {["הזמנה","לקוח","סוג","סכום","תאריך","סטטוס",""].map((h,i)=>(
+          <div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>
+        ))}
+      </div>
+      {payments.length===0&&<div style={{padding:30,textAlign:"center",color:D.muted}}>אין תשלומים עדיין</div>}
+      {payments.map((p,i)=>(
+        <div key={p.id} style={{display:"grid",gridTemplateColumns:"0.8fr 1.5fr 1fr 1fr 1fr 1fr auto",
+          padding:"10px 14px",gap:10,alignItems:"center",
+          background:i%2===0?D.card:D.surface,borderTop:`1px solid ${D.border}`}}>
+          <div style={{fontSize:11,fontWeight:800,color:D.accentLight}}>{p.order||"—"}</div>
+          <div onClick={()=>onClientClick&&onClientClick(p.client)}
+            style={{fontSize:13,color:D.text,cursor:"pointer",fontWeight:600}}>{p.client}</div>
+          <div style={{fontSize:10,color:D.muted}}>{p.type}</div>
+          <div style={{fontSize:14,fontWeight:800,color:p.status==="Получен"?D.green:D.yellow}}>{fmt(p.amount)}</div>
+          <div style={{fontSize:11,color:D.muted}}>{p.date}</div>
+          <Badge status={p.status}/>
+          {p.status==="Ожидается"
+            ?<Btn onClick={()=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,status:"Получен"}:x))} variant="success" small>
+               <Check size={11}/> התקבל
+             </Btn>
+            :<div style={{width:72}}/>}
+        </div>
+      ))}
+    </div>)}
+
+    {/* Documents tab */}
+    {tab==="docs"&&(<div>
+      <div style={{position:"relative",marginBottom:12}}>
+        <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
+        <input value={docSearch} onChange={e=>setDocSearch(e.target.value)}
+          placeholder="חיפוש לפי לקוח או מספר מסמך..."
+          style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
+            padding:"7px 10px 7px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+      </div>
+      {filteredDocs.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,
+        padding:40,textAlign:"center",color:D.muted}}>
+        אין מסמכים. לחץ "מסמך חדש" להפקת חשבונית/קבלה.
+      </div>}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {filteredDocs.map(d=>{
+          const c=DOC_COLORS[d.docType]||D.accentLight;
+          const hasHitkatzva=d.hitkatzvaNum&&d.hitkatzvaNum.length===9;
+          const missingHitkatzva=isVat&&d.amount>=10000&&(d.docType==="חשבונית מס"||d.docType==="חשבונית מס קבלה")&&!hasHitkatzva;
+          return(<div key={d.id} style={{background:D.card,border:`1px solid ${missingHitkatzva?D.yellow:D.border}`,
+            borderRadius:12,padding:"14px 18px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+              <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                <div style={{background:c+"20",border:`1px solid ${c}40`,borderRadius:7,
+                  padding:"3px 10px",fontSize:11,fontWeight:800,color:c}}>
+                  {d.docNum}
+                </div>
+                <div>
+                  <div onClick={()=>onClientClick&&onClientClick(d.client)}
+                    style={{fontSize:14,fontWeight:800,color:D.text,cursor:"pointer"}}>{d.client}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{d.docType} · {d.date} · {d.method}</div>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:18,fontWeight:900,color:c}}>₪{d.amount.toLocaleString("he-IL")}</div>
+                  {isVat&&d.includesVat&&<div style={{fontSize:9,color:D.muted}}>כולל מע"מ</div>}
+                </div>
+                <Btn onClick={()=>printIsraeliDoc(d,company||{})} variant="ghost" small>
+                  <Download size={12}/> PDF
+                </Btn>
+              </div>
+            </div>
+
+            {/* Missing מספר הקצאה warning */}
+            {missingHitkatzva&&(<div style={{background:D.yellow+"12",border:`1px solid ${D.yellow}40`,
+              borderRadius:7,padding:"8px 12px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:11,color:D.yellow}}>
+                ⚠️ מסמך מעל ₪10,000 — נדרש <b>מספר הקצאה</b> (9 ספרות) מרשות המיסים
+              </div>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <input placeholder="הכנס מספר הקצאה..." maxLength={9}
+                  style={{background:D.bg,border:`1px solid ${D.yellow}`,borderRadius:6,
+                    padding:"4px 8px",color:D.text,fontSize:12,outline:"none",width:180,textAlign:"center",
+                    letterSpacing:"0.1em",fontWeight:700}}
+                  onBlur={e=>{
+                    if(e.target.value.length===9){
+                      setDocs(p=>p.map(x=>x.id===d.id?{...x,hitkatzvaNum:e.target.value}:x));
+                    }
+                  }}
+                  defaultValue={d.hitkatzvaNum||""}/>
+                <a href="https://taxes.gov.il" target="_blank" rel="noreferrer"
+                  style={{fontSize:10,color:D.accentLight,textDecoration:"none"}}>אתר רשות ←</a>
+              </div>
+            </div>)}
+
+            {/* הקצאה confirmed */}
+            {hasHitkatzva&&<div style={{background:D.green+"12",border:`1px solid ${D.green}30`,
+              borderRadius:7,padding:"5px 12px",marginBottom:8,fontSize:11,color:D.green}}>
+              ✅ מספר הקצאה: <b style={{letterSpacing:"0.1em"}}>{d.hitkatzvaNum}</b>
+            </div>}
+
+            {d.orderId&&<div style={{fontSize:10,color:D.muted}}>הזמנה: {d.orderId}</div>}
+          </div>);
+        })}
+      </div>
+    </div>)}
+
+    {/* NEW DOCUMENT MODAL */}
+    {newDoc&&(<Modal title={`📄 מסמך חדש — ${bizType}`} onClose={()=>setNewDoc(false)} wide>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+        {/* Doc type */}
+        <div>
+          <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>סוג מסמך</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+            {DOC_TYPES.map(t=>(
+              <button key={t} onClick={()=>setDf(p=>({...p,docType:t}))}
+                style={{padding:"5px 10px",borderRadius:6,border:`1px solid ${df.docType===t?(DOC_COLORS[t]||D.accent):D.border}`,
+                  background:df.docType===t?(DOC_COLORS[t]||D.accent)+"20":"transparent",
+                  color:df.docType===t?(DOC_COLORS[t]||D.accentLight):D.muted,
+                  fontSize:11,fontWeight:df.docType===t?700:400,cursor:"pointer"}}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Method */}
+        <div>
+          <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>אמצעי תשלום</div>
+          <select value={df.method} onChange={e=>setDf(p=>({...p,method:e.target.value}))}
+            style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
+              padding:"7px 10px",color:D.text,fontSize:12,outline:"none"}}>
+            {METHOD_OPTS.map(m=><option key={m} value={m} style={{background:D.card}}>{m}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <Inp label="שם לקוח *" value={df.client} onChange={e=>setDf(p=>({...p,client:e.target.value}))} placeholder="שם מלא"/>
+        <Inp label="ח.פ. / ע.מ. לקוח" value={df.clientTaxId} onChange={e=>setDf(p=>({...p,clientTaxId:e.target.value}))} placeholder="אופציונלי"/>
+        <Inp label="כתובת לקוח" value={df.clientAddress} onChange={e=>setDf(p=>({...p,clientAddress:e.target.value}))} placeholder="אופציונלי"/>
+        <Inp label="מס׳ הזמנה" value={df.orderId} onChange={e=>setDf(p=>({...p,orderId:e.target.value}))} placeholder="WB-001"/>
+      </div>
+
+      {/* Items */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>פירוט שירותים / מוצרים</div>
+        {df.items.map((it,i)=>(
+          <div key={it.id} style={{display:"grid",gridTemplateColumns:"2fr 0.5fr 1fr auto",gap:6,marginBottom:6,alignItems:"center"}}>
+            <input value={it.desc} onChange={e=>setDf(p=>({...p,items:p.items.map((x,j)=>j===i?{...x,desc:e.target.value}:x)}))}
+              placeholder="תיאור שירות / מוצר"
+              style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"6px 8px",color:D.text,fontSize:12,outline:"none"}}/>
+            <input type="number" value={it.qty} min={1}
+              onChange={e=>setDf(p=>({...p,items:p.items.map((x,j)=>j===i?{...x,qty:+e.target.value||1}:x)}))}
+              style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"6px 8px",color:D.text,fontSize:12,outline:"none",textAlign:"center"}}/>
+            <input type="number" value={it.price}
+              onChange={e=>setDf(p=>({...p,items:p.items.map((x,j)=>j===i?{...x,price:e.target.value}:x),
+                amount:p.items.reduce((s,x,j)=>s+(j===i?+e.target.value||0:+x.price||0)*(j===i?x.qty:x.qty),0).toString()}))}
+              placeholder="₪"
+              style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"6px 8px",color:D.text,fontSize:12,outline:"none"}}/>
+            <button onClick={()=>df.items.length>1&&setDf(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))}
+              style={{background:"none",border:"none",cursor:"pointer",color:df.items.length>1?D.red:D.muted,padding:4}}>
+              <X size={13}/>
+            </button>
+          </div>
+        ))}
+        <button onClick={()=>setDf(p=>({...p,items:[...p.items,{id:Date.now(),desc:"",qty:1,price:""}]}))}
+          style={{background:"none",border:`1px dashed ${D.border}`,borderRadius:6,padding:"5px 14px",
+            color:D.muted,fontSize:11,cursor:"pointer",width:"100%",marginBottom:4}}>
+          + הוסף שורה
+        </button>
+      </div>
+
+      {/* Amount + VAT */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <div>
+          <Inp label="סכום כולל ₪ *" value={df.amount} onChange={e=>setDf(p=>({...p,amount:e.target.value}))} type="number" placeholder="0"/>
+          {isVat&&amtNum>0&&<div style={{fontSize:10,color:D.teal,marginTop:3}}>
+            {df.includesVat?`לפני מע"מ: ₪${amtBeforeVat.toLocaleString()} + מע"מ: ₪${vatAmt.toLocaleString()}`:"+ מע\"מ לא כלול"}
+          </div>}
+        </div>
+        {isVat&&<div style={{paddingTop:22}}>
+          <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:D.text}}>
+            <input type="checkbox" checked={df.includesVat} onChange={e=>setDf(p=>({...p,includesVat:e.target.checked}))} style={{accentColor:D.teal}}/>
+            הסכום כולל מע"מ 18%
+          </label>
+        </div>}
+      </div>
+
+      {/* מספר הקצאה */}
+      {needsHitkatzva&&(<div style={{background:D.yellow+"12",border:`1px solid ${D.yellow}`,borderRadius:8,
+        padding:"10px 14px",marginBottom:10}}>
+        <div style={{fontSize:11,fontWeight:700,color:D.yellow,marginBottom:6}}>
+          ⚠️ מסמך מעל ₪10,000 — נדרש מספר הקצאה מרשות המיסים
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <input value={df.hitkatzvaNum} onChange={e=>setDf(p=>({...p,hitkatzvaNum:e.target.value}))}
+            placeholder="הכנס 9 ספרות..." maxLength={9}
+            style={{flex:1,background:D.bg,border:`1px solid ${df.hitkatzvaNum.length===9?D.green:D.yellow}`,
+              borderRadius:7,padding:"8px 12px",color:D.text,fontSize:14,fontWeight:700,
+              outline:"none",textAlign:"center",letterSpacing:"0.15em"}}/>
+          <a href="https://www.taxes.gov.il/incometax/pages/default.aspx" target="_blank" rel="noreferrer"
+            style={{background:D.accent+"20",border:`1px solid ${D.accent}40`,borderRadius:7,
+              padding:"8px 12px",color:D.accentLight,fontSize:11,fontWeight:700,textDecoration:"none",whiteSpace:"nowrap"}}>
+            אתר רשות המסים ←
+          </a>
+        </div>
+        {df.hitkatzvaNum&&df.hitkatzvaNum.length!==9&&
+          <div style={{fontSize:10,color:D.red,marginTop:4}}>מספר הקצאה חייב להכיל בדיוק 9 ספרות</div>}
+        <div style={{fontSize:10,color:D.muted,marginTop:6}}>
+          ניתן להמשיך ללא מספר הקצאה, אך הלקוח לא יוכל לנכות מע"מ תשומות
+        </div>
+      </div>)}
+
+      <Inp label="הערות" value={df.notes} onChange={e=>setDf(p=>({...p,notes:e.target.value}))} placeholder="הערות נוספות..."/>
+
+      {/* Preview total */}
+      {amtNum>0&&(<div style={{background:D.teal+"12",border:`1px solid ${D.teal}30`,borderRadius:8,
+        padding:"10px 14px",marginTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:12,color:D.muted}}>{df.docType} · מספר: {nextDocNum()}</span>
+        <span style={{fontSize:20,fontWeight:900,color:D.teal}}>₪{amtNum.toLocaleString("he-IL")}</span>
+      </div>)}
+
+      <div style={{display:"flex",gap:8,marginTop:14}}>
+        <Btn onClick={saveDoc} variant="success"><Check size={13}/> שמור מסמך</Btn>
+        <Btn onClick={()=>setNewDoc(false)} variant="ghost">ביטול</Btn>
+      </div>
+    </Modal>)}
   </div>);
 }
 
@@ -3448,6 +4263,58 @@ function Quotes({quotes,setQuotes,onClientClick}){
   </div>);
 }
 
+// ── ACTIVITY LOG COMPONENT with search ──────────────────────
+function ActivityLog({activities}){
+  const [search,setSearch]=useState("");
+  const filtered=search.trim()
+    ?activities.filter(a=>a.text.toLowerCase().includes(search.toLowerCase())||a.date.includes(search))
+    :activities;
+  return(<div>
+    <div style={{position:"relative",marginBottom:8}}>
+      <Search size={11} style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
+      <input value={search} onChange={e=>setSearch(e.target.value)}
+        placeholder="Поиск в истории..."
+        style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,
+          padding:"5px 8px 5px 24px",color:D.text,fontSize:11,outline:"none",boxSizing:"border-box"}}/>
+    </div>
+    <div style={{maxHeight:220,overflowY:"auto"}}>
+      {filtered.slice(0,50).map(a=>(
+        <div key={a.id} style={{display:"flex",gap:8,padding:"5px 0",
+          borderBottom:`1px solid ${D.border}`,alignItems:"flex-start"}}>
+          <span style={{fontSize:14,flexShrink:0}}>{ACT_ICONS[a.type]||"📌"}</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:D.text}}>{a.text}</div>
+            <div style={{fontSize:9,color:D.muted}}>{a.date} {a.time}</div>
+          </div>
+        </div>
+      ))}
+      {filtered.length===0&&<div style={{fontSize:11,color:D.muted,padding:"8px 0"}}>Ничего не найдено</div>}
+    </div>
+  </div>);
+}
+
+// ── PUSH NOTIFICATIONS helper ────────────────────────────────
+const requestPushPermission=async()=>{
+  if(!("Notification" in window))return false;
+  if(Notification.permission==="granted")return true;
+  const perm=await Notification.requestPermission();
+  return perm==="granted";
+};
+const sendPushNotification=(title,body,onClick)=>{
+  if(Notification.permission!=="granted")return;
+  const n=new Notification(title,{body,icon:"/icon-192.png",badge:"/icon-192.png"});
+  if(onClick)n.onclick=onClick;
+};
+
+// ── CHECK FOLLOW-UPS and send push ──────────────────────────
+const checkFollowUps=(leads)=>{
+  const today=new Date().toISOString().split("T")[0];
+  const due=leads.filter(l=>l.followUp===today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+  const overdue=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+  if(due.length>0)sendPushNotification(`📞 Follow-up сегодня (${due.length})`,due.map(l=>l.name).join(", "));
+  if(overdue.length>0)sendPushNotification(`🔴 Просрочено (${overdue.length})`,overdue.map(l=>l.name).join(", "));
+};
+
 // ═══════════════════════════════════════════════════════════════
 // CLIENT CARD — full profile side panel
 // ═══════════════════════════════════════════════════════════════
@@ -3682,19 +4549,9 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
             </div>
           </div>
 
-          {/* Activity log */}
+          {/* Activity log with search */}
           {cActivity.length>0&&(<Section icon={History} title={`История (${cActivity.length})`} color={D.muted}>
-            <div style={{maxHeight:200,overflowY:"auto"}}>
-              {cActivity.slice(0,20).map(a=>(
-                <div key={a.id} style={{display:"flex",gap:8,padding:"5px 0",borderBottom:`1px solid ${D.border}`,alignItems:"flex-start"}}>
-                  <span style={{fontSize:14,flexShrink:0}}>{ACT_ICONS[a.type]||"📌"}</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:11,color:D.text}}>{a.text}</div>
-                    <div style={{fontSize:9,color:D.muted}}>{a.date} {a.time}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ActivityLog activities={cActivity}/>
           </Section>)}
         </div>
       </div>
@@ -3729,18 +4586,370 @@ const addActivity=(setActivity,clientName,type,text)=>{
 };
 const ACT_ICONS={call:"📞",whatsapp:"💬",kp:"📋",measure:"📐",order:"📦",install:"🔧",note:"📝",payment:"💰"};
 
+// ═══════════════════════════════════════════════════════════════
+// CALENDAR MODULE
+// ═══════════════════════════════════════════════════════════════
+function Calendar({leads,measurements,installations,payments,setMeasurements,setInstallations,setLeads,onClientClick,setPage}){
+  const [view,setView]=useState("month"); // month | week
+  const [current,setCurrent]=useState(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()};});
+  const [selected,setSelected]=useState(()=>new Date().toISOString().split("T")[0]);
+  const [quickModal,setQuickModal]=useState(null); // {date, type}
+  const [quickForm,setQuickForm]=useState({client:"",phone:"",address:"",time:"09:00",notes:""});
+
+  const today=new Date().toISOString().split("T")[0];
+  const DAYS_RU=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+  const MONTHS_RU=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+
+  // Build events map: date → [{type,label,color,client,id}]
+  const eventsMap={};
+  const addEv=(date,ev)=>{if(!date)return;if(!eventsMap[date])eventsMap[date]=[];eventsMap[date].push(ev);};
+
+  measurements.forEach(m=>addEv(m.date,{type:"measure",label:m.client,sub:m.address,color:D.teal,client:m.client,id:m.id,phone:m.phone,status:m.status}));
+  installations.forEach(i=>addEv(i.scheduledDate,{type:"install",label:i.client,sub:i.address,color:D.purple,client:i.client,id:i.id,status:i.status}));
+  leads.forEach(l=>{
+    if(!l.followUp)return;
+    const isPast=l.followUp<today;
+    addEv(l.followUp,{type:"followup",label:l.name,sub:l.status,color:isPast?D.red:D.yellow,client:l.name,id:l.id,phone:l.phone,isPast});
+  });
+  payments.forEach(p=>{
+    if(p.status==="Ожидается"&&p.date)
+      addEv(p.date,{type:"payment",label:p.client,sub:`₪${p.amount?.toLocaleString()}`,color:D.green,client:p.client,id:p.id});
+  });
+
+  const TYPE_ICONS={measure:"📐",install:"🔧",followup:"🔔",payment:"💰"};
+  const TYPE_LABELS={measure:"Замер",install:"Монтаж",followup:"Follow-up",payment:"Платёж"};
+
+  // Month grid
+  const getDaysInMonth=(y,m)=>{
+    const first=new Date(y,m,1);
+    const last=new Date(y,m+1,0);
+    const startDow=(first.getDay()+6)%7; // Mon=0
+    const days=[];
+    for(let i=0;i<startDow;i++){
+      const d=new Date(y,m,1-startDow+i);
+      days.push({date:d.toISOString().split("T")[0],cur:false});
+    }
+    for(let d=1;d<=last.getDate();d++){
+      const dt=new Date(y,m,d);
+      days.push({date:dt.toISOString().split("T")[0],cur:true});
+    }
+    while(days.length%7!==0){
+      const last2=new Date(days[days.length-1].date);
+      last2.setDate(last2.getDate()+1);
+      days.push({date:last2.toISOString().split("T")[0],cur:false});
+    }
+    return days;
+  };
+
+  const days=getDaysInMonth(current.y,current.m);
+  const selEvents=eventsMap[selected]||[];
+
+  const prevMonth=()=>setCurrent(c=>c.m===0?{y:c.y-1,m:11}:{y:c.y,m:c.m-1});
+  const nextMonth=()=>setCurrent(c=>c.m===11?{y:c.y+1,m:0}:{y:c.y,m:c.m+1});
+  const goToday=()=>{const d=new Date();setCurrent({y:d.getFullYear(),m:d.getMonth()});setSelected(today);};
+
+  const saveQuick=()=>{
+    if(!quickForm.client)return;
+    const id=Date.now();
+    if(quickModal.type==="measure"){
+      setMeasurements(p=>[...p,{id,client:quickForm.client,phone:quickForm.phone,
+        address:quickForm.address,date:quickModal.date,status:"Запланирован",
+        mode:"Выезд",specialist:"",notes:quickForm.notes,openings:[],files:[],
+        floor:"1",wallType:"Железобетон",crane:false,demolition:false}]);
+    } else if(quickModal.type==="install"){
+      setInstallations(p=>[...p,{id,client:quickForm.client,address:quickForm.address,
+        scheduledDate:quickModal.date,status:"Запланирован",specialist:"",
+        checklist:new Array(11).fill(false),notes:quickForm.notes,
+        photosBefore:[],photosAfter:[],completedDate:""}]);
+    } else if(quickModal.type==="followup"){
+      // Update lead's follow-up date
+      setLeads(p=>p.map(l=>l.name===quickForm.client?{...l,followUp:quickModal.date}:l));
+    }
+    setQuickModal(null);
+    setQuickForm({client:"",phone:"",address:"",time:"09:00",notes:""});
+    setSelected(quickModal.date);
+  };
+
+  // Week view
+  const getWeekDays=()=>{
+    const d=new Date(selected);
+    const dow=(d.getDay()+6)%7;
+    const mon=new Date(d); mon.setDate(d.getDate()-dow);
+    return Array.from({length:7},(_,i)=>{
+      const wd=new Date(mon); wd.setDate(mon.getDate()+i);
+      return wd.toISOString().split("T")[0];
+    });
+  };
+  const weekDays=getWeekDays();
+
+  return(<div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:16,height:"calc(100vh - 120px)",minHeight:500}}>
+    {/* LEFT: calendar grid */}
+    <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:16,padding:20,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={prevMonth} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",color:D.muted}}>
+            <ChevronLeft size={15}/>
+          </button>
+          <div style={{fontSize:18,fontWeight:900,color:D.text,minWidth:180}}>
+            {MONTHS_RU[current.m]} {current.y}
+          </div>
+          <button onClick={nextMonth} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",color:D.muted}}>
+            <ChevronRight size={15}/>
+          </button>
+        </div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {/* Legend */}
+          <div style={{display:"flex",gap:8,marginRight:8,fontSize:10,color:D.muted}}>
+            {[["📐",D.teal,"Замер"],["🔧",D.purple,"Монтаж"],["🔔",D.yellow,"Follow-up"],["💰",D.green,"Платёж"]].map(([ico,c,l])=>(
+              <span key={l} style={{display:"flex",alignItems:"center",gap:3}}>
+                <span style={{width:8,height:8,borderRadius:"50%",background:c,display:"inline-block"}}/>
+                {l}
+              </span>
+            ))}
+          </div>
+          <button onClick={goToday} style={{background:D.accent+"20",border:`1px solid ${D.accent}40`,
+            borderRadius:7,padding:"5px 12px",cursor:"pointer",color:D.accentLight,fontSize:11,fontWeight:700}}>
+            Сегодня
+          </button>
+          {/* View toggle */}
+          <div style={{display:"flex",background:D.surface,borderRadius:8,padding:2,gap:2}}>
+            {[["month","Месяц"],["week","Неделя"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setView(v)}
+                style={{padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,
+                  background:view===v?D.accent:"transparent",color:view===v?"#fff":D.muted}}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {view==="month"?(
+        <>
+          {/* Day headers */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
+            {DAYS_RU.map((d,i)=>(
+              <div key={d} style={{textAlign:"center",fontSize:10,fontWeight:800,
+                color:i>=5?D.red:D.muted,padding:"4px 0",textTransform:"uppercase"}}>
+                {d}
+              </div>
+            ))}
+          </div>
+          {/* Day cells */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,flex:1,overflow:"auto"}}>
+            {days.map(({date,cur})=>{
+              const evs=eventsMap[date]||[];
+              const isSel=date===selected;
+              const isToday=date===today;
+              const isWe=new Date(date).getDay()===0||new Date(date).getDay()===6;
+              return(
+                <div key={date} onClick={()=>setSelected(date)}
+                  style={{borderRadius:10,padding:"5px 4px",cursor:"pointer",minHeight:70,
+                    background:isSel?D.accent+"25":isToday?D.accent+"10":D.surface,
+                    border:`1.5px solid ${isSel?D.accent:isToday?D.accent+"60":"transparent"}`,
+                    opacity:cur?1:0.35,transition:"all 0.1s"}}>
+                  <div style={{fontSize:11,fontWeight:isToday?900:isSel?700:500,
+                    color:isToday?D.accentLight:isSel?D.accentLight:isWe?D.red:D.text,
+                    marginBottom:3,textAlign:"right",paddingRight:2}}>
+                    {isToday?<span style={{background:D.accent,color:"#fff",borderRadius:10,padding:"1px 5px"}}>{new Date(date).getDate()}</span>:new Date(date).getDate()}
+                  </div>
+                  {/* Event dots */}
+                  <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                    {evs.slice(0,3).map((ev,i)=>(
+                      <div key={i} style={{background:ev.color+"25",borderLeft:`2px solid ${ev.color}`,
+                        borderRadius:"0 4px 4px 0",padding:"1px 4px",fontSize:9,fontWeight:600,
+                        color:ev.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {TYPE_ICONS[ev.type]} {ev.label}
+                      </div>
+                    ))}
+                    {evs.length>3&&<div style={{fontSize:9,color:D.muted,paddingLeft:4}}>+{evs.length-3}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ):(
+        /* WEEK VIEW */
+        <div style={{flex:1,overflow:"auto"}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:6}}>
+            {weekDays.map(date=>{
+              const evs=eventsMap[date]||[];
+              const isToday=date===today;
+              const isSel=date===selected;
+              const d=new Date(date);
+              const dow=((d.getDay()+6)%7);
+              return(
+                <div key={date} onClick={()=>setSelected(date)}
+                  style={{borderRadius:12,padding:10,cursor:"pointer",minHeight:200,
+                    background:isSel?D.accent+"20":isToday?D.accent+"10":D.surface,
+                    border:`1.5px solid ${isSel?D.accent:isToday?D.accent+"50":D.border}`}}>
+                  <div style={{textAlign:"center",marginBottom:8}}>
+                    <div style={{fontSize:9,color:dow>=5?D.red:D.muted,fontWeight:700,textTransform:"uppercase"}}>{DAYS_RU[dow]}</div>
+                    <div style={{fontSize:18,fontWeight:900,
+                      color:isToday?D.accentLight:isSel?D.accentLight:D.text}}>
+                      {isToday?<span style={{background:D.accent,color:"#fff",borderRadius:"50%",width:28,height:28,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:15}}>{d.getDate()}</span>:d.getDate()}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                    {evs.map((ev,i)=>(
+                      <div key={i} onClick={e=>{e.stopPropagation();onClientClick&&onClientClick(ev.client);}}
+                        style={{background:ev.color+"20",border:`1px solid ${ev.color}40`,
+                          borderRadius:6,padding:"4px 6px",cursor:"pointer"}}
+                        onMouseEnter={e=>e.currentTarget.style.background=ev.color+"35"}
+                        onMouseLeave={e=>e.currentTarget.style.background=ev.color+"20"}>
+                        <div style={{fontSize:10,fontWeight:700,color:ev.color}}>{TYPE_ICONS[ev.type]} {TYPE_LABELS[ev.type]}</div>
+                        <div style={{fontSize:11,fontWeight:600,color:D.text}}>{ev.label}</div>
+                        {ev.sub&&<div style={{fontSize:9,color:D.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.sub}</div>}
+                      </div>
+                    ))}
+                    {evs.length===0&&<div style={{fontSize:10,color:D.muted,textAlign:"center",marginTop:8}}>—</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* RIGHT: selected day panel */}
+    <div style={{display:"flex",flexDirection:"column",gap:10,overflow:"auto"}}>
+      {/* Selected day header */}
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
+        <div style={{fontSize:13,fontWeight:900,color:D.text,marginBottom:2}}>
+          {selected===today?"📅 Сегодня":""} {new Date(selected).toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})}
+        </div>
+        <div style={{fontSize:11,color:D.muted,marginBottom:12}}>
+          {selEvents.length>0?`${selEvents.length} событий`:"Нет событий"}
+        </div>
+        {/* Quick add buttons */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+          {[["measure","📐 Замер",D.teal],["install","🔧 Монтаж",D.purple],
+            ["followup","🔔 Follow-up",D.yellow]].map(([type,label,color])=>(
+            <button key={type} onClick={()=>setQuickModal({date:selected,type})}
+              style={{background:color+"15",border:`1px solid ${color}40`,borderRadius:8,
+                padding:"7px 6px",cursor:"pointer",color,fontWeight:700,fontSize:11}}>
+              {label}
+            </button>
+          ))}
+          <button onClick={()=>setPage&&setPage("calc")}
+            style={{background:D.accent+"15",border:`1px solid ${D.accent}40`,borderRadius:8,
+              padding:"7px 6px",cursor:"pointer",color:D.accentLight,fontWeight:700,fontSize:11}}>
+            🧮 КП
+          </button>
+        </div>
+      </div>
+
+      {/* Events for selected day */}
+      {selEvents.length>0&&(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
+        <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>События дня</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {selEvents.map((ev,i)=>(
+            <div key={i} style={{background:ev.color+"12",border:`1px solid ${ev.color}30`,
+              borderRadius:10,padding:"10px 12px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,fontWeight:800,color:ev.color}}>
+                    {TYPE_ICONS[ev.type]} {TYPE_LABELS[ev.type]}
+                    {ev.isPast&&<span style={{marginLeft:6,fontSize:9,background:D.red,color:"#fff",borderRadius:4,padding:"1px 4px"}}>просрочено</span>}
+                  </div>
+                  <div onClick={()=>onClientClick&&onClientClick(ev.client)}
+                    style={{fontSize:13,fontWeight:700,color:D.text,cursor:"pointer",marginTop:2}}>
+                    {ev.label}
+                  </div>
+                  {ev.sub&&<div style={{fontSize:10,color:D.muted,marginTop:1}}>{ev.sub}</div>}
+                </div>
+                <div style={{display:"flex",gap:4,flexShrink:0}}>
+                  {ev.phone&&(<a href={`tel:${ev.phone}`}
+                    style={{background:D.green+"20",border:`1px solid ${D.green}40`,borderRadius:6,
+                      padding:"4px 7px",color:D.green,fontSize:10,fontWeight:700,textDecoration:"none"}}>
+                    📞
+                  </a>)}
+                  {ev.phone&&(<a href={`https://wa.me/${ev.phone.replace(/[^0-9]/g,"").replace(/^0/,"972")}`}
+                    target="_blank" rel="noreferrer"
+                    style={{background:"#25D36620",border:"1px solid #25D36640",borderRadius:6,
+                      padding:"4px 7px",color:"#25D366",fontSize:10,fontWeight:700,textDecoration:"none"}}>
+                    WA
+                  </a>)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>)}
+
+      {/* Upcoming 7 days */}
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
+        <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>
+          📅 Ближайшие 7 дней
+        </div>
+        {(()=>{
+          const upcoming=[];
+          for(let i=0;i<7;i++){
+            const d=new Date();d.setDate(d.getDate()+i);
+            const dstr=d.toISOString().split("T")[0];
+            const evs=eventsMap[dstr]||[];
+            if(evs.length>0)upcoming.push({date:dstr,evs,label:i===0?"Сегодня":i===1?"Завтра":d.toLocaleDateString("ru-RU",{weekday:"short",day:"numeric",month:"short"})});
+          }
+          if(upcoming.length===0)return<div style={{fontSize:11,color:D.muted}}>Нет запланированных событий</div>;
+          return upcoming.map(({date,evs,label})=>(
+            <div key={date} onClick={()=>setSelected(date)}
+              style={{marginBottom:8,cursor:"pointer",padding:"6px 8px",borderRadius:8,
+                background:date===today?D.accent+"10":D.surface}}
+              onMouseEnter={e=>e.currentTarget.style.background=D.accent+"10"}
+              onMouseLeave={e=>e.currentTarget.style.background=date===today?D.accent+"10":D.surface}>
+              <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4}}>{label}</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                {evs.map((ev,i)=>(
+                  <span key={i} style={{background:ev.color+"20",color:ev.color,
+                    border:`1px solid ${ev.color}40`,borderRadius:5,padding:"2px 6px",fontSize:10,fontWeight:600}}>
+                    {TYPE_ICONS[ev.type]} {ev.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ));
+        })()}
+      </div>
+    </div>
+
+    {/* QUICK CREATE MODAL */}
+    {quickModal&&(<Modal title={`${TYPE_ICONS[quickModal.type]} Создать ${TYPE_LABELS[quickModal.type]} — ${new Date(quickModal.date).toLocaleDateString("ru-RU",{day:"numeric",month:"long"})}`}
+      onClose={()=>setQuickModal(null)}>
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
+        <Inp label="Клиент *" value={quickForm.client} onChange={e=>setQuickForm(p=>({...p,client:e.target.value}))} placeholder="Имя клиента"/>
+        {quickModal.type!=="followup"&&<Inp label="Телефон" value={quickForm.phone} onChange={e=>setQuickForm(p=>({...p,phone:e.target.value}))} placeholder="05X-XXXXXXX"/>}
+        {quickModal.type!=="followup"&&<Inp label="Адрес" value={quickForm.address} onChange={e=>setQuickForm(p=>({...p,address:e.target.value}))} placeholder="Улица, город"/>}
+        {quickModal.type==="followup"&&(
+          <div style={{fontSize:11,color:D.muted,background:D.surface,borderRadius:8,padding:10}}>
+            Для Follow-up введи имя клиента точно как в CRM — дата follow-up обновится автоматически.
+          </div>
+        )}
+        <Inp label="Заметки" value={quickForm.notes} onChange={e=>setQuickForm(p=>({...p,notes:e.target.value}))} placeholder="Доп. информация..."/>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <Btn onClick={saveQuick} variant="success"><Check size={13}/> Сохранить</Btn>
+        <Btn onClick={()=>setQuickModal(null)} variant="ghost">Отмена</Btn>
+      </div>
+    </Modal>)}
+  </div>);
+}
+
 const PAGES=[
-  {id:"dashboard",icon:LayoutDashboard,label:"Dashboard"},
-  {id:"leads",icon:Users,label:"Лиды / CRM"},
-  {id:"measurements",icon:Ruler,label:"Замеры"},
-  {id:"orders",icon:ShoppingCart,label:"Заказы"},
-  {id:"installation",icon:Wrench,label:"Монтаж"},
-  {id:"inventory",icon:Package,label:"Склад"},
-  {id:"payments",icon:Wallet,label:"Касса"},
-  {id:"quotes",icon:FileText,label:"КП История"},
-  {id:"finance",icon:TrendingUp,label:"P&L · Финансы"},
-  {id:"kpi",icon:BarChart2,label:"KPI"},
-  {id:"calc",icon:Calculator,label:"Калькулятор"},
+  {id:"dashboard",   icon:LayoutDashboard, label:"Dashboard"},
+  {id:"leads",       icon:Users,           label:"Лиды / CRM"},
+  {id:"measurements",icon:Ruler,           label:"Замеры"},
+  {id:"calc",        icon:Calculator,      label:"Калькулятор КП"},
+  {id:"quotes",      icon:FileText,        label:"КП История"},
+  {id:"orders",      icon:ShoppingCart,    label:"Заказы"},
+  {id:"installation",icon:Wrench,          label:"Монтаж"},
+  {id:"payments",    icon:Wallet,          label:"Касса"},
+  {id:"calendar",    icon:CalendarDays,    label:"Календарь"},
+  {id:"finance",     icon:TrendingUp,      label:"P&L · Финансы"},
+  {id:"kpi",         icon:BarChart2,       label:"KPI"},
+  {id:"inventory",   icon:Package,         label:"Склад"},
 ];
 
 export default function App(){
@@ -3758,6 +4967,14 @@ export default function App(){
   const [quotes,setQuotes]=useState(()=>load(KEYS.quotes,[]));
   const [templates,setTemplates]=useState(()=>load(KEYS.templates,[]));
   const [activity,setActivity]=useState(()=>load(KEYS.activity,[]));
+  const [lang,setLang]=useState(()=>load(KEYS.lang,"ru"));
+  const [company,setCompany]=useState(()=>load(KEYS.company,{
+    name:"חלונות אלומיניום",nameRu:"Алюминиевые окна",
+    phone:"050-000-0000",address:"",email:"",
+    bank:"",bankAccount:"",taxId:"",
+    bizType:"חברה בעמ",
+  }));
+  const [companyModal,setCompanyModal]=useState(false);
   const [installations,setInstallations]=useState(()=>load(KEYS.installations,II_INST));
 
   useEffect(()=>{setSaved(false);save(KEYS.leads,leads);setTimeout(()=>setSaved(true),600);},[leads]);
@@ -3767,6 +4984,72 @@ export default function App(){
   useEffect(()=>{save(KEYS.quotes,quotes);},[quotes]);
   useEffect(()=>{save(KEYS.templates,templates);},[templates]);
   useEffect(()=>{save(KEYS.activity,activity);},[activity]);
+  useEffect(()=>{save(KEYS.company,company);},[company]);
+  useEffect(()=>{save(KEYS.lang,lang);},[lang]);
+
+  // ── FIREBASE SYNC ─────────────────────────────────────────
+  const [fbSynced,setFbSynced]=useState(false);
+  const [fbOnline,setFbOnline]=useState(false);
+
+  useEffect(()=>{
+    // Load from Firebase on app start
+    fbLoadAll().then(fbData=>{
+      if(!fbData){setFbSynced(true);return;}
+      // Update all states from Firebase (cloud is source of truth)
+      const upd=(key,setter)=>{if(fbData[key]!==undefined&&fbData[key]!==null){
+        const val=Array.isArray(fbData[key])?fbData[key]:
+                  typeof fbData[key]==="object"?fbData[key]:fbData[key];
+        localStorage.setItem("wb:"+key,JSON.stringify(val));
+        setter(val);
+      }};
+      upd("leads",setLeads);
+      upd("orders",setOrders);
+      upd("measurements",setMeasurements);
+      upd("installations",setInstallations);
+      upd("inventory",setInventory);
+      upd("payments",setPayments);
+      upd("kpi",setKpi);
+      upd("quotes",setQuotes);
+      upd("templates",setTemplates);
+      upd("activity",setActivity);
+      if(fbData.company)setCompany(fbData.company);
+      setFbOnline(true);
+      setFbSynced(true);
+    }).catch(()=>setFbSynced(true));
+
+    // Subscribe to real-time updates (for multi-device sync)
+    const unsub=fbSubscribe(fbData=>{
+      if(!fbData)return;
+      setFbOnline(true);
+      // Only update if data changed (avoid infinite loop)
+      const upd=(key,setter,current)=>{
+        if(fbData[key]===undefined||fbData[key]===null)return;
+        const remote=JSON.stringify(fbData[key]);
+        const local=JSON.stringify(current);
+        if(remote!==local){localStorage.setItem("wb:"+key,remote);setter(fbData[key]);}
+      };
+      // Note: we use functional state updates to get current values
+      setLeads(cur=>{if(fbData.leads&&JSON.stringify(fbData.leads)!==JSON.stringify(cur))return fbData.leads;return cur;});
+      setOrders(cur=>{if(fbData.orders&&JSON.stringify(fbData.orders)!==JSON.stringify(cur))return fbData.orders;return cur;});
+      setPayments(cur=>{if(fbData.payments&&JSON.stringify(fbData.payments)!==JSON.stringify(cur))return fbData.payments;return cur;});
+      setMeasurements(cur=>{if(fbData.measurements&&JSON.stringify(fbData.measurements)!==JSON.stringify(cur))return fbData.measurements;return cur;});
+      setInstallations(cur=>{if(fbData.installations&&JSON.stringify(fbData.installations)!==JSON.stringify(cur))return fbData.installations;return cur;});
+      setQuotes(cur=>{if(fbData.quotes&&JSON.stringify(fbData.quotes)!==JSON.stringify(cur))return fbData.quotes;return cur;});
+    });
+    return unsub;
+  },[]);
+
+  // Request push permission and check follow-ups on load
+  useEffect(()=>{
+    requestPushPermission().then(granted=>{
+      if(granted)checkFollowUps(leads);
+    });
+    // Check again every hour
+    const interval=setInterval(()=>{
+      if(Notification.permission==="granted")checkFollowUps(leads);
+    },3600000);
+    return()=>clearInterval(interval);
+  },[]);
   useEffect(()=>{save(KEYS.inventory,inventory);},[inventory]);
   useEffect(()=>{save(KEYS.payments,payments);},[payments]);
   useEffect(()=>{save(KEYS.kpi,kpi);},[kpi]);
@@ -3780,15 +5063,25 @@ export default function App(){
   const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
   const pendM=measurements.filter(m=>m.status==="Запланирован").length;
   const pendInst=installations.filter(i=>i.status==="Запланирован"||i.status==="В процессе").length;
+  const todayStr2=new Date().toISOString().split("T")[0];
+  const todayCalEvents=[
+    ...measurements.filter(m=>m.date===todayStr2),
+    ...installations.filter(i=>i.scheduledDate===todayStr2),
+    ...leads.filter(l=>l.followUp===todayStr2),
+  ].length;
   const alerts=[
-    leads.filter(l=>l.status==="Новый лид").length,
-    pendM,null,
-    pendInst,
-    inventory.filter(i=>i.qty<i.minQty).length,
-    payments.filter(p=>p.status==="Ожидается").length,
-    null,null,
-    overdueFollowUps.length,
-    null,null
+    leads.filter(l=>l.status==="Новый лид").length, // dashboard
+    leads.filter(l=>l.status==="Новый лид").length, // leads
+    pendM,           // measurements
+    null,            // calc
+    null,            // quotes
+    pendInst,        // orders
+    inventory.filter(i=>i.qty<i.minQty).length, // installation
+    payments.filter(p=>p.status==="Ожидается").length, // payments
+    todayCalEvents,  // calendar
+    overdueFollowUps.length, // finance
+    null,            // kpi
+    null,            // inventory
   ];
 
   const SidebarContent=()=>(<>
@@ -3800,6 +5093,8 @@ export default function App(){
           <div style={{display:"flex",alignItems:"center",gap:4,marginTop:1}}>
             <div style={{width:6,height:6,borderRadius:"50%",background:saved?D.green:D.yellow}}/>
             <span style={{fontSize:9,color:D.muted,fontWeight:600}}>{saved?"Сохранено":"Сохраняю..."}</span>
+            {fbOnline&&<span style={{fontSize:9,color:"#F97316",fontWeight:700,marginLeft:2}}>☁️</span>}
+            {fbSynced&&!fbOnline&&<span style={{fontSize:9,color:D.muted,marginLeft:2}}>offline</span>}
           </div>
         </div>
         <button onClick={()=>setSidebarOpen(false)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4,display:window.innerWidth<768?"flex":"none",alignItems:"center"}}>
@@ -3834,7 +5129,26 @@ export default function App(){
         onMouseEnter={e=>e.currentTarget.style.background=D.yellow+"28"}
         onMouseLeave={e=>e.currentTarget.style.background=D.yellow+"12"}>{a} →</button>))}
     </div>
-    <div style={{padding:"8px 14px 10px",fontSize:9,color:D.muted+"55",borderTop:`1px solid ${D.border}`}}>Window Business OS v4.0 🇮🇱</div>
+    <div style={{padding:"8px",borderTop:`1px solid ${D.border}`}}>
+      {/* Language switcher */}
+      <div style={{display:"flex",gap:4,marginBottom:6}}>
+        {[["ru","🇷🇺 RU"],["he","🇮🇱 HE"]].map(([l,lbl])=>(
+          <button key={l} onClick={()=>setLang(l)}
+            style={{flex:1,padding:"4px",borderRadius:6,border:`1px solid ${lang===l?D.accent:D.border}`,
+              background:lang===l?D.accent+"20":"transparent",color:lang===l?D.accentLight:D.muted,
+              fontSize:10,fontWeight:700,cursor:"pointer"}}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+      {/* Company settings */}
+      <button onClick={()=>setCompanyModal(true)}
+        style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:7,
+          padding:"5px 8px",color:D.muted,fontSize:10,cursor:"pointer",textAlign:"left"}}>
+        ⚙️ Реквизиты компании
+      </button>
+    </div>
+    <div style={{padding:"6px 14px 8px",fontSize:9,color:D.muted+"55"}}>WindowOS v5.0 🇮🇱</div>
   </>);
 
   return(<div style={{display:"flex",height:"100vh",background:D.bg,fontFamily:"'Segoe UI',Arial,sans-serif",overflow:"hidden",position:"relative"}}>
@@ -3898,16 +5212,17 @@ export default function App(){
           )}
         </div>
         {page==="dashboard"&&<Dashboard leads={leads} orders={orders} payments={payments} inventory={inventory} kpi={kpi} measurements={measurements} installations={installations} onClientClick={setClientCard}/>}
+        {page==="calendar"&&<Calendar leads={leads} measurements={measurements} installations={installations} payments={payments} setMeasurements={setMeasurements} setInstallations={setInstallations} setLeads={setLeads} onClientClick={setClientCard} setPage={navTo}/>}
         {page==="leads"&&<Leads leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
         {page==="measurements"&&<Measurements measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc} leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
-        {page==="orders"&&<Orders orders={orders} setOrders={setOrders} setPayments={setPayments} onClientClick={setClientCard}/>}
+        {page==="orders"&&<Orders orders={orders} setOrders={setOrders} setPayments={setPayments} payments={payments} onClientClick={setClientCard}/>}
         {page==="installation"&&<Installation installations={installations} setInstallations={setInstallations} orders={orders} onClientClick={setClientCard}/>}
         {page==="inventory"&&<Inventory inventory={inventory} setInventory={setInventory}/>}
-        {page==="payments"&&<Payments payments={payments} setPayments={setPayments} onClientClick={setClientCard}/>}
+        {page==="payments"&&<Payments payments={payments} setPayments={setPayments} onClientClick={setClientCard} company={company}/>}
         {page==="quotes"&&<Quotes quotes={quotes} setQuotes={setQuotes} onClientClick={setClientCard}/>}
         {page==="finance"&&<FinancePL orders={orders} payments={payments} leads={leads} measurements={measurements} kpi={kpi}/>}
         {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
-        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes} templates={templates} setTemplates={setTemplates} setActivity={setActivity}/>}
+        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes} templates={templates} setTemplates={setTemplates} setActivity={setActivity} company={company}/>}
       </div>
     </div>
 
@@ -3922,7 +5237,52 @@ export default function App(){
       setPage={navTo}
     />)}
 
-    {/* Mobile sidebar toggle - always visible on small screens via inline script */}
+    {/* COMPANY SETTINGS MODAL */}
+    {companyModal&&(<Modal title="⚙️ Реквизиты компании" onClose={()=>setCompanyModal(false)}>
+      {/* Business type selector */}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>סוג עסק / Тип бизнеса</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {[["עוסק פטור","Освобождённый"],["עוסק מורשה","Авторизованный"],["חברה בעמ","Ltd (חברה)"],["שותפות","Партнёрство"],["עמותה","НКО"]].map(([t,r])=>(
+            <button key={t} onClick={()=>setCompany(p=>({...p,bizType:t}))}
+              style={{padding:"6px 12px",borderRadius:7,border:`1px solid ${(company.bizType||"חברה בעמ")===t?D.accent:D.border}`,
+                background:(company.bizType||"חברה בעמ")===t?D.accent+"20":"transparent",
+                color:(company.bizType||"חברה בעמ")===t?D.accentLight:D.muted,
+                fontSize:11,fontWeight:700,cursor:"pointer"}}>
+              {t}<span style={{fontSize:9,opacity:0.7,marginRight:3}}> {r}</span>
+            </button>
+          ))}
+        </div>
+        {["עוסק מורשה","חברה בעמ","שותפות"].includes(company.bizType||"חברה בעמ")&&
+          <div style={{fontSize:10,color:D.teal,marginTop:5}}>✅ מע"מ 18% · חשבוניות מס · מספר הקצאה נדרש ≥ ₪10,000</div>}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        {[
+          ["Название (иврит) | שם","name","חלונות אלומיניום"],
+          ["Название (рус)","nameRu","Алюминиевые окна"],
+          ["Телефон | טלפון","phone","050-000-0000"],
+          ["Email","email","info@company.com"],
+          ["Адрес | כתובת","address","תל אביב..."],
+          ["ח.פ. / ע.מ. / מספר עוסק","taxId",""],
+          ["Банк | בנק","bank","הפועלים"],
+          ["Счёт | חשבון בנק","bankAccount",""],
+        ].map(([l,k,ph])=>(
+          <div key={k}>
+            <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{l}</div>
+            <input value={company[k]||""} onChange={e=>setCompany(p=>({...p,[k]:e.target.value}))}
+              placeholder={ph}
+              style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
+                padding:"7px 10px",color:D.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+          </div>
+        ))}
+      </div>
+      <div style={{fontSize:10,color:D.teal,marginBottom:12,padding:"6px 10px",background:D.teal+"12",borderRadius:6}}>
+        ✓ הפרטים יופיעו בכל החשבוניות, קבלות, הצעות מחיר ותעודות גמר
+      </div>
+      <Btn onClick={()=>setCompanyModal(false)} variant="success"><Check size={13}/> שמור</Btn>
+    </Modal>)}
+
+    {/* Mobile sidebar toggle */}
     <style>{`
       @media (max-width: 768px) {
         .desktop-sidebar { display: none !important; }
