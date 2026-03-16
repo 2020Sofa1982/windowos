@@ -548,7 +548,17 @@ const SH=({title,color=D.teal})=>(<div style={{fontSize:11,fontWeight:800,color,
 // ═══════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
-function Dashboard({leads,orders,payments,inventory,kpi,measurements,installations}){
+function Dashboard({leads,orders,payments,inventory,kpi,measurements,installations,onClientClick}){
+  const today=new Date().toISOString().split("T")[0];
+  const todayStr=new Date().toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"});
+
+  // ── Today's agenda ──
+  const todayMeasures=measurements.filter(m=>m.date===today);
+  const todayInstalls=installations.filter(i=>i.scheduledDate===today);
+  const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+  const todayFollowUps=leads.filter(l=>l.followUp===today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+  const pendingPayments=payments.filter(p=>p.status==="Ожидается");
+
   // ── Real financials ──
   const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
   const totalPending=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
@@ -566,7 +576,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   const convMO=fMeasured>0?Math.round(fOrders/fMeasured*100):0;
   const convLO=fLeads>0?Math.round(fOrders/fLeads*100):0;
 
-  // ── Pipeline value (leads with value) ──
+  // ── Pipeline value ──
   const pipeline=leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status))
     .reduce((s,l)=>s+(l.value||0),0);
 
@@ -579,7 +589,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
     {name:"Выиграли",value:leads.filter(l=>l.status==="Закрыт (выиграли)").length,c:D.green},
   ].filter(d=>d.value>0);
 
-  // ── Monthly revenue from real orders (by created date) ──
+  // ── Monthly revenue ──
   const monthMap={};
   orders.forEach(o=>{
     const m=o.created?.slice(0,7)||"";
@@ -599,11 +609,101 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   const pending=payments.filter(p=>p.status==="Ожидается");
   const pendInst=installations.filter(i=>i.status==="Запланирован"||i.status==="В процессе").length;
 
+  const hasTodayItems=todayMeasures.length>0||todayInstalls.length>0||todayFollowUps.length>0||overdueFollowUps.length>0||pendingPayments.length>0;
+
   return(<div>
-    <div style={{marginBottom:22}}>
-      <div style={{fontSize:22,fontWeight:900,color:D.text}}>Dashboard</div>
-      <div style={{fontSize:13,color:D.muted,marginTop:2}}>Реальные данные из системы</div>
+    <div style={{marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+      <div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>Dashboard</div>
+        <div style={{fontSize:13,color:D.muted,marginTop:2}}>Реальные данные из системы</div>
+      </div>
+      <div style={{fontSize:12,color:D.muted,textAlign:"right"}}>
+        <div style={{fontSize:11,color:D.muted}}>📅 {todayStr}</div>
+      </div>
     </div>
+
+    {/* TODAY WIDGET */}
+    {hasTodayItems&&(<div style={{background:`linear-gradient(135deg,${D.accent}18,${D.surface})`,
+      border:`1px solid ${D.accent}40`,borderRadius:14,padding:16,marginBottom:18}}>
+      <div style={{fontSize:11,fontWeight:800,color:D.accentLight,textTransform:"uppercase",marginBottom:10,
+        display:"flex",alignItems:"center",gap:6}}>
+        ⚡ Сегодня
+        <span style={{fontSize:10,color:D.muted,fontWeight:400}}>— {todayStr}</span>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+        {overdueFollowUps.length>0&&(<div style={{background:D.red+"15",border:`1px solid ${D.red}30`,
+          borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:D.red,fontWeight:700,marginBottom:4}}>🔴 Просроченные follow-up</div>
+          {overdueFollowUps.slice(0,3).map(l=>(
+            <div key={l.id} onClick={()=>onClientClick&&onClientClick(l.name)}
+              style={{fontSize:11,color:D.text,cursor:"pointer",padding:"2px 0",
+                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontWeight:600}}>{l.name}</span>
+              <a href={l.phone?`tel:${l.phone}`:undefined}
+                onClick={e=>e.stopPropagation()}
+                style={{color:D.green,fontSize:10,textDecoration:"none",
+                  background:D.green+"15",padding:"1px 6px",borderRadius:4}}>
+                📞
+              </a>
+            </div>
+          ))}
+          {overdueFollowUps.length>3&&<div style={{fontSize:10,color:D.muted}}>+{overdueFollowUps.length-3} ещё</div>}
+        </div>)}
+        {todayFollowUps.length>0&&(<div style={{background:D.yellow+"15",border:`1px solid ${D.yellow}30`,
+          borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:D.yellow,fontWeight:700,marginBottom:4}}>🟡 Follow-up сегодня</div>
+          {todayFollowUps.map(l=>(
+            <div key={l.id} onClick={()=>onClientClick&&onClientClick(l.name)}
+              style={{fontSize:11,color:D.text,cursor:"pointer",padding:"2px 0",
+                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontWeight:600}}>{l.name}</span>
+              <a href={l.phone?`tel:${l.phone}`:undefined}
+                onClick={e=>e.stopPropagation()}
+                style={{color:D.green,fontSize:10,textDecoration:"none",
+                  background:D.green+"15",padding:"1px 6px",borderRadius:4}}>
+                📞
+              </a>
+            </div>
+          ))}
+        </div>)}
+        {todayMeasures.length>0&&(<div style={{background:D.teal+"15",border:`1px solid ${D.teal}30`,
+          borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:D.teal,fontWeight:700,marginBottom:4}}>📐 Замеры сегодня</div>
+          {todayMeasures.map(m=>(
+            <div key={m.id} onClick={()=>onClientClick&&onClientClick(m.client)}
+              style={{fontSize:11,color:D.text,cursor:"pointer",fontWeight:600,padding:"2px 0",
+                display:"flex",justifyContent:"space-between"}}>
+              <span>{m.client}</span>
+              <span style={{color:D.muted,fontSize:10}}>{m.address?.slice(0,15)||""}</span>
+            </div>
+          ))}
+        </div>)}
+        {todayInstalls.length>0&&(<div style={{background:D.purple+"15",border:`1px solid ${D.purple}30`,
+          borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:D.purple,fontWeight:700,marginBottom:4}}>🔧 Монтажи сегодня</div>
+          {todayInstalls.map(i=>(
+            <div key={i.id} onClick={()=>onClientClick&&onClientClick(i.client)}
+              style={{fontSize:11,color:D.text,cursor:"pointer",fontWeight:600,padding:"2px 0"}}>
+              {i.client}
+            </div>
+          ))}
+        </div>)}
+        {pendingPayments.length>0&&(<div style={{background:D.green+"15",border:`1px solid ${D.green}30`,
+          borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:D.green,fontWeight:700,marginBottom:4}}>💰 Ожидаются платежи</div>
+          {pendingPayments.slice(0,3).map(p=>(
+            <div key={p.id} style={{fontSize:11,color:D.text,padding:"2px 0",
+              display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontWeight:600}}>{p.client}</span>
+              <span style={{color:D.green,fontWeight:700}}>{fmt(p.amount)}</span>
+            </div>
+          ))}
+          <div style={{fontSize:10,color:D.green,fontWeight:700,marginTop:2}}>
+            Итого: {fmt(pendingPayments.reduce((s,p)=>s+p.amount,0))}
+          </div>
+        </div>)}
+      </div>
+    </div>)}
 
     {/* Top KPIs */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
@@ -2291,10 +2391,18 @@ function printAct(inst,order){
       <div style="margin-top:4px;font-weight:700">${inst.specialist||"___________"}</div>
     </div>
     <div class="sign-box">
-      <div style="height:50px"></div>
+      <div style="height:60px;border-bottom:2px solid #1e293b;margin-bottom:6px"></div>
       <div>חתימת הלקוח לאישור קבלת העבודה</div>
       <div style="margin-top:4px;font-weight:700">${inst.client}</div>
     </div>
+    <div class="sign-box">
+      <div style="height:60px;border-bottom:2px solid #1e293b;margin-bottom:6px"></div>
+      <div>תאריך אישור</div>
+      <div style="margin-top:4px;font-weight:700">____________</div>
+    </div>
+  </div>
+  <div style="margin-top:16px;padding:10px 14px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;font-size:11px;color:#64748b;text-align:center">
+    ${inst.notes?`הערות: ${inst.notes}`:""}
   </div>
   <div class="footer">WindowOS · תעודה זו מהווה אישור לביצוע העבודה · ${date}</div>
   </body></html>`;
@@ -3532,6 +3640,58 @@ function Quotes({quotes,setQuotes,onClientClick}){
   </div>);
 }
 
+// ── ACTIVITY LOG COMPONENT with search ──────────────────────
+function ActivityLog({activities}){
+  const [search,setSearch]=useState("");
+  const filtered=search.trim()
+    ?activities.filter(a=>a.text.toLowerCase().includes(search.toLowerCase())||a.date.includes(search))
+    :activities;
+  return(<div>
+    <div style={{position:"relative",marginBottom:8}}>
+      <Search size={11} style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
+      <input value={search} onChange={e=>setSearch(e.target.value)}
+        placeholder="Поиск в истории..."
+        style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,
+          padding:"5px 8px 5px 24px",color:D.text,fontSize:11,outline:"none",boxSizing:"border-box"}}/>
+    </div>
+    <div style={{maxHeight:220,overflowY:"auto"}}>
+      {filtered.slice(0,50).map(a=>(
+        <div key={a.id} style={{display:"flex",gap:8,padding:"5px 0",
+          borderBottom:`1px solid ${D.border}`,alignItems:"flex-start"}}>
+          <span style={{fontSize:14,flexShrink:0}}>{ACT_ICONS[a.type]||"📌"}</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:D.text}}>{a.text}</div>
+            <div style={{fontSize:9,color:D.muted}}>{a.date} {a.time}</div>
+          </div>
+        </div>
+      ))}
+      {filtered.length===0&&<div style={{fontSize:11,color:D.muted,padding:"8px 0"}}>Ничего не найдено</div>}
+    </div>
+  </div>);
+}
+
+// ── PUSH NOTIFICATIONS helper ────────────────────────────────
+const requestPushPermission=async()=>{
+  if(!("Notification" in window))return false;
+  if(Notification.permission==="granted")return true;
+  const perm=await Notification.requestPermission();
+  return perm==="granted";
+};
+const sendPushNotification=(title,body,onClick)=>{
+  if(Notification.permission!=="granted")return;
+  const n=new Notification(title,{body,icon:"/icon-192.png",badge:"/icon-192.png"});
+  if(onClick)n.onclick=onClick;
+};
+
+// ── CHECK FOLLOW-UPS and send push ──────────────────────────
+const checkFollowUps=(leads)=>{
+  const today=new Date().toISOString().split("T")[0];
+  const due=leads.filter(l=>l.followUp===today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+  const overdue=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+  if(due.length>0)sendPushNotification(`📞 Follow-up сегодня (${due.length})`,due.map(l=>l.name).join(", "));
+  if(overdue.length>0)sendPushNotification(`🔴 Просрочено (${overdue.length})`,overdue.map(l=>l.name).join(", "));
+};
+
 // ═══════════════════════════════════════════════════════════════
 // CLIENT CARD — full profile side panel
 // ═══════════════════════════════════════════════════════════════
@@ -3766,19 +3926,9 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
             </div>
           </div>
 
-          {/* Activity log */}
+          {/* Activity log with search */}
           {cActivity.length>0&&(<Section icon={History} title={`История (${cActivity.length})`} color={D.muted}>
-            <div style={{maxHeight:200,overflowY:"auto"}}>
-              {cActivity.slice(0,20).map(a=>(
-                <div key={a.id} style={{display:"flex",gap:8,padding:"5px 0",borderBottom:`1px solid ${D.border}`,alignItems:"flex-start"}}>
-                  <span style={{fontSize:14,flexShrink:0}}>{ACT_ICONS[a.type]||"📌"}</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:11,color:D.text}}>{a.text}</div>
-                    <div style={{fontSize:9,color:D.muted}}>{a.date} {a.time}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ActivityLog activities={cActivity}/>
           </Section>)}
         </div>
       </div>
@@ -3860,6 +4010,18 @@ export default function App(){
   useEffect(()=>{save(KEYS.activity,activity);},[activity]);
   useEffect(()=>{save(KEYS.company,company);},[company]);
   useEffect(()=>{save(KEYS.lang,lang);},[lang]);
+
+  // Request push permission and check follow-ups on load
+  useEffect(()=>{
+    requestPushPermission().then(granted=>{
+      if(granted)checkFollowUps(leads);
+    });
+    // Check again every hour
+    const interval=setInterval(()=>{
+      if(Notification.permission==="granted")checkFollowUps(leads);
+    },3600000);
+    return()=>clearInterval(interval);
+  },[]);
   useEffect(()=>{save(KEYS.inventory,inventory);},[inventory]);
   useEffect(()=>{save(KEYS.payments,payments);},[payments]);
   useEffect(()=>{save(KEYS.kpi,kpi);},[kpi]);
