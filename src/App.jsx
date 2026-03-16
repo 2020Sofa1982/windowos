@@ -2913,39 +2913,527 @@ function Inventory({inventory,setInventory}){
 // ═══════════════════════════════════════════════════════════════
 // PAYMENTS
 // ═══════════════════════════════════════════════════════════════
-function Payments({payments,setPayments,onClientClick}){
+// ─────────────────────────────────────────────────────────────
+// PRINT DOCUMENT — חשבונית/קבלה/חשבון עסקה per Israeli law
+// ─────────────────────────────────────────────────────────────
+function printIsraeliDoc(doc, company){
+  const VAT_RATE=0.18;
+  const isVat=["עוסק מורשה","חברה בעמ","שותפות"].includes(company.bizType||"חברה בעמ");
+  const amtBeforeVat=isVat&&doc.includesVat?Math.round(doc.amount/1.18):doc.amount;
+  const vatAmt=isVat&&doc.includesVat?doc.amount-amtBeforeVat:0;
+  const totalAmt=doc.amount;
+
+  const DOC_NAMES={
+    "קבלה":"קבלה",
+    "חשבון עסקה":"חשבון עסקה",
+    "חשבונית מס":"חשבונית מס",
+    "חשבונית מס קבלה":"חשבונית מס / קבלה",
+    "חשבונית עסקה":"חשבונית עסקה",
+  };
+  const docTitle=DOC_NAMES[doc.docType]||doc.docType;
+  const needsHitkatzva=isVat&&doc.amount>=10000&&(doc.docType==="חשבונית מס"||doc.docType==="חשבונית מס קבלה");
+
+  const html=`<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head><meta charset="UTF-8"/>
+<title>${docTitle} ${doc.docNum} – ${doc.client}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Arial',sans-serif;direction:rtl;color:#1e293b;background:#fff;padding:32px;font-size:13px}
+  .page{max-width:780px;margin:0 auto;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden}
+  .header{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start}
+  .co-name{font-size:22px;font-weight:900;letter-spacing:-0.04em;margin-bottom:4px}
+  .co-sub{font-size:11px;opacity:0.8;line-height:1.7}
+  .doc-badge{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:8px;padding:8px 16px;text-align:center}
+  .doc-type{font-size:15px;font-weight:800;margin-bottom:3px}
+  .doc-num{font-size:12px;opacity:0.85}
+  .body{padding:24px 28px}
+  .section{margin-bottom:20px}
+  .section-title{font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .info-row{display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px}
+  .info-label{color:#64748b}
+  .info-val{font-weight:600;color:#1e293b}
+  .items-table{width:100%;border-collapse:collapse;margin-top:6px}
+  .items-table th{background:#f1f5f9;padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:#475569;border:1px solid #e2e8f0}
+  .items-table td{padding:8px 12px;border:1px solid #e2e8f0;font-size:12px}
+  .items-table tr:nth-child(even) td{background:#f8fafc}
+  .totals{margin-top:16px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0}
+  .total-row{display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px}
+  .total-grand{font-size:18px;font-weight:900;color:#1d4ed8;border-top:2px solid #2563eb;padding-top:10px;margin-top:8px}
+  .hitkatzva{margin-top:16px;padding:12px 16px;background:#fefce8;border:2px solid #eab308;border-radius:8px}
+  .hitkatzva-title{font-size:11px;font-weight:800;color:#854d0e;margin-bottom:4px}
+  .hitkatzva-num{font-size:20px;font-weight:900;color:#854d0e;letter-spacing:0.1em}
+  .hitkatzva-missing{font-size:11px;color:#dc2626;padding:10px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-top:12px}
+  .method-box{margin-top:16px;padding:12px 16px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:12px}
+  .footer{background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 28px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#94a3b8}
+  @media print{body{padding:0}.page{border:none;border-radius:0}}
+</style>
+</head>
+<body>
+<div class="page">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="co-name">🏭 ${company.name||"חלונות אלומיניום"}</div>
+      <div class="co-sub">
+        ${company.taxId?`ח.פ. / ע.מ.: ${company.taxId}<br>`:""}
+        ${company.bizType?`סוג עסק: ${company.bizType}<br>`:""}
+        ${company.phone?`📞 ${company.phone}<br>`:""}
+        ${company.address?`📍 ${company.address}<br>`:""}
+        ${company.email?`✉️ ${company.email}`:""}
+      </div>
+    </div>
+    <div class="doc-badge">
+      <div class="doc-type">${docTitle}</div>
+      <div class="doc-num">מס׳ ${doc.docNum}</div>
+      <div style="font-size:11px;margin-top:3px;opacity:0.8">תאריך: ${doc.date}</div>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+    <div class="grid2" style="margin-bottom:20px">
+      <!-- Client info -->
+      <div class="section">
+        <div class="section-title">פרטי לקוח</div>
+        <div class="info-row"><span class="info-label">שם:</span><span class="info-val">${doc.client}</span></div>
+        ${doc.clientTaxId?`<div class="info-row"><span class="info-label">ח.פ. / ע.מ. לקוח:</span><span class="info-val">${doc.clientTaxId}</span></div>`:""}
+        ${doc.clientAddress?`<div class="info-row"><span class="info-label">כתובת:</span><span class="info-val">${doc.clientAddress}</span></div>`:""}
+      </div>
+      <!-- Doc info -->
+      <div class="section">
+        <div class="section-title">פרטי מסמך</div>
+        <div class="info-row"><span class="info-label">תאריך מסמך:</span><span class="info-val">${doc.date}</span></div>
+        ${doc.orderId?`<div class="info-row"><span class="info-label">מס׳ הזמנה:</span><span class="info-val">${doc.orderId}</span></div>`:""}
+        <div class="info-row"><span class="info-label">אמצעי תשלום:</span><span class="info-val">${doc.method||"—"}</span></div>
+        ${doc.ref?`<div class="info-row"><span class="info-label">אסמכתא:</span><span class="info-val">${doc.ref}</span></div>`:""}
+      </div>
+    </div>
+
+    <!-- Items -->
+    <div class="section">
+      <div class="section-title">פירוט שירותים / מוצרים</div>
+      <table class="items-table">
+        <thead><tr>
+          <th>תיאור</th>
+          <th style="text-align:center;width:60px">כמות</th>
+          <th style="text-align:left;width:100px">מחיר ליחידה</th>
+          <th style="text-align:left;width:100px">סה"כ</th>
+        </tr></thead>
+        <tbody>
+          ${(doc.items||[{desc:doc.description||"שירות / עבודה",qty:1,price:amtBeforeVat}]).map(it=>`
+          <tr>
+            <td>${it.desc}</td>
+            <td style="text-align:center">${it.qty}</td>
+            <td style="text-align:left">₪${(it.price||0).toLocaleString("he-IL")}</td>
+            <td style="text-align:left;font-weight:700">₪${((it.qty||1)*(it.price||0)).toLocaleString("he-IL")}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Totals -->
+    <div class="totals">
+      ${isVat&&doc.includesVat?`
+      <div class="total-row"><span>סכום לפני מע"מ:</span><span>₪${amtBeforeVat.toLocaleString("he-IL")}</span></div>
+      <div class="total-row"><span>מע"מ (18%):</span><span>₪${vatAmt.toLocaleString("he-IL")}</span></div>`:""}
+      <div class="total-row total-grand">
+        <span>סה"כ לתשלום:</span>
+        <span>₪${totalAmt.toLocaleString("he-IL")}</span>
+      </div>
+    </div>
+
+    <!-- מספר הקצאה -->
+    ${needsHitkatzva?`
+    <div class="hitkatzva">
+      <div class="hitkatzva-title">🔢 מספר הקצאה — חשבוניות ישראל</div>
+      ${doc.hitkatzvaNum?`
+      <div class="hitkatzva-num">${doc.hitkatzvaNum}</div>
+      <div style="font-size:10px;color:#854d0e;margin-top:4px">מספר 9 ספרות שהתקבל ממע"מ רשות המיסים</div>
+      `:`<div class="hitkatzva-missing">
+        ⚠️ חשבונית זו מעל ₪10,000 — נדרש מספר הקצאה מרשות המיסים.<br>
+        ניתן לבקש מספר הקצאה באתר: <b>taxes.gov.il</b> · ניתן להוסיף ידנית לפני הדפסה.
+      </div>`}
+    </div>`:""}
+
+    <!-- Payment method details -->
+    ${doc.bankDetails||company.bank?`
+    <div class="method-box">
+      <b>פרטי תשלום:</b>
+      ${company.bank?` בנק ${company.bank}`:""}
+      ${company.bankAccount?` · חשבון ${company.bankAccount}`:""}
+      ${doc.bankDetails?` · ${doc.bankDetails}`:""}
+    </div>`:""}
+
+    ${doc.notes?`<div style="margin-top:14px;padding:10px 14px;background:#f8fafc;border-radius:6px;font-size:12px;color:#475569"><b>הערות:</b> ${doc.notes}</div>`:""}
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>${company.name||"WindowOS"} · ${docTitle} מס׳ ${doc.docNum}</span>
+    <span>${doc.date}</span>
+    <span style="font-size:9px">מסמך זה הופק באמצעות WindowOS</span>
+  </div>
+</div>
+<script>setTimeout(()=>window.print(),400)</script>
+</body></html>`;
+
+  const w=window.open("","_blank","width=880,height=760");
+  if(w){w.document.write(html);w.document.close();}
+}
+
+// ─────────────────────────────────────────────────────────────
+// PAYMENTS — full Israeli cash module
+// ─────────────────────────────────────────────────────────────
+function Payments({payments,setPayments,onClientClick,company}){
+  const [tab,setTab]=useState("payments"); // payments | docs | new
+  const [docs,setDocs]=useState(()=>load("wb:docs",[]));
+  const [newDoc,setNewDoc]=useState(false);
+  const [df,setDf]=useState({
+    docType:"חשבונית מס קבלה",client:"",clientTaxId:"",clientAddress:"",
+    amount:"",includesVat:true,method:"העברה בנקאית",
+    description:"ייצור והתקנת חלונות ודלתות אלומיניום",
+    orderId:"",ref:"",hitkatzvaNum:"",notes:"",
+    items:[{id:1,desc:"ייצור והתקנת חלונות אלומיניום",qty:1,price:""}]
+  });
+  const [docSearch,setDocSearch]=useState("");
+
+  useEffect(()=>{try{localStorage.setItem("wb:docs",JSON.stringify(docs));}catch{}},[docs]);
+
+  const bizType=company?.bizType||"חברה בעמ";
+  const isVat=["עוסק מורשה","חברה בעמ","שותפות"].includes(bizType);
+  const VAT=0.18;
+
   const rcv=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
   const pnd=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const totalDocs=docs.reduce((s,d)=>s+d.amount,0);
+
+  // Doc type options per business type
+  const DOC_TYPES=isVat
+    ?["חשבונית מס קבלה","חשבונית מס","קבלה","חשבון עסקה","חשבונית עסקה"]
+    :["קבלה","חשבון עסקה","חשבונית עסקה"];
+
+  const METHOD_OPTS=["העברה בנקאית","מזומן","צ'ק","כרטיס אשראי","Bit","PayBox","אחר"];
+
+  // Auto doc number
+  const nextDocNum=()=>{
+    const prefix=df.docType==="קבלה"?"K":df.docType==="חשבון עסקה"?"H":"I";
+    const existing=docs.filter(d=>d.docType===df.docType).length;
+    return`${prefix}${String(existing+1).padStart(5,"0")}`;
+  };
+
+  const amtNum=parseFloat(df.amount)||0;
+  const amtBeforeVat=isVat&&df.includesVat?Math.round(amtNum/1.18):amtNum;
+  const vatAmt=isVat&&df.includesVat?amtNum-amtBeforeVat:0;
+  const needsHitkatzva=isVat&&amtBeforeVat>=10000&&(df.docType==="חשבונית מס"||df.docType==="חשבונית מס קבלה");
+
+  const saveDoc=()=>{
+    if(!df.client||!df.amount)return alert("יש למלא שם לקוח וסכום");
+    if(needsHitkatzva&&!df.hitkatzvaNum){
+      if(!confirm("⚠️ חשבונית מעל ₪10,000 ללא מספר הקצאה!\nלקוח לא יוכל לנכות מע\"מ.\nהמשיך בכל זאת?"))return;
+    }
+    const docNum=nextDocNum();
+    const doc={...df,id:Date.now(),docNum,date:new Date().toISOString().split("T")[0],
+      amount:amtNum,items:df.items.map(it=>({...it,price:parseFloat(it.price)||0}))};
+    setDocs(p=>[doc,...p]);
+    // Also add to payments if it's a receipt type
+    if(df.docType==="קבלה"||df.docType==="חשבונית מס קבלה"){
+      setPayments(p=>[...p,{id:Date.now()+1,order:df.orderId||"",client:df.client,
+        type:df.docType,amount:amtNum,date:doc.date,method:df.method,
+        status:"Получен",docNum}]);
+    }
+    setNewDoc(false);
+    setDf({docType:"חשבונית מס קבלה",client:"",clientTaxId:"",clientAddress:"",
+      amount:"",includesVat:true,method:"העברה בנקאית",
+      description:"ייצור והתקנת חלונות ודלתות אלומיניום",
+      orderId:"",ref:"",hitkatzvaNum:"",notes:"",
+      items:[{id:1,desc:"ייצור והתקנת חלונות אלומיניום",qty:1,price:""}]});
+    alert(`מסמך ${doc.docType} מספר ${docNum} נשמר בהצלחה!`);
+  };
+
+  const filteredDocs=docs.filter(d=>
+    !docSearch||d.client.toLowerCase().includes(docSearch.toLowerCase())||d.docNum?.includes(docSearch)
+  );
+
+  const DOC_COLORS={"קבלה":D.green,"חשבון עסקה":D.accentLight,"חשבונית עסקה":D.accentLight,
+    "חשבונית מס":D.purple,"חשבונית מס קבלה":D.teal};
+
   return(<div>
+    {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Касса</div>
-        <div style={{fontSize:13,color:D.muted}}>{payments.length} транзакций</div></div>
-      <Btn onClick={()=>exportCSV(["Заказ","Клиент","Тип","Сумма","Дата","Статус"],payments.map(p=>[p.order,p.client,p.type,p.amount,p.date,p.status]),"касса.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
-      <KCard icon={Check} label="Получено" value={fmt(rcv)} color={D.green}/>
-      <KCard icon={Clock} label="Ожидается" value={fmt(pnd)} color={D.yellow}/>
-      <KCard icon={DollarSign} label="Транзакций" value={payments.length} color={D.accentLight}/>
-    </div>
-    <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1.5fr 1fr 1fr 1fr 1fr auto",padding:"8px 14px",background:D.surface,gap:10}}>
-        {["Заказ","Клиент","Тип","Сумма","Дата","Статус",""].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
+      <div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>קופה · כספים</div>
+        <div style={{fontSize:12,color:D.muted,marginTop:2,display:"flex",gap:12,alignItems:"center"}}>
+          <span>{bizType}</span>
+          {isVat&&<span style={{background:D.teal+"20",color:D.teal,borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>מע"מ 18%</span>}
+          {needsHitkatzva&&<span style={{background:D.yellow+"20",color:D.yellow,borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>מספר הקצאה נדרש ≥ ₪10,000</span>}
+        </div>
       </div>
-      {payments.map((p,i)=>(
-        <div key={p.id} style={{display:"grid",gridTemplateColumns:"1fr 1.5fr 1fr 1fr 1fr 1fr auto",
-          padding:"11px 14px",gap:10,alignItems:"center",background:i%2===0?D.card:D.surface,borderTop:`1px solid ${D.border}`}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.accentLight}}>{p.order}</div>
-          <div style={{fontSize:13,color:D.text}}>{p.client}</div>
-          <div style={{fontSize:11,color:D.muted}}>{p.type}</div>
-          <div style={{fontSize:14,fontWeight:800,color:D.text}}>{fmt(p.amount)}</div>
-          <div style={{fontSize:11,color:D.muted}}>{p.date}</div>
-          <Badge status={p.status}/>
-          {p.status==="Ожидается"
-            ?<Btn onClick={()=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,status:"Получен"}:x))} variant="success" small><Check size={11}/> Получен</Btn>
-            :<div style={{width:72}}/>}
+      <div style={{display:"flex",gap:8}}>
+        <Btn onClick={()=>exportCSV(["מסמך","לקוח","סוג","סכום","תאריך","אמצעי תשלום"],
+          docs.map(d=>[d.docNum,d.client,d.docType,d.amount,d.date,d.method]),"מסמכים.csv")} variant="ghost">
+          <Download size={13}/> CSV
+        </Btn>
+        <Btn onClick={()=>setNewDoc(true)} variant="success">
+          <Plus size={13}/> מסמך חדש
+        </Btn>
+      </div>
+    </div>
+
+    {/* KPI cards */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>
+      {[
+        ["💰 התקבל",fmt(rcv),D.green],
+        ["⏳ ממתין לגבייה",fmt(pnd),D.yellow],
+        ["📄 מסמכים שהופקו",docs.length,D.accentLight],
+        ["📊 סה\"כ בחשבוניות",fmt(totalDocs),D.teal],
+      ].map(([l,v,c])=>(
+        <div key={l} style={{background:D.card,border:`1px solid ${c}30`,borderRadius:12,padding:"12px 16px",borderTop:`3px solid ${c}`}}>
+          <div style={{fontSize:10,color:D.muted,marginBottom:4,fontWeight:700}}>{l}</div>
+          <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
         </div>
       ))}
     </div>
+
+    {/* Tabs */}
+    <div style={{display:"flex",gap:2,background:D.surface,borderRadius:10,padding:4,width:"fit-content",marginBottom:16}}>
+      {[["payments","💳 תשלומים"],["docs","📄 מסמכים שהופקו"]].map(([t,l])=>(
+        <button key={t} onClick={()=>setTab(t)}
+          style={{padding:"7px 18px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,
+            background:tab===t?"linear-gradient(135deg,#2563EB,#1D4ED8)":"transparent",
+            color:tab===t?"#fff":D.muted}}>
+          {l}
+        </button>
+      ))}
+    </div>
+
+    {/* Payments tab */}
+    {tab==="payments"&&(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
+      <div style={{display:"grid",gridTemplateColumns:"0.8fr 1.5fr 1fr 1fr 1fr 1fr auto",
+        padding:"8px 14px",background:D.surface,gap:10}}>
+        {["הזמנה","לקוח","סוג","סכום","תאריך","סטטוס",""].map((h,i)=>(
+          <div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>
+        ))}
+      </div>
+      {payments.length===0&&<div style={{padding:30,textAlign:"center",color:D.muted}}>אין תשלומים עדיין</div>}
+      {payments.map((p,i)=>(
+        <div key={p.id} style={{display:"grid",gridTemplateColumns:"0.8fr 1.5fr 1fr 1fr 1fr 1fr auto",
+          padding:"10px 14px",gap:10,alignItems:"center",
+          background:i%2===0?D.card:D.surface,borderTop:`1px solid ${D.border}`}}>
+          <div style={{fontSize:11,fontWeight:800,color:D.accentLight}}>{p.order||"—"}</div>
+          <div onClick={()=>onClientClick&&onClientClick(p.client)}
+            style={{fontSize:13,color:D.text,cursor:"pointer",fontWeight:600}}>{p.client}</div>
+          <div style={{fontSize:10,color:D.muted}}>{p.type}</div>
+          <div style={{fontSize:14,fontWeight:800,color:p.status==="Получен"?D.green:D.yellow}}>{fmt(p.amount)}</div>
+          <div style={{fontSize:11,color:D.muted}}>{p.date}</div>
+          <Badge status={p.status}/>
+          {p.status==="Ожидается"
+            ?<Btn onClick={()=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,status:"Получен"}:x))} variant="success" small>
+               <Check size={11}/> התקבל
+             </Btn>
+            :<div style={{width:72}}/>}
+        </div>
+      ))}
+    </div>)}
+
+    {/* Documents tab */}
+    {tab==="docs"&&(<div>
+      <div style={{position:"relative",marginBottom:12}}>
+        <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
+        <input value={docSearch} onChange={e=>setDocSearch(e.target.value)}
+          placeholder="חיפוש לפי לקוח או מספר מסמך..."
+          style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
+            padding:"7px 10px 7px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+      </div>
+      {filteredDocs.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,
+        padding:40,textAlign:"center",color:D.muted}}>
+        אין מסמכים. לחץ "מסמך חדש" להפקת חשבונית/קבלה.
+      </div>}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {filteredDocs.map(d=>{
+          const c=DOC_COLORS[d.docType]||D.accentLight;
+          const hasHitkatzva=d.hitkatzvaNum&&d.hitkatzvaNum.length===9;
+          const missingHitkatzva=isVat&&d.amount>=10000&&(d.docType==="חשבונית מס"||d.docType==="חשבונית מס קבלה")&&!hasHitkatzva;
+          return(<div key={d.id} style={{background:D.card,border:`1px solid ${missingHitkatzva?D.yellow:D.border}`,
+            borderRadius:12,padding:"14px 18px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+              <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                <div style={{background:c+"20",border:`1px solid ${c}40`,borderRadius:7,
+                  padding:"3px 10px",fontSize:11,fontWeight:800,color:c}}>
+                  {d.docNum}
+                </div>
+                <div>
+                  <div onClick={()=>onClientClick&&onClientClick(d.client)}
+                    style={{fontSize:14,fontWeight:800,color:D.text,cursor:"pointer"}}>{d.client}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{d.docType} · {d.date} · {d.method}</div>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:18,fontWeight:900,color:c}}>₪{d.amount.toLocaleString("he-IL")}</div>
+                  {isVat&&d.includesVat&&<div style={{fontSize:9,color:D.muted}}>כולל מע"מ</div>}
+                </div>
+                <Btn onClick={()=>printIsraeliDoc(d,company||{})} variant="ghost" small>
+                  <Download size={12}/> PDF
+                </Btn>
+              </div>
+            </div>
+
+            {/* Missing מספר הקצאה warning */}
+            {missingHitkatzva&&(<div style={{background:D.yellow+"12",border:`1px solid ${D.yellow}40`,
+              borderRadius:7,padding:"8px 12px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:11,color:D.yellow}}>
+                ⚠️ מסמך מעל ₪10,000 — נדרש <b>מספר הקצאה</b> (9 ספרות) מרשות המיסים
+              </div>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <input placeholder="הכנס מספר הקצאה..." maxLength={9}
+                  style={{background:D.bg,border:`1px solid ${D.yellow}`,borderRadius:6,
+                    padding:"4px 8px",color:D.text,fontSize:12,outline:"none",width:180,textAlign:"center",
+                    letterSpacing:"0.1em",fontWeight:700}}
+                  onBlur={e=>{
+                    if(e.target.value.length===9){
+                      setDocs(p=>p.map(x=>x.id===d.id?{...x,hitkatzvaNum:e.target.value}:x));
+                    }
+                  }}
+                  defaultValue={d.hitkatzvaNum||""}/>
+                <a href="https://taxes.gov.il" target="_blank" rel="noreferrer"
+                  style={{fontSize:10,color:D.accentLight,textDecoration:"none"}}>אתר רשות ←</a>
+              </div>
+            </div>)}
+
+            {/* הקצאה confirmed */}
+            {hasHitkatzva&&<div style={{background:D.green+"12",border:`1px solid ${D.green}30`,
+              borderRadius:7,padding:"5px 12px",marginBottom:8,fontSize:11,color:D.green}}>
+              ✅ מספר הקצאה: <b style={{letterSpacing:"0.1em"}}>{d.hitkatzvaNum}</b>
+            </div>}
+
+            {d.orderId&&<div style={{fontSize:10,color:D.muted}}>הזמנה: {d.orderId}</div>}
+          </div>);
+        })}
+      </div>
+    </div>)}
+
+    {/* NEW DOCUMENT MODAL */}
+    {newDoc&&(<Modal title={`📄 מסמך חדש — ${bizType}`} onClose={()=>setNewDoc(false)} wide>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+        {/* Doc type */}
+        <div>
+          <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>סוג מסמך</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+            {DOC_TYPES.map(t=>(
+              <button key={t} onClick={()=>setDf(p=>({...p,docType:t}))}
+                style={{padding:"5px 10px",borderRadius:6,border:`1px solid ${df.docType===t?(DOC_COLORS[t]||D.accent):D.border}`,
+                  background:df.docType===t?(DOC_COLORS[t]||D.accent)+"20":"transparent",
+                  color:df.docType===t?(DOC_COLORS[t]||D.accentLight):D.muted,
+                  fontSize:11,fontWeight:df.docType===t?700:400,cursor:"pointer"}}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Method */}
+        <div>
+          <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>אמצעי תשלום</div>
+          <select value={df.method} onChange={e=>setDf(p=>({...p,method:e.target.value}))}
+            style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
+              padding:"7px 10px",color:D.text,fontSize:12,outline:"none"}}>
+            {METHOD_OPTS.map(m=><option key={m} value={m} style={{background:D.card}}>{m}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <Inp label="שם לקוח *" value={df.client} onChange={e=>setDf(p=>({...p,client:e.target.value}))} placeholder="שם מלא"/>
+        <Inp label="ח.פ. / ע.מ. לקוח" value={df.clientTaxId} onChange={e=>setDf(p=>({...p,clientTaxId:e.target.value}))} placeholder="אופציונלי"/>
+        <Inp label="כתובת לקוח" value={df.clientAddress} onChange={e=>setDf(p=>({...p,clientAddress:e.target.value}))} placeholder="אופציונלי"/>
+        <Inp label="מס׳ הזמנה" value={df.orderId} onChange={e=>setDf(p=>({...p,orderId:e.target.value}))} placeholder="WB-001"/>
+      </div>
+
+      {/* Items */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>פירוט שירותים / מוצרים</div>
+        {df.items.map((it,i)=>(
+          <div key={it.id} style={{display:"grid",gridTemplateColumns:"2fr 0.5fr 1fr auto",gap:6,marginBottom:6,alignItems:"center"}}>
+            <input value={it.desc} onChange={e=>setDf(p=>({...p,items:p.items.map((x,j)=>j===i?{...x,desc:e.target.value}:x)}))}
+              placeholder="תיאור שירות / מוצר"
+              style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"6px 8px",color:D.text,fontSize:12,outline:"none"}}/>
+            <input type="number" value={it.qty} min={1}
+              onChange={e=>setDf(p=>({...p,items:p.items.map((x,j)=>j===i?{...x,qty:+e.target.value||1}:x)}))}
+              style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"6px 8px",color:D.text,fontSize:12,outline:"none",textAlign:"center"}}/>
+            <input type="number" value={it.price}
+              onChange={e=>setDf(p=>({...p,items:p.items.map((x,j)=>j===i?{...x,price:e.target.value}:x),
+                amount:p.items.reduce((s,x,j)=>s+(j===i?+e.target.value||0:+x.price||0)*(j===i?x.qty:x.qty),0).toString()}))}
+              placeholder="₪"
+              style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"6px 8px",color:D.text,fontSize:12,outline:"none"}}/>
+            <button onClick={()=>df.items.length>1&&setDf(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))}
+              style={{background:"none",border:"none",cursor:"pointer",color:df.items.length>1?D.red:D.muted,padding:4}}>
+              <X size={13}/>
+            </button>
+          </div>
+        ))}
+        <button onClick={()=>setDf(p=>({...p,items:[...p.items,{id:Date.now(),desc:"",qty:1,price:""}]}))}
+          style={{background:"none",border:`1px dashed ${D.border}`,borderRadius:6,padding:"5px 14px",
+            color:D.muted,fontSize:11,cursor:"pointer",width:"100%",marginBottom:4}}>
+          + הוסף שורה
+        </button>
+      </div>
+
+      {/* Amount + VAT */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <div>
+          <Inp label="סכום כולל ₪ *" value={df.amount} onChange={e=>setDf(p=>({...p,amount:e.target.value}))} type="number" placeholder="0"/>
+          {isVat&&amtNum>0&&<div style={{fontSize:10,color:D.teal,marginTop:3}}>
+            {df.includesVat?`לפני מע"מ: ₪${amtBeforeVat.toLocaleString()} + מע"מ: ₪${vatAmt.toLocaleString()}`:"+ מע\"מ לא כלול"}
+          </div>}
+        </div>
+        {isVat&&<div style={{paddingTop:22}}>
+          <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:D.text}}>
+            <input type="checkbox" checked={df.includesVat} onChange={e=>setDf(p=>({...p,includesVat:e.target.checked}))} style={{accentColor:D.teal}}/>
+            הסכום כולל מע"מ 18%
+          </label>
+        </div>}
+      </div>
+
+      {/* מספר הקצאה */}
+      {needsHitkatzva&&(<div style={{background:D.yellow+"12",border:`1px solid ${D.yellow}`,borderRadius:8,
+        padding:"10px 14px",marginBottom:10}}>
+        <div style={{fontSize:11,fontWeight:700,color:D.yellow,marginBottom:6}}>
+          ⚠️ מסמך מעל ₪10,000 — נדרש מספר הקצאה מרשות המיסים
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <input value={df.hitkatzvaNum} onChange={e=>setDf(p=>({...p,hitkatzvaNum:e.target.value}))}
+            placeholder="הכנס 9 ספרות..." maxLength={9}
+            style={{flex:1,background:D.bg,border:`1px solid ${df.hitkatzvaNum.length===9?D.green:D.yellow}`,
+              borderRadius:7,padding:"8px 12px",color:D.text,fontSize:14,fontWeight:700,
+              outline:"none",textAlign:"center",letterSpacing:"0.15em"}}/>
+          <a href="https://www.taxes.gov.il/incometax/pages/default.aspx" target="_blank" rel="noreferrer"
+            style={{background:D.accent+"20",border:`1px solid ${D.accent}40`,borderRadius:7,
+              padding:"8px 12px",color:D.accentLight,fontSize:11,fontWeight:700,textDecoration:"none",whiteSpace:"nowrap"}}>
+            אתר רשות המסים ←
+          </a>
+        </div>
+        {df.hitkatzvaNum&&df.hitkatzvaNum.length!==9&&
+          <div style={{fontSize:10,color:D.red,marginTop:4}}>מספר הקצאה חייב להכיל בדיוק 9 ספרות</div>}
+        <div style={{fontSize:10,color:D.muted,marginTop:6}}>
+          ניתן להמשיך ללא מספר הקצאה, אך הלקוח לא יוכל לנכות מע"מ תשומות
+        </div>
+      </div>)}
+
+      <Inp label="הערות" value={df.notes} onChange={e=>setDf(p=>({...p,notes:e.target.value}))} placeholder="הערות נוספות..."/>
+
+      {/* Preview total */}
+      {amtNum>0&&(<div style={{background:D.teal+"12",border:`1px solid ${D.teal}30`,borderRadius:8,
+        padding:"10px 14px",marginTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:12,color:D.muted}}>{df.docType} · מספר: {nextDocNum()}</span>
+        <span style={{fontSize:20,fontWeight:900,color:D.teal}}>₪{amtNum.toLocaleString("he-IL")}</span>
+      </div>)}
+
+      <div style={{display:"flex",gap:8,marginTop:14}}>
+        <Btn onClick={saveDoc} variant="success"><Check size={13}/> שמור מסמך</Btn>
+        <Btn onClick={()=>setNewDoc(false)} variant="ghost">ביטול</Btn>
+      </div>
+    </Modal>)}
   </div>);
 }
 
@@ -4480,6 +4968,7 @@ export default function App(){
     name:"חלונות אלומיניום",nameRu:"Алюминиевые окна",
     phone:"050-000-0000",address:"",email:"",
     bank:"",bankAccount:"",taxId:"",
+    bizType:"חברה בעמ",
   }));
   const [companyModal,setCompanyModal]=useState(false);
   const [installations,setInstallations]=useState(()=>load(KEYS.installations,II_INST));
@@ -4671,7 +5160,7 @@ export default function App(){
         {page==="orders"&&<Orders orders={orders} setOrders={setOrders} setPayments={setPayments} payments={payments} onClientClick={setClientCard}/>}
         {page==="installation"&&<Installation installations={installations} setInstallations={setInstallations} orders={orders} onClientClick={setClientCard}/>}
         {page==="inventory"&&<Inventory inventory={inventory} setInventory={setInventory}/>}
-        {page==="payments"&&<Payments payments={payments} setPayments={setPayments} onClientClick={setClientCard}/>}
+        {page==="payments"&&<Payments payments={payments} setPayments={setPayments} onClientClick={setClientCard} company={company}/>}
         {page==="quotes"&&<Quotes quotes={quotes} setQuotes={setQuotes} onClientClick={setClientCard}/>}
         {page==="finance"&&<FinancePL orders={orders} payments={payments} leads={leads} measurements={measurements} kpi={kpi}/>}
         {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
@@ -4692,16 +5181,33 @@ export default function App(){
 
     {/* COMPANY SETTINGS MODAL */}
     {companyModal&&(<Modal title="⚙️ Реквизиты компании" onClose={()=>setCompanyModal(false)}>
+      {/* Business type selector */}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>סוג עסק / Тип бизнеса</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {[["עוסק פטור","Освобождённый"],["עוסק מורשה","Авторизованный"],["חברה בעמ","Ltd (חברה)"],["שותפות","Партнёрство"],["עמותה","НКО"]].map(([t,r])=>(
+            <button key={t} onClick={()=>setCompany(p=>({...p,bizType:t}))}
+              style={{padding:"6px 12px",borderRadius:7,border:`1px solid ${(company.bizType||"חברה בעמ")===t?D.accent:D.border}`,
+                background:(company.bizType||"חברה בעמ")===t?D.accent+"20":"transparent",
+                color:(company.bizType||"חברה בעמ")===t?D.accentLight:D.muted,
+                fontSize:11,fontWeight:700,cursor:"pointer"}}>
+              {t}<span style={{fontSize:9,opacity:0.7,marginRight:3}}> {r}</span>
+            </button>
+          ))}
+        </div>
+        {["עוסק מורשה","חברה בעמ","שותפות"].includes(company.bizType||"חברה בעמ")&&
+          <div style={{fontSize:10,color:D.teal,marginTop:5}}>✅ מע"מ 18% · חשבוניות מס · מספר הקצאה נדרש ≥ ₪10,000</div>}
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
         {[
-          ["Название (иврит)","name","חלונות אלומיניום"],
-          ["Название (русский)","nameRu","Алюминиевые окна"],
-          ["Телефон","phone","050-000-0000"],
+          ["Название (иврит) | שם","name","חלונות אלומיניום"],
+          ["Название (рус)","nameRu","Алюминиевые окна"],
+          ["Телефон | טלפון","phone","050-000-0000"],
           ["Email","email","info@company.com"],
-          ["Адрес","address","тель-авив..."],
-          ["ח.פ. / ע.מ.","taxId",""],
-          ["Банк","bank","הפועלים"],
-          ["Счёт банка","bankAccount",""],
+          ["Адрес | כתובת","address","תל אביב..."],
+          ["ח.פ. / ע.מ. / מספר עוסק","taxId",""],
+          ["Банк | בנק","bank","הפועלים"],
+          ["Счёт | חשבון בנק","bankAccount",""],
         ].map(([l,k,ph])=>(
           <div key={k}>
             <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{l}</div>
@@ -4713,9 +5219,9 @@ export default function App(){
         ))}
       </div>
       <div style={{fontSize:10,color:D.teal,marginBottom:12,padding:"6px 10px",background:D.teal+"12",borderRadius:6}}>
-        ✓ Эти данные появятся в PDF КП и актах выполненных работ
+        ✓ הפרטים יופיעו בכל החשבוניות, קבלות, הצעות מחיר ותעודות גמר
       </div>
-      <Btn onClick={()=>setCompanyModal(false)} variant="success"><Check size={13}/> Сохранить</Btn>
+      <Btn onClick={()=>setCompanyModal(false)} variant="success"><Check size={13}/> שמור</Btn>
     </Modal>)}
 
     {/* Mobile sidebar toggle */}
