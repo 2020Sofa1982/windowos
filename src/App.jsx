@@ -4,7 +4,8 @@ import {
   Calculator, Plus, Search, X, Check, Clock, AlertTriangle,
   TrendingUp, Trash2, Download, BarChart2, DollarSign, Eye,
   Ruler, Image, Paperclip, Zap, List, ArrowRight, Wrench, ClipboardCheck,
-  Phone, MessageCircle, Menu, ChevronRight, History, FileText
+  Phone, MessageCircle, Menu, ChevronRight, History, FileText,
+  CalendarDays, ChevronLeft, Bell
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
@@ -3963,18 +3964,370 @@ const addActivity=(setActivity,clientName,type,text)=>{
 };
 const ACT_ICONS={call:"📞",whatsapp:"💬",kp:"📋",measure:"📐",order:"📦",install:"🔧",note:"📝",payment:"💰"};
 
+// ═══════════════════════════════════════════════════════════════
+// CALENDAR MODULE
+// ═══════════════════════════════════════════════════════════════
+function Calendar({leads,measurements,installations,payments,setMeasurements,setInstallations,setLeads,onClientClick,setPage}){
+  const [view,setView]=useState("month"); // month | week
+  const [current,setCurrent]=useState(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()};});
+  const [selected,setSelected]=useState(()=>new Date().toISOString().split("T")[0]);
+  const [quickModal,setQuickModal]=useState(null); // {date, type}
+  const [quickForm,setQuickForm]=useState({client:"",phone:"",address:"",time:"09:00",notes:""});
+
+  const today=new Date().toISOString().split("T")[0];
+  const DAYS_RU=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+  const MONTHS_RU=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+
+  // Build events map: date → [{type,label,color,client,id}]
+  const eventsMap={};
+  const addEv=(date,ev)=>{if(!date)return;if(!eventsMap[date])eventsMap[date]=[];eventsMap[date].push(ev);};
+
+  measurements.forEach(m=>addEv(m.date,{type:"measure",label:m.client,sub:m.address,color:D.teal,client:m.client,id:m.id,phone:m.phone,status:m.status}));
+  installations.forEach(i=>addEv(i.scheduledDate,{type:"install",label:i.client,sub:i.address,color:D.purple,client:i.client,id:i.id,status:i.status}));
+  leads.forEach(l=>{
+    if(!l.followUp)return;
+    const isPast=l.followUp<today;
+    addEv(l.followUp,{type:"followup",label:l.name,sub:l.status,color:isPast?D.red:D.yellow,client:l.name,id:l.id,phone:l.phone,isPast});
+  });
+  payments.forEach(p=>{
+    if(p.status==="Ожидается"&&p.date)
+      addEv(p.date,{type:"payment",label:p.client,sub:`₪${p.amount?.toLocaleString()}`,color:D.green,client:p.client,id:p.id});
+  });
+
+  const TYPE_ICONS={measure:"📐",install:"🔧",followup:"🔔",payment:"💰"};
+  const TYPE_LABELS={measure:"Замер",install:"Монтаж",followup:"Follow-up",payment:"Платёж"};
+
+  // Month grid
+  const getDaysInMonth=(y,m)=>{
+    const first=new Date(y,m,1);
+    const last=new Date(y,m+1,0);
+    const startDow=(first.getDay()+6)%7; // Mon=0
+    const days=[];
+    for(let i=0;i<startDow;i++){
+      const d=new Date(y,m,1-startDow+i);
+      days.push({date:d.toISOString().split("T")[0],cur:false});
+    }
+    for(let d=1;d<=last.getDate();d++){
+      const dt=new Date(y,m,d);
+      days.push({date:dt.toISOString().split("T")[0],cur:true});
+    }
+    while(days.length%7!==0){
+      const last2=new Date(days[days.length-1].date);
+      last2.setDate(last2.getDate()+1);
+      days.push({date:last2.toISOString().split("T")[0],cur:false});
+    }
+    return days;
+  };
+
+  const days=getDaysInMonth(current.y,current.m);
+  const selEvents=eventsMap[selected]||[];
+
+  const prevMonth=()=>setCurrent(c=>c.m===0?{y:c.y-1,m:11}:{y:c.y,m:c.m-1});
+  const nextMonth=()=>setCurrent(c=>c.m===11?{y:c.y+1,m:0}:{y:c.y,m:c.m+1});
+  const goToday=()=>{const d=new Date();setCurrent({y:d.getFullYear(),m:d.getMonth()});setSelected(today);};
+
+  const saveQuick=()=>{
+    if(!quickForm.client)return;
+    const id=Date.now();
+    if(quickModal.type==="measure"){
+      setMeasurements(p=>[...p,{id,client:quickForm.client,phone:quickForm.phone,
+        address:quickForm.address,date:quickModal.date,status:"Запланирован",
+        mode:"Выезд",specialist:"",notes:quickForm.notes,openings:[],files:[],
+        floor:"1",wallType:"Железобетон",crane:false,demolition:false}]);
+    } else if(quickModal.type==="install"){
+      setInstallations(p=>[...p,{id,client:quickForm.client,address:quickForm.address,
+        scheduledDate:quickModal.date,status:"Запланирован",specialist:"",
+        checklist:new Array(11).fill(false),notes:quickForm.notes,
+        photosBefore:[],photosAfter:[],completedDate:""}]);
+    } else if(quickModal.type==="followup"){
+      // Update lead's follow-up date
+      setLeads(p=>p.map(l=>l.name===quickForm.client?{...l,followUp:quickModal.date}:l));
+    }
+    setQuickModal(null);
+    setQuickForm({client:"",phone:"",address:"",time:"09:00",notes:""});
+    setSelected(quickModal.date);
+  };
+
+  // Week view
+  const getWeekDays=()=>{
+    const d=new Date(selected);
+    const dow=(d.getDay()+6)%7;
+    const mon=new Date(d); mon.setDate(d.getDate()-dow);
+    return Array.from({length:7},(_,i)=>{
+      const wd=new Date(mon); wd.setDate(mon.getDate()+i);
+      return wd.toISOString().split("T")[0];
+    });
+  };
+  const weekDays=getWeekDays();
+
+  return(<div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:16,height:"calc(100vh - 120px)",minHeight:500}}>
+    {/* LEFT: calendar grid */}
+    <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:16,padding:20,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={prevMonth} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",color:D.muted}}>
+            <ChevronLeft size={15}/>
+          </button>
+          <div style={{fontSize:18,fontWeight:900,color:D.text,minWidth:180}}>
+            {MONTHS_RU[current.m]} {current.y}
+          </div>
+          <button onClick={nextMonth} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",color:D.muted}}>
+            <ChevronRight size={15}/>
+          </button>
+        </div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {/* Legend */}
+          <div style={{display:"flex",gap:8,marginRight:8,fontSize:10,color:D.muted}}>
+            {[["📐",D.teal,"Замер"],["🔧",D.purple,"Монтаж"],["🔔",D.yellow,"Follow-up"],["💰",D.green,"Платёж"]].map(([ico,c,l])=>(
+              <span key={l} style={{display:"flex",alignItems:"center",gap:3}}>
+                <span style={{width:8,height:8,borderRadius:"50%",background:c,display:"inline-block"}}/>
+                {l}
+              </span>
+            ))}
+          </div>
+          <button onClick={goToday} style={{background:D.accent+"20",border:`1px solid ${D.accent}40`,
+            borderRadius:7,padding:"5px 12px",cursor:"pointer",color:D.accentLight,fontSize:11,fontWeight:700}}>
+            Сегодня
+          </button>
+          {/* View toggle */}
+          <div style={{display:"flex",background:D.surface,borderRadius:8,padding:2,gap:2}}>
+            {[["month","Месяц"],["week","Неделя"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setView(v)}
+                style={{padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,
+                  background:view===v?D.accent:"transparent",color:view===v?"#fff":D.muted}}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {view==="month"?(
+        <>
+          {/* Day headers */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
+            {DAYS_RU.map((d,i)=>(
+              <div key={d} style={{textAlign:"center",fontSize:10,fontWeight:800,
+                color:i>=5?D.red:D.muted,padding:"4px 0",textTransform:"uppercase"}}>
+                {d}
+              </div>
+            ))}
+          </div>
+          {/* Day cells */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,flex:1,overflow:"auto"}}>
+            {days.map(({date,cur})=>{
+              const evs=eventsMap[date]||[];
+              const isSel=date===selected;
+              const isToday=date===today;
+              const isWe=new Date(date).getDay()===0||new Date(date).getDay()===6;
+              return(
+                <div key={date} onClick={()=>setSelected(date)}
+                  style={{borderRadius:10,padding:"5px 4px",cursor:"pointer",minHeight:70,
+                    background:isSel?D.accent+"25":isToday?D.accent+"10":D.surface,
+                    border:`1.5px solid ${isSel?D.accent:isToday?D.accent+"60":"transparent"}`,
+                    opacity:cur?1:0.35,transition:"all 0.1s"}}>
+                  <div style={{fontSize:11,fontWeight:isToday?900:isSel?700:500,
+                    color:isToday?D.accentLight:isSel?D.accentLight:isWe?D.red:D.text,
+                    marginBottom:3,textAlign:"right",paddingRight:2}}>
+                    {isToday?<span style={{background:D.accent,color:"#fff",borderRadius:10,padding:"1px 5px"}}>{new Date(date).getDate()}</span>:new Date(date).getDate()}
+                  </div>
+                  {/* Event dots */}
+                  <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                    {evs.slice(0,3).map((ev,i)=>(
+                      <div key={i} style={{background:ev.color+"25",borderLeft:`2px solid ${ev.color}`,
+                        borderRadius:"0 4px 4px 0",padding:"1px 4px",fontSize:9,fontWeight:600,
+                        color:ev.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {TYPE_ICONS[ev.type]} {ev.label}
+                      </div>
+                    ))}
+                    {evs.length>3&&<div style={{fontSize:9,color:D.muted,paddingLeft:4}}>+{evs.length-3}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ):(
+        /* WEEK VIEW */
+        <div style={{flex:1,overflow:"auto"}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:6}}>
+            {weekDays.map(date=>{
+              const evs=eventsMap[date]||[];
+              const isToday=date===today;
+              const isSel=date===selected;
+              const d=new Date(date);
+              const dow=((d.getDay()+6)%7);
+              return(
+                <div key={date} onClick={()=>setSelected(date)}
+                  style={{borderRadius:12,padding:10,cursor:"pointer",minHeight:200,
+                    background:isSel?D.accent+"20":isToday?D.accent+"10":D.surface,
+                    border:`1.5px solid ${isSel?D.accent:isToday?D.accent+"50":D.border}`}}>
+                  <div style={{textAlign:"center",marginBottom:8}}>
+                    <div style={{fontSize:9,color:dow>=5?D.red:D.muted,fontWeight:700,textTransform:"uppercase"}}>{DAYS_RU[dow]}</div>
+                    <div style={{fontSize:18,fontWeight:900,
+                      color:isToday?D.accentLight:isSel?D.accentLight:D.text}}>
+                      {isToday?<span style={{background:D.accent,color:"#fff",borderRadius:"50%",width:28,height:28,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:15}}>{d.getDate()}</span>:d.getDate()}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                    {evs.map((ev,i)=>(
+                      <div key={i} onClick={e=>{e.stopPropagation();onClientClick&&onClientClick(ev.client);}}
+                        style={{background:ev.color+"20",border:`1px solid ${ev.color}40`,
+                          borderRadius:6,padding:"4px 6px",cursor:"pointer"}}
+                        onMouseEnter={e=>e.currentTarget.style.background=ev.color+"35"}
+                        onMouseLeave={e=>e.currentTarget.style.background=ev.color+"20"}>
+                        <div style={{fontSize:10,fontWeight:700,color:ev.color}}>{TYPE_ICONS[ev.type]} {TYPE_LABELS[ev.type]}</div>
+                        <div style={{fontSize:11,fontWeight:600,color:D.text}}>{ev.label}</div>
+                        {ev.sub&&<div style={{fontSize:9,color:D.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.sub}</div>}
+                      </div>
+                    ))}
+                    {evs.length===0&&<div style={{fontSize:10,color:D.muted,textAlign:"center",marginTop:8}}>—</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* RIGHT: selected day panel */}
+    <div style={{display:"flex",flexDirection:"column",gap:10,overflow:"auto"}}>
+      {/* Selected day header */}
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
+        <div style={{fontSize:13,fontWeight:900,color:D.text,marginBottom:2}}>
+          {selected===today?"📅 Сегодня":""} {new Date(selected).toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})}
+        </div>
+        <div style={{fontSize:11,color:D.muted,marginBottom:12}}>
+          {selEvents.length>0?`${selEvents.length} событий`:"Нет событий"}
+        </div>
+        {/* Quick add buttons */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+          {[["measure","📐 Замер",D.teal],["install","🔧 Монтаж",D.purple],
+            ["followup","🔔 Follow-up",D.yellow]].map(([type,label,color])=>(
+            <button key={type} onClick={()=>setQuickModal({date:selected,type})}
+              style={{background:color+"15",border:`1px solid ${color}40`,borderRadius:8,
+                padding:"7px 6px",cursor:"pointer",color,fontWeight:700,fontSize:11}}>
+              {label}
+            </button>
+          ))}
+          <button onClick={()=>setPage&&setPage("calc")}
+            style={{background:D.accent+"15",border:`1px solid ${D.accent}40`,borderRadius:8,
+              padding:"7px 6px",cursor:"pointer",color:D.accentLight,fontWeight:700,fontSize:11}}>
+            🧮 КП
+          </button>
+        </div>
+      </div>
+
+      {/* Events for selected day */}
+      {selEvents.length>0&&(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
+        <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>События дня</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {selEvents.map((ev,i)=>(
+            <div key={i} style={{background:ev.color+"12",border:`1px solid ${ev.color}30`,
+              borderRadius:10,padding:"10px 12px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,fontWeight:800,color:ev.color}}>
+                    {TYPE_ICONS[ev.type]} {TYPE_LABELS[ev.type]}
+                    {ev.isPast&&<span style={{marginLeft:6,fontSize:9,background:D.red,color:"#fff",borderRadius:4,padding:"1px 4px"}}>просрочено</span>}
+                  </div>
+                  <div onClick={()=>onClientClick&&onClientClick(ev.client)}
+                    style={{fontSize:13,fontWeight:700,color:D.text,cursor:"pointer",marginTop:2}}>
+                    {ev.label}
+                  </div>
+                  {ev.sub&&<div style={{fontSize:10,color:D.muted,marginTop:1}}>{ev.sub}</div>}
+                </div>
+                <div style={{display:"flex",gap:4,flexShrink:0}}>
+                  {ev.phone&&(<a href={`tel:${ev.phone}`}
+                    style={{background:D.green+"20",border:`1px solid ${D.green}40`,borderRadius:6,
+                      padding:"4px 7px",color:D.green,fontSize:10,fontWeight:700,textDecoration:"none"}}>
+                    📞
+                  </a>)}
+                  {ev.phone&&(<a href={`https://wa.me/${ev.phone.replace(/[^0-9]/g,"").replace(/^0/,"972")}`}
+                    target="_blank" rel="noreferrer"
+                    style={{background:"#25D36620",border:"1px solid #25D36640",borderRadius:6,
+                      padding:"4px 7px",color:"#25D366",fontSize:10,fontWeight:700,textDecoration:"none"}}>
+                    WA
+                  </a>)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>)}
+
+      {/* Upcoming 7 days */}
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
+        <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>
+          📅 Ближайшие 7 дней
+        </div>
+        {(()=>{
+          const upcoming=[];
+          for(let i=0;i<7;i++){
+            const d=new Date();d.setDate(d.getDate()+i);
+            const dstr=d.toISOString().split("T")[0];
+            const evs=eventsMap[dstr]||[];
+            if(evs.length>0)upcoming.push({date:dstr,evs,label:i===0?"Сегодня":i===1?"Завтра":d.toLocaleDateString("ru-RU",{weekday:"short",day:"numeric",month:"short"})});
+          }
+          if(upcoming.length===0)return<div style={{fontSize:11,color:D.muted}}>Нет запланированных событий</div>;
+          return upcoming.map(({date,evs,label})=>(
+            <div key={date} onClick={()=>setSelected(date)}
+              style={{marginBottom:8,cursor:"pointer",padding:"6px 8px",borderRadius:8,
+                background:date===today?D.accent+"10":D.surface}}
+              onMouseEnter={e=>e.currentTarget.style.background=D.accent+"10"}
+              onMouseLeave={e=>e.currentTarget.style.background=date===today?D.accent+"10":D.surface}>
+              <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4}}>{label}</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                {evs.map((ev,i)=>(
+                  <span key={i} style={{background:ev.color+"20",color:ev.color,
+                    border:`1px solid ${ev.color}40`,borderRadius:5,padding:"2px 6px",fontSize:10,fontWeight:600}}>
+                    {TYPE_ICONS[ev.type]} {ev.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ));
+        })()}
+      </div>
+    </div>
+
+    {/* QUICK CREATE MODAL */}
+    {quickModal&&(<Modal title={`${TYPE_ICONS[quickModal.type]} Создать ${TYPE_LABELS[quickModal.type]} — ${new Date(quickModal.date).toLocaleDateString("ru-RU",{day:"numeric",month:"long"})}`}
+      onClose={()=>setQuickModal(null)}>
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
+        <Inp label="Клиент *" value={quickForm.client} onChange={e=>setQuickForm(p=>({...p,client:e.target.value}))} placeholder="Имя клиента"/>
+        {quickModal.type!=="followup"&&<Inp label="Телефон" value={quickForm.phone} onChange={e=>setQuickForm(p=>({...p,phone:e.target.value}))} placeholder="05X-XXXXXXX"/>}
+        {quickModal.type!=="followup"&&<Inp label="Адрес" value={quickForm.address} onChange={e=>setQuickForm(p=>({...p,address:e.target.value}))} placeholder="Улица, город"/>}
+        {quickModal.type==="followup"&&(
+          <div style={{fontSize:11,color:D.muted,background:D.surface,borderRadius:8,padding:10}}>
+            Для Follow-up введи имя клиента точно как в CRM — дата follow-up обновится автоматически.
+          </div>
+        )}
+        <Inp label="Заметки" value={quickForm.notes} onChange={e=>setQuickForm(p=>({...p,notes:e.target.value}))} placeholder="Доп. информация..."/>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <Btn onClick={saveQuick} variant="success"><Check size={13}/> Сохранить</Btn>
+        <Btn onClick={()=>setQuickModal(null)} variant="ghost">Отмена</Btn>
+      </div>
+    </Modal>)}
+  </div>);
+}
+
 const PAGES=[
-  {id:"dashboard",icon:LayoutDashboard,label:"Dashboard"},
-  {id:"leads",icon:Users,label:"Лиды / CRM"},
-  {id:"measurements",icon:Ruler,label:"Замеры"},
-  {id:"orders",icon:ShoppingCart,label:"Заказы"},
-  {id:"installation",icon:Wrench,label:"Монтаж"},
-  {id:"inventory",icon:Package,label:"Склад"},
-  {id:"payments",icon:Wallet,label:"Касса"},
-  {id:"quotes",icon:FileText,label:"КП История"},
-  {id:"finance",icon:TrendingUp,label:"P&L · Финансы"},
-  {id:"kpi",icon:BarChart2,label:"KPI"},
-  {id:"calc",icon:Calculator,label:"Калькулятор"},
+  {id:"dashboard",   icon:LayoutDashboard, label:"Dashboard"},
+  {id:"calendar",    icon:CalendarDays,    label:"Календарь"},
+  {id:"leads",       icon:Users,           label:"Лиды / CRM"},
+  {id:"measurements",icon:Ruler,           label:"Замеры"},
+  {id:"orders",      icon:ShoppingCart,    label:"Заказы"},
+  {id:"installation",icon:Wrench,          label:"Монтаж"},
+  {id:"inventory",   icon:Package,         label:"Склад"},
+  {id:"payments",    icon:Wallet,          label:"Касса"},
+  {id:"quotes",      icon:FileText,        label:"КП История"},
+  {id:"finance",     icon:TrendingUp,      label:"P&L · Финансы"},
+  {id:"kpi",         icon:BarChart2,       label:"KPI"},
+  {id:"calc",        icon:Calculator,      label:"Калькулятор"},
 ];
 
 export default function App(){
@@ -4035,15 +4388,25 @@ export default function App(){
   const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
   const pendM=measurements.filter(m=>m.status==="Запланирован").length;
   const pendInst=installations.filter(i=>i.status==="Запланирован"||i.status==="В процессе").length;
+  const todayStr2=new Date().toISOString().split("T")[0];
+  const todayCalEvents=[
+    ...measurements.filter(m=>m.date===todayStr2),
+    ...installations.filter(i=>i.scheduledDate===todayStr2),
+    ...leads.filter(l=>l.followUp===todayStr2),
+  ].length;
   const alerts=[
-    leads.filter(l=>l.status==="Новый лид").length,
-    pendM,null,
-    pendInst,
-    inventory.filter(i=>i.qty<i.minQty).length,
-    payments.filter(p=>p.status==="Ожидается").length,
-    null,null,
-    overdueFollowUps.length,
-    null,null
+    leads.filter(l=>l.status==="Новый лид").length, // dashboard
+    todayCalEvents, // calendar — count today's events
+    pendM, // leads
+    null,  // measurements
+    pendInst, // orders
+    inventory.filter(i=>i.qty<i.minQty).length, // installation
+    payments.filter(p=>p.status==="Ожидается").length, // inventory
+    null,  // payments
+    null,  // quotes
+    overdueFollowUps.length, // finance
+    null,  // kpi
+    null,  // calc
   ];
 
   const SidebarContent=()=>(<>
@@ -4172,6 +4535,7 @@ export default function App(){
           )}
         </div>
         {page==="dashboard"&&<Dashboard leads={leads} orders={orders} payments={payments} inventory={inventory} kpi={kpi} measurements={measurements} installations={installations} onClientClick={setClientCard}/>}
+        {page==="calendar"&&<Calendar leads={leads} measurements={measurements} installations={installations} payments={payments} setMeasurements={setMeasurements} setInstallations={setInstallations} setLeads={setLeads} onClientClick={setClientCard} setPage={navTo}/>}
         {page==="leads"&&<Leads leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
         {page==="measurements"&&<Measurements measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc} leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
         {page==="orders"&&<Orders orders={orders} setOrders={setOrders} setPayments={setPayments} onClientClick={setClientCard}/>}
