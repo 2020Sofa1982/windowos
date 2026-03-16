@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { fbSave, fbLoadAll, fbSubscribe } from "./firebase";
 import {
   LayoutDashboard, Users, ShoppingCart, Package, Wallet,
   Calculator, Plus, Search, X, Check, Clock, AlertTriangle,
@@ -18,7 +19,10 @@ const KEYS = { leads:"wb:leads", orders:"wb:orders", inventory:"wb:inventory",
   installations:"wb:installations", quotes:"wb:quotes", templates:"wb:templates",
   activity:"wb:activity", company:"wb:company", lang:"wb:lang" };
 const load=(key,fb)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):fb;}catch{return fb;}};
-const save=(key,data)=>{try{localStorage.setItem(key,JSON.stringify(data));}catch{}};
+const save=(key,data)=>{
+  try{localStorage.setItem(key,JSON.stringify(data));}catch{}
+  fbSave(key,data); // also sync to Firebase cloud
+};
 
 // ── DEKEL BANDS [code, op, profile, min_m2, max_m2, price/m2] ─
 const DB=[
@@ -3445,44 +3449,75 @@ function Payments({payments,setPayments,onClientClick,company}){
 // ═══════════════════════════════════════════════════════════════
 function FinancePL({orders,payments,leads,measurements,kpi}){
   const [fixedCosts,setFixedCosts]=useState(()=>load("wb:fixedcosts",[
-    {id:1,name:"Аренда | שכירות",amount:3000,category:"Аренда"},
-    {id:2,name:"Электроэнергия | חשמל",amount:500,category:"Коммунальные"},
-    {id:3,name:"Бухгалтер | רואה חשבון",amount:800,category:"Услуги"},
-    {id:4,name:"Телефон/Интернет | טלפון/אינטרנט",amount:300,category:"Коммунальные"},
-    {id:5,name:"Транспорт | רכב",amount:1200,category:"Транспорт"},
+    {id:1,name:"Аренда | שכירות",amount:3000},
+    {id:2,name:"Электроэнергия | חשמל",amount:500},
+    {id:3,name:"Бухгалтер | רואה חשבון",amount:800},
+    {id:4,name:"Телефон/Интернет | טלפון/אינטרנט",amount:300},
+    {id:5,name:"Транспорт | רכב",amount:1200},
   ]));
-  const [goals,setGoals]=useState(()=>load("wb:goals",{
-    leads:20,measures:10,orders:5,revenue:80000,margin:35
-  }));
-  const [newCost,setNewCost]=useState({name:"",amount:""});
+  const [salaries,setSalaries]=useState(()=>load("wb:salaries",[
+    {id:1,name:"Монтажник | מתקין",amount:0},
+  ]));
+  const [oneTime,setOneTime]=useState(()=>load("wb:onetime",[]));
+  const [newFixed,setNewFixed]=useState({name:"",amount:""});
+  const [newSalary,setNewSalary]=useState({name:"",amount:""});
+  const [newOne,setNewOne]=useState({name:"",amount:"",date:new Date().toISOString().split("T")[0]});
+  const [goals,setGoals]=useState(()=>load("wb:goals",{leads:20,measures:10,orders:5,revenue:80000,margin:35}));
   const [editGoals,setEditGoals]=useState(false);
   const [goalForm,setGoalForm]=useState({...goals});
+  const [selMonth,setSelMonth]=useState("all");
 
-  useEffect(()=>{try{localStorage.setItem("wb:fixedcosts",JSON.stringify(fixedCosts));}catch{}},[fixedCosts]);
-  useEffect(()=>{try{localStorage.setItem("wb:goals",JSON.stringify(goals));}catch{}},[goals]);
+  useEffect(()=>{save("wb:fixedcosts",fixedCosts);},[fixedCosts]);
+  useEffect(()=>{save("wb:salaries",salaries);},[salaries]);
+  useEffect(()=>{save("wb:onetime",oneTime);},[oneTime]);
+  useEffect(()=>{save("wb:goals",goals);},[goals]);
 
-  // Financials
+  // ── Auto financials from real data ──
+  const MONTHS_RU=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+
+  // Build monthly data from orders and payments
+  const monthMap={};
+  orders.forEach(o=>{
+    const m=o.created?.slice(0,7)||"";
+    if(!m)return;
+    if(!monthMap[m])monthMap[m]={key:m,label:`${MONTHS_RU[parseInt(m.slice(5))-1]} ${m.slice(2,4)}`,revenue:0,paid:0,orders:0,cogs:0};
+    monthMap[m].revenue+=o.total;
+    monthMap[m].orders++;
+    // Add P&L costs if entered
+    const plKey=`wb:pl_${o.id}`;
+    try{const pl=JSON.parse(localStorage.getItem(plKey)||"{}");
+      monthMap[m].cogs+=(+pl.materialsCost||0)+(+pl.laborCost||0)+(+pl.extrasCost||0);
+    }catch{}
+  });
+  payments.filter(p=>p.status==="Получен").forEach(p=>{
+    const m=p.date?.slice(0,7)||"";
+    if(!m)return;
+    if(!monthMap[m])monthMap[m]={key:m,label:`${MONTHS_RU[parseInt(m.slice(5))-1]} ${m.slice(2,4)}`,revenue:0,paid:0,orders:0,cogs:0};
+    monthMap[m].paid+=p.amount;
+  });
+  const monthList=Object.values(monthMap).sort((a,b)=>a.key.localeCompare(b.key));
+
+  const totalFixed=fixedCosts.reduce((s,c)=>s+Number(c.amount||0),0);
+  const totalSalaries=salaries.reduce((s,c)=>s+Number(c.amount||0),0);
+  const totalOneTime=oneTime.reduce((s,c)=>s+Number(c.amount||0),0);
+  const totalMonthlyExp=totalFixed+totalSalaries;
+
   const totalRevenue=orders.reduce((s,o)=>s+o.total,0);
   const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
-  const totalFixed=fixedCosts.reduce((s,c)=>s+Number(c.amount||0),0);
-  const avgMargin=orders.length>0?35:0; // estimated COGS ~60% of revenue
-  const grossProfit=Math.round(totalPaid*avgMargin/100);
-  const netProfit=grossProfit-totalFixed;
-  const breakevenRevenue=avgMargin>0?Math.round(totalFixed/(avgMargin/100)):0;
-  const breakevenOrders=orders.length>0&&totalRevenue>0?
-    Math.ceil(breakevenRevenue/(totalRevenue/orders.length)):0;
-  const breakevenPct=totalPaid>0?Math.min(Math.round(totalPaid/breakevenRevenue*100),100):0;
+  const totalPending=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const grossProfit=Math.round(totalPaid*0.35); // ~35% margin estimate
+  const netProfit=grossProfit-totalMonthlyExp-totalOneTime;
+  const breakevenRevenue=totalMonthlyExp>0?Math.round(totalMonthlyExp/0.35):0;
+  const breakevenPct=breakevenRevenue>0?Math.min(Math.round(totalPaid/breakevenRevenue*100),100):0;
+  const gaugeColor=breakevenPct>=100?D.green:breakevenPct>=70?D.yellow:D.red;
 
-  // Goals progress
-  const fLeads=leads.length;
-  const fMeasures=measurements.length;
-  const fOrders=orders.length;
+  // Goals
+  const fLeads=leads.length; const fMeasures=measurements.length; const fOrders=orders.length;
   const goalPct=(v,t)=>t>0?Math.min(Math.round(v/t*100),100):0;
-
-  const GoalBar=({label,current,target,color,fmt:f})=>{
+  const GoalBar=({label,current,target,color,f})=>{
     const pct=goalPct(current,target);
-    return(<div style={{marginBottom:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:5,alignItems:"center"}}>
+    return(<div style={{marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,alignItems:"center"}}>
         <span style={{fontSize:12,color:D.muted}}>{label}</span>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <span style={{fontSize:13,fontWeight:800,color:pct>=100?D.green:D.text}}>{f?f(current):current}</span>
@@ -3490,169 +3525,210 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
           <span style={{fontSize:11,fontWeight:700,color:pct>=100?D.green:pct>=70?D.yellow:D.red}}>{pct}%</span>
         </div>
       </div>
-      <div style={{background:D.surface,borderRadius:6,height:10,overflow:"hidden"}}>
+      <div style={{background:D.surface,borderRadius:6,height:8,overflow:"hidden"}}>
         <div style={{width:`${pct}%`,height:"100%",borderRadius:6,
-          background:pct>=100?`linear-gradient(90deg,${D.green},#34d399)`:
-            pct>=70?`linear-gradient(90deg,${D.yellow},#fbbf24)`:
-            `linear-gradient(90deg,${color},${color}88)`,
+          background:pct>=100?`linear-gradient(90deg,${D.green},#34d399)`:pct>=70?`linear-gradient(90deg,${D.yellow},#fbbf24)`:`linear-gradient(90deg,${color},${color}88)`,
           transition:"width 0.5s"}}/>
       </div>
     </div>);
   };
 
-  // Breakeven gauge
-  const gaugeColor=breakevenPct>=100?D.green:breakevenPct>=70?D.yellow:D.red;
+  const CostSection=({title,items,setItems,newItem,setNewItem,color,showDate=false})=>(
+    <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:18,marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{title}</div>
+        <span style={{fontSize:14,fontWeight:900,color}}>{fmt(items.reduce((s,c)=>s+Number(c.amount||0),0))}</span>
+      </div>
+      {items.map(c=>(
+        <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,padding:"5px 8px",background:D.surface,borderRadius:8}}>
+          <input value={c.name} onChange={e=>setItems(p=>p.map(x=>x.id===c.id?{...x,name:e.target.value}:x))}
+            style={{flex:1,background:"transparent",border:"none",color:D.text,fontSize:12,outline:"none"}}/>
+          {showDate&&<input type="date" value={c.date||""} onChange={e=>setItems(p=>p.map(x=>x.id===c.id?{...x,date:e.target.value}:x))}
+            style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"2px 5px",color:D.muted,fontSize:10,outline:"none"}}/>}
+          <div style={{display:"flex",alignItems:"center",gap:3}}>
+            <span style={{fontSize:10,color:D.muted}}>₪</span>
+            <input type="number" value={c.amount}
+              onChange={e=>setItems(p=>p.map(x=>x.id===c.id?{...x,amount:+e.target.value||0}:x))}
+              style={{width:80,background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,
+                padding:"3px 6px",color,fontSize:12,fontWeight:700,outline:"none",textAlign:"right"}}/>
+          </div>
+          <button onClick={()=>setItems(p=>p.filter(x=>x.id!==c.id))}
+            style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:2}}>
+            <Trash2 size={12}/>
+          </button>
+        </div>
+      ))}
+      <div style={{display:"flex",gap:6,marginTop:8}}>
+        <input value={newItem.name} onChange={e=>setNewItem(p=>({...p,name:e.target.value}))}
+          placeholder="Название..." onKeyDown={e=>e.key==="Enter"&&newItem.name&&newItem.amount&&(setItems(p=>[...p,{id:Date.now(),name:newItem.name,amount:+newItem.amount,date:newItem.date}]),setNewItem({name:"",amount:"",date:new Date().toISOString().split("T")[0]}))}
+          style={{flex:1,background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,padding:"5px 8px",color:D.text,fontSize:12,outline:"none"}}/>
+        {showDate&&<input type="date" value={newItem.date||""} onChange={e=>setNewItem(p=>({...p,date:e.target.value}))}
+          style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,padding:"5px 8px",color:D.text,fontSize:11,outline:"none"}}/>}
+        <input type="number" value={newItem.amount} onChange={e=>setNewItem(p=>({...p,amount:e.target.value}))}
+          placeholder="₪" style={{width:70,background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,padding:"5px 7px",color:D.text,fontSize:12,outline:"none",textAlign:"right"}}/>
+        <Btn onClick={()=>{
+          if(!newItem.name||!newItem.amount)return;
+          setItems(p=>[...p,{id:Date.now(),name:newItem.name,amount:+newItem.amount,date:newItem.date}]);
+          setNewItem({name:"",amount:"",date:new Date().toISOString().split("T")[0]});
+        }} small><Plus size={12}/></Btn>
+      </div>
+    </div>
+  );
 
   return(<div>
-    <div style={{marginBottom:22}}>
+    <div style={{marginBottom:18}}>
       <div style={{fontSize:22,fontWeight:900,color:D.text}}>P&L · Финансы</div>
-      <div style={{fontSize:13,color:D.muted}}>Прибыль, затраты, точка безубыточности</div>
+      <div style={{fontSize:12,color:D.muted}}>Все данные из системы — автоматически</div>
     </div>
 
-    {/* Top summary */}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
+    {/* Top 5 KPI cards */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:12,marginBottom:18}}>
       {[
-        ["Выручка (КП)",fmt(totalRevenue),D.text,"💼"],
-        ["Получено",fmt(totalPaid),D.green,"💰"],
-        ["Постоянные затраты",fmt(totalFixed),D.red,"🏢"],
-        ["Чистая прибыль",fmt(netProfit),netProfit>=0?D.green:D.red,"📊"],
-      ].map(([l,v,c,ico])=>(
-        <div key={l} style={{background:D.card,border:`1px solid ${c==="D.text"?D.border:c+"30"}`,
-          borderRadius:14,padding:"14px 16px",borderTop:`3px solid ${c}`}}>
-          <div style={{fontSize:11,color:D.muted,marginBottom:6}}>{ico} {l}</div>
-          <div style={{fontSize:22,fontWeight:900,color:c,letterSpacing:"-0.04em"}}>{v}</div>
+        ["💼 Выручка (КП)",fmt(totalRevenue),D.text],
+        ["💰 Получено",fmt(totalPaid),D.green],
+        ["⏳ Ожидается",fmt(totalPending),D.yellow],
+        ["🏢 Расходы/мес",fmt(totalMonthlyExp),D.red],
+        ["📊 Прибыль",fmt(netProfit),netProfit>=0?D.green:D.red],
+      ].map(([l,v,c])=>(
+        <div key={l} style={{background:D.card,border:`1px solid ${c}30`,borderRadius:12,padding:"12px 14px",borderTop:`3px solid ${c}`}}>
+          <div style={{fontSize:10,color:D.muted,marginBottom:4}}>{l}</div>
+          <div style={{fontSize:18,fontWeight:900,color:c}}>{v}</div>
         </div>
       ))}
     </div>
 
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+    <div style={{display:"grid",gridTemplateColumns:"1.2fr 0.8fr",gap:16,marginBottom:16}}>
+      {/* LEFT: Costs */}
+      <div>
+        <CostSection title="🏢 Постоянные затраты / месяц" items={fixedCosts} setItems={setFixedCosts}
+          newItem={newFixed} setNewItem={setNewFixed} color={D.red}/>
+        <CostSection title="👷 Зарплаты / месяц" items={salaries} setItems={setSalaries}
+          newItem={newSalary} setNewItem={setNewSalary} color={D.purple}/>
+        <CostSection title="🔧 Разовые расходы" items={oneTime} setItems={setOneTime}
+          newItem={newOne} setNewItem={setNewOne} color={D.yellow} showDate={true}/>
 
-      {/* Fixed Costs */}
-      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:14}}>
-          🏢 Постоянные затраты в месяц
-          <span style={{marginLeft:8,color:D.red,fontWeight:900}}>{fmt(totalFixed)}</span>
-        </div>
-        {fixedCosts.map(c=>(
-          <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,
-            padding:"6px 10px",background:D.surface,borderRadius:8}}>
-            <input value={c.name} onChange={e=>setFixedCosts(p=>p.map(x=>x.id===c.id?{...x,name:e.target.value}:x))}
-              style={{flex:1,background:"transparent",border:"none",color:D.text,fontSize:12,outline:"none"}}/>
-            <div style={{display:"flex",alignItems:"center",gap:4}}>
-              <span style={{fontSize:11,color:D.muted}}>₪</span>
-              <input type="number" value={c.amount}
-                onChange={e=>setFixedCosts(p=>p.map(x=>x.id===c.id?{...x,amount:+e.target.value||0}:x))}
-                style={{width:80,background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,
-                  padding:"3px 6px",color:D.red,fontSize:12,fontWeight:700,outline:"none",textAlign:"right"}}/>
-            </div>
-            <button onClick={()=>setFixedCosts(p=>p.filter(x=>x.id!==c.id))}
-              style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:2}}>
-              <Trash2 size={12}/>
-            </button>
-          </div>
-        ))}
-        {/* Add new */}
-        <div style={{display:"flex",gap:6,marginTop:10}}>
-          <input value={newCost.name} onChange={e=>setNewCost(p=>({...p,name:e.target.value}))}
-            placeholder="Название затраты..."
-            style={{flex:1,background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
-              padding:"6px 10px",color:D.text,fontSize:12,outline:"none"}}/>
-          <input type="number" value={newCost.amount} onChange={e=>setNewCost(p=>({...p,amount:e.target.value}))}
-            placeholder="₪"
-            style={{width:70,background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
-              padding:"6px 8px",color:D.text,fontSize:12,outline:"none",textAlign:"right"}}/>
-          <Btn onClick={()=>{
-            if(!newCost.name||!newCost.amount)return;
-            setFixedCosts(p=>[...p,{id:Date.now(),name:newCost.name,amount:+newCost.amount}]);
-            setNewCost({name:"",amount:""});
-          }} small><Plus size={12}/></Btn>
-        </div>
-      </div>
-
-      {/* Breakeven */}
-      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:16}}>
-          🎯 Точка безубыточности
-        </div>
-        {/* Gauge */}
-        <div style={{textAlign:"center",marginBottom:20}}>
-          <svg viewBox="0 0 200 110" style={{width:"100%",maxWidth:220}}>
-            {/* Background arc */}
-            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={D.surface} strokeWidth="16" strokeLinecap="round"/>
-            {/* Progress arc */}
-            {breakevenPct>0&&<path d="M 20 100 A 80 80 0 0 1 180 100" fill="none"
-              stroke={gaugeColor} strokeWidth="16" strokeLinecap="round"
-              strokeDasharray={`${breakevenPct*2.51} 251`}/>}
-            <text x="100" y="78" textAnchor="middle" style={{fontSize:"28px",fontWeight:900,fill:gaugeColor}}>{breakevenPct}%</text>
-            <text x="100" y="98" textAnchor="middle" style={{fontSize:"11px",fill:"#64748b"}}>выполнение плана</text>
-            <text x="20" y="112" textAnchor="middle" style={{fontSize:"9px",fill:"#94a3b8"}}>0</text>
-            <text x="180" y="112" textAnchor="middle" style={{fontSize:"9px",fill:"#94a3b8"}}>100%</text>
-          </svg>
-        </div>
-        {[
-          ["Нужно выручки",fmt(breakevenRevenue),D.yellow],
-          ["Получено",fmt(totalPaid),D.green],
-          ["До безубыточности",fmt(Math.max(0,breakevenRevenue-totalPaid)),netProfit>=0?D.green:D.red],
-          ["Мин. заказов/мес",breakevenOrders+" шт",D.accentLight],
-        ].map(([l,v,c])=>(
-          <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8,padding:"5px 0",borderBottom:`1px solid ${D.border}`}}>
-            <span style={{fontSize:11,color:D.muted}}>{l}</span>
-            <span style={{fontSize:13,fontWeight:700,color:c}}>{v}</span>
-          </div>
-        ))}
-        <div style={{fontSize:10,color:D.muted,marginTop:8,padding:"6px 10px",background:D.surface,borderRadius:6}}>
-          *Расчёт: постоянные ₪{totalFixed.toLocaleString()} / маржа {avgMargin}% = точка безубыточности
-        </div>
-      </div>
-    </div>
-
-    {/* Monthly Goals */}
-    <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20,marginBottom:16}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>🎯 Цели на месяц</div>
-        <Btn onClick={()=>{setGoalForm({...goals});setEditGoals(!editGoals);}} variant="ghost" small>
-          {editGoals?"✓ Сохранить":"✏️ Изменить"}
-        </Btn>
-      </div>
-      {editGoals?(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:10}}>
-          {[["Лиды","leads"],["Замеры","measures"],["Заказы","orders"],["Выручка ₪","revenue"],["Маржа %","margin"]].map(([l,k])=>(
-            <div key={k}>
-              <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>{l}</div>
-              <input type="number" value={goalForm[k]}
-                onChange={e=>setGoalForm(p=>({...p,[k]:+e.target.value||0}))}
-                style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,
-                  padding:"7px 10px",color:D.text,fontSize:13,fontWeight:700,outline:"none",boxSizing:"border-box"}}/>
+        {/* Total expenses summary */}
+        <div style={{background:D.surface,borderRadius:10,padding:14}}>
+          {[
+            ["Постоянные затраты",fmt(totalFixed),D.red],
+            ["Зарплаты",fmt(totalSalaries),D.purple],
+            ["Разовые расходы",fmt(totalOneTime),D.yellow],
+            ["Итого расходов",fmt(totalMonthlyExp+totalOneTime),D.text],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${D.border}`}}>
+              <span style={{fontSize:11,color:D.muted}}>{l}</span>
+              <span style={{fontSize:12,fontWeight:800,color:c}}>{v}</span>
             </div>
           ))}
         </div>
-      ):null}
-      {editGoals&&<Btn onClick={()=>{setGoals(goalForm);setEditGoals(false);}} small><Check size={12}/> Сохранить цели</Btn>}
-      {!editGoals&&(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <div>
-          <GoalBar label="👤 Лидов" current={fLeads} target={goals.leads} color={D.accentLight}/>
-          <GoalBar label="📐 Замеров" current={fMeasures} target={goals.measures} color={D.purple}/>
-          <GoalBar label="📦 Заказов" current={fOrders} target={goals.orders} color={D.yellow}/>
-        </div>
-        <div>
-          <GoalBar label="💰 Выручка" current={totalPaid} target={goals.revenue} color={D.green} fmt={fmt}/>
-          <div style={{marginTop:16,background:D.surface,borderRadius:10,padding:14}}>
-            <div style={{fontSize:11,color:D.muted,marginBottom:8}}>📊 Итог месяца</div>
-            {[
-              ["Выручка получена",fmt(totalPaid),D.green],
-              ["Постоянные затраты",fmt(totalFixed),D.red],
-              ["Валовая прибыль (~35%)",fmt(grossProfit),D.accentLight],
-              ["Чистая прибыль",fmt(netProfit),netProfit>=0?D.green:D.red],
-            ].map(([l,v,c])=>(
-              <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                <span style={{fontSize:11,color:D.muted}}>{l}</span>
-                <span style={{fontSize:12,fontWeight:800,color:c}}>{v}</span>
-              </div>
-            ))}
+      </div>
+
+      {/* RIGHT: Breakeven + Goals */}
+      <div>
+        {/* Breakeven gauge */}
+        <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:18,marginBottom:12}}>
+          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:8}}>🎯 Точка безубыточности</div>
+          <div style={{textAlign:"center",marginBottom:12}}>
+            <svg viewBox="0 0 200 110" style={{width:"100%",maxWidth:200}}>
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={D.surface} strokeWidth="16" strokeLinecap="round"/>
+              {breakevenPct>0&&<path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={gaugeColor}
+                strokeWidth="16" strokeLinecap="round" strokeDasharray={`${breakevenPct*2.51} 251`}/>}
+              <text x="100" y="76" textAnchor="middle" style={{fontSize:"26px",fontWeight:900,fill:gaugeColor}}>{breakevenPct}%</text>
+              <text x="100" y="96" textAnchor="middle" style={{fontSize:"10px",fill:"#64748b"}}>к точке безубыточности</text>
+            </svg>
           </div>
+          {[
+            ["Нужно выручки",fmt(breakevenRevenue),D.yellow],
+            ["Получено",fmt(totalPaid),D.green],
+            ["Остаток",fmt(Math.max(0,breakevenRevenue-totalPaid)),netProfit>=0?D.green:D.red],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:6,padding:"4px 0",borderBottom:`1px solid ${D.border}`}}>
+              <span style={{fontSize:11,color:D.muted}}>{l}</span>
+              <span style={{fontSize:12,fontWeight:700,color:c}}>{v}</span>
+            </div>
+          ))}
         </div>
-      </div>)}
+
+        {/* Monthly goals */}
+        <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:18}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>🎯 Цели на месяц</div>
+            <Btn onClick={()=>{setGoalForm({...goals});setEditGoals(!editGoals);}} variant="ghost" small>
+              {editGoals?"✓ Готово":"✏️ Изменить"}
+            </Btn>
+          </div>
+          {editGoals&&(<>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+              {[["Лидов","leads"],["Замеров","measures"],["Заказов","orders"],["Выручка ₪","revenue"]].map(([l,k])=>(
+                <div key={k}>
+                  <div style={{fontSize:9,color:D.muted,fontWeight:700,marginBottom:3,textTransform:"uppercase"}}>{l}</div>
+                  <input type="number" value={goalForm[k]} onChange={e=>setGoalForm(p=>({...p,[k]:+e.target.value||0}))}
+                    style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
+                      padding:"6px 8px",color:D.text,fontSize:12,fontWeight:700,outline:"none",boxSizing:"border-box"}}/>
+                </div>
+              ))}
+            </div>
+            <Btn onClick={()=>{setGoals(goalForm);setEditGoals(false);}} small><Check size={12}/> Сохранить</Btn>
+          </>)}
+          {!editGoals&&(<>
+            <GoalBar label="👤 Лидов" current={fLeads} target={goals.leads} color={D.accentLight}/>
+            <GoalBar label="📐 Замеров" current={fMeasures} target={goals.measures} color={D.purple}/>
+            <GoalBar label="📦 Заказов" current={fOrders} target={goals.orders} color={D.yellow}/>
+            <GoalBar label="💰 Выручка" current={totalPaid} target={goals.revenue} color={D.green} f={fmt}/>
+          </>)}
+        </div>
+      </div>
     </div>
+
+    {/* Monthly P&L table — auto from real data */}
+    {monthList.length>0&&(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:18,marginBottom:16}}>
+      <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:12}}>
+        📈 P&L по месяцам — из реальных данных
+      </div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <thead>
+            <tr style={{background:D.surface}}>
+              {["Месяц","Заказов","Выручка КП","Получено","Себест. (факт)","Валовая ~35%","Расходы/мес","Прибыль"].map(h=>(
+                <th key={h} style={{padding:"7px 10px",textAlign:"left",fontSize:9,fontWeight:800,color:D.muted,
+                  textTransform:"uppercase",borderBottom:`1px solid ${D.border}`,whiteSpace:"nowrap"}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {monthList.map((m,i)=>{
+              const gross=Math.round(m.paid*0.35);
+              const net=gross-totalMonthlyExp;
+              return(<tr key={m.key} style={{background:i%2===0?D.card:D.surface}}>
+                <td style={{padding:"7px 10px",fontWeight:700,color:D.text}}>{m.label}</td>
+                <td style={{padding:"7px 10px",color:D.muted}}>{m.orders}</td>
+                <td style={{padding:"7px 10px",fontWeight:700,color:D.text}}>{fmt(m.revenue)}</td>
+                <td style={{padding:"7px 10px",fontWeight:800,color:D.green}}>{fmt(m.paid)}</td>
+                <td style={{padding:"7px 10px",color:m.cogs>0?D.red:D.muted}}>{m.cogs>0?fmt(m.cogs):"—"}</td>
+                <td style={{padding:"7px 10px",color:D.accentLight}}>{fmt(gross)}</td>
+                <td style={{padding:"7px 10px",color:D.red}}>{fmt(totalMonthlyExp)}</td>
+                <td style={{padding:"7px 10px",fontWeight:900,color:net>=0?D.green:D.red}}>{fmt(net)}</td>
+              </tr>);
+            })}
+          </tbody>
+          <tfoot>
+            <tr style={{background:D.accent+"15",borderTop:`2px solid ${D.accent}`}}>
+              <td style={{padding:"8px 10px",fontWeight:900,color:D.text}}>ИТОГО</td>
+              <td style={{padding:"8px 10px",fontWeight:700,color:D.text}}>{orders.length}</td>
+              <td style={{padding:"8px 10px",fontWeight:900,color:D.text}}>{fmt(totalRevenue)}</td>
+              <td style={{padding:"8px 10px",fontWeight:900,color:D.green}}>{fmt(totalPaid)}</td>
+              <td style={{padding:"8px 10px",color:D.muted}}>—</td>
+              <td style={{padding:"8px 10px",fontWeight:700,color:D.accentLight}}>{fmt(grossProfit)}</td>
+              <td style={{padding:"8px 10px",color:D.red}}>—</td>
+              <td style={{padding:"8px 10px",fontWeight:900,color:netProfit>=0?D.green:D.red}}>{fmt(netProfit)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div style={{fontSize:10,color:D.muted,marginTop:8}}>
+        * Валовая прибыль ~35% — оценка. Для точных данных вноси себестоимость в P&L каждого заказа.
+      </div>
+    </div>)}
 
     {/* Follow-up alerts */}
     {(()=>{
@@ -3660,393 +3736,253 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
       const overdue=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
       const todayFu=leads.filter(l=>l.followUp===today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
       if(overdue.length===0&&todayFu.length===0)return null;
-      return(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:14}}>
-          🔔 Follow-up напоминания
-        </div>
-        {overdue.length>0&&(<div style={{marginBottom:12}}>
-          <div style={{fontSize:11,fontWeight:700,color:D.red,marginBottom:8}}>🔴 Просрочено ({overdue.length})</div>
-          {overdue.map(l=>(
-            <div key={l.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-              padding:"8px 12px",background:D.red+"10",border:`1px solid ${D.red}30`,borderRadius:8,marginBottom:6}}>
-              <div>
-                <div style={{fontSize:12,fontWeight:700,color:D.text}}>{l.name}</div>
-                <div style={{fontSize:10,color:D.muted}}>{l.status} · Должен был: {l.followUp}</div>
-              </div>
-              <div style={{display:"flex",gap:6}}>
-                {l.phone&&<a href={`tel:${l.phone}`} style={{background:D.green+"20",border:`1px solid ${D.green}40`,
-                  borderRadius:6,padding:"4px 8px",color:D.green,fontSize:11,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>
-                  <Phone size={11}/>Звонок
-                </a>}
-                {l.phone&&<a href={`https://wa.me/${l.phone.replace(/[^0-9]/g,"").replace(/^0/,"972")}`}
-                  target="_blank" rel="noreferrer"
-                  style={{background:"#25D36620",border:"1px solid #25D36640",borderRadius:6,
-                    padding:"4px 8px",color:"#25D366",fontSize:11,fontWeight:700,textDecoration:"none"}}>
-                  WA
-                </a>}
-              </div>
+      return(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:18}}>
+        <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:12}}>🔔 Follow-up напоминания</div>
+        {[...overdue.map(l=>({...l,_over:true})),...todayFu].map(l=>(
+          <div key={l.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+            padding:"8px 12px",background:(l._over?D.red:D.yellow)+"10",
+            border:`1px solid ${(l._over?D.red:D.yellow)}30`,borderRadius:8,marginBottom:6}}>
+            <div>
+              <div style={{fontSize:12,fontWeight:700,color:D.text}}>{l.name}</div>
+              <div style={{fontSize:10,color:D.muted}}>{l._over?"🔴 Просрочено: "+l.followUp:"🟡 Сегодня"} · {l.status}</div>
             </div>
-          ))}
-        </div>)}
-        {todayFu.length>0&&(<div>
-          <div style={{fontSize:11,fontWeight:700,color:D.yellow,marginBottom:8}}>🟡 Сегодня ({todayFu.length})</div>
-          {todayFu.map(l=>(
-            <div key={l.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-              padding:"8px 12px",background:D.yellow+"10",border:`1px solid ${D.yellow}30`,borderRadius:8,marginBottom:6}}>
-              <div>
-                <div style={{fontSize:12,fontWeight:700,color:D.text}}>{l.name}</div>
-                <div style={{fontSize:10,color:D.muted}}>{l.status} · {l.phone}</div>
-              </div>
-              <div style={{display:"flex",gap:6}}>
-                {l.phone&&<a href={`tel:${l.phone}`} style={{background:D.green+"20",border:`1px solid ${D.green}40`,
-                  borderRadius:6,padding:"4px 8px",color:D.green,fontSize:11,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>
-                  <Phone size={11}/>Звонок
-                </a>}
-              </div>
+            <div style={{display:"flex",gap:6}}>
+              {l.phone&&<a href={`tel:${l.phone}`} style={{background:D.green+"20",border:`1px solid ${D.green}40`,
+                borderRadius:6,padding:"4px 8px",color:D.green,fontSize:11,fontWeight:700,textDecoration:"none"}}>📞</a>}
+              {l.phone&&<a href={`https://wa.me/${l.phone.replace(/[^0-9]/g,"").replace(/^0/,"972")}`}
+                target="_blank" rel="noreferrer"
+                style={{background:"#25D36620",border:"1px solid #25D36640",borderRadius:6,
+                  padding:"4px 8px",color:"#25D366",fontSize:11,fontWeight:700,textDecoration:"none"}}>WA</a>}
             </div>
-          ))}
-        </div>)}
+          </div>
+        ))}
       </div>);
     })()}
   </div>);
 }
 
-function KPI({kpi,setKpi,leads,measurements,orders,payments}){
-  const [modal,setModal]=useState(false);
-  const [form,setForm]=useState({month:"Апр",leads:"",measures:"",orders:"",revenue:"",cogs:"",opex:"",adSpend:""});
+function KPI({leads,measurements,orders,payments}){
+  // ── All auto-calculated from real data ──
+  const MONTHS_RU=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
 
-  // ── Real funnel stats ──
   const fLeads=leads.length;
   const fMeasured=measurements.length;
   const fOrders=orders.length;
   const fWon=leads.filter(l=>l.status==="Закрыт (выиграли)").length;
   const fLost=leads.filter(l=>l.status==="Закрыт (проиграли)").length;
-  const convLM=fLeads>0?(fMeasured/fLeads*100).toFixed(0):0;
-  const convMO=fMeasured>0?(fOrders/fMeasured*100).toFixed(0):0;
-  const convLO=fLeads>0?(fOrders/fLeads*100).toFixed(0):0;
-  const winRate=fWon+fLost>0?(fWon/(fWon+fLost)*100).toFixed(0):0;
+  const convLM=fLeads>0?+(fMeasured/fLeads*100).toFixed(0):0;
+  const convMO=fMeasured>0?+(fOrders/fMeasured*100).toFixed(0):0;
+  const convLO=fLeads>0?+(fOrders/fLeads*100).toFixed(0):0;
+  const winRate=fWon+fLost>0?+(fWon/(fWon+fLost)*100).toFixed(0):0;
 
-  // ── Real revenue ──
   const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
+  const totalPending=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
   const totalContracted=orders.reduce((s,o)=>s+o.total,0);
   const avgDeal=orders.length>0?Math.round(totalContracted/orders.length):0;
+  const collectRate=totalContracted>0?Math.round(totalPaid/totalContracted*100):0;
 
-  // ── Source breakdown ──
+  // Monthly breakdown auto
+  const monthMap={};
+  orders.forEach(o=>{
+    const m=o.created?.slice(0,7)||""; if(!m)return;
+    if(!monthMap[m])monthMap[m]={key:m,label:`${MONTHS_RU[parseInt(m.slice(5))-1]} ${m.slice(2,4)}`,revenue:0,paid:0,orders:0,leads:0,measures:0};
+    monthMap[m].revenue+=o.total; monthMap[m].orders++;
+  });
+  payments.filter(p=>p.status==="Получен").forEach(p=>{
+    const m=p.date?.slice(0,7)||""; if(!m)return;
+    if(!monthMap[m])monthMap[m]={key:m,label:`${MONTHS_RU[parseInt(m.slice(5))-1]} ${m.slice(2,4)}`,revenue:0,paid:0,orders:0,leads:0,measures:0};
+    monthMap[m].paid+=p.amount;
+  });
+  leads.forEach(l=>{
+    const m=l.date?.slice(0,7)||""; if(!m)return;
+    if(!monthMap[m])monthMap[m]={key:m,label:`${MONTHS_RU[parseInt(m.slice(5))-1]} ${m.slice(2,4)}`,revenue:0,paid:0,orders:0,leads:0,measures:0};
+    monthMap[m].leads++;
+  });
+  measurements.forEach(ms=>{
+    const m=ms.date?.slice(0,7)||""; if(!m)return;
+    if(!monthMap[m])monthMap[m]={key:m,label:`${MONTHS_RU[parseInt(m.slice(5))-1]} ${m.slice(2,4)}`,revenue:0,paid:0,orders:0,leads:0,measures:0};
+    monthMap[m].measures++;
+  });
+  const monthList=Object.values(monthMap).sort((a,b)=>a.key.localeCompare(b.key)).slice(-12);
+
+  // Sources
   const srcMap={};
-  leads.forEach(l=>{srcMap[l.source]=(srcMap[l.source]||0)+1;});
+  leads.forEach(l=>{srcMap[l.source||"Не указан"]=(srcMap[l.source||"Не указан"]||0)+1;});
   const sources=Object.entries(srcMap).sort((a,b)=>b[1]-a[1]);
 
-  const last=kpi[kpi.length-1]||{revenue:0,cogs:0,opex:0,leads:0,measures:0,orders:0};
-  const ebitda=last.revenue-last.cogs-last.opex;
-
-  // Pure-JS Excel export (no dependencies) — generates .xls via HTML table
-  const exportExcel=()=>{
-    const style=`
-      <style>
-        body{font-family:Arial,sans-serif;font-size:11pt}
-        .h1{background:#1E3A8A;color:#fff;font-size:14pt;font-weight:bold;padding:6px}
-        .h2{background:#2563EB;color:#fff;font-size:11pt;font-weight:bold;padding:4px}
-        .th{background:#1E293B;color:#fff;font-weight:bold;border:1px solid #ccc;padding:4px 8px}
-        .td{border:1px solid #ddd;padding:3px 8px}
-        .num{text-align:right;border:1px solid #ddd;padding:3px 8px}
-        .pct{text-align:right;color:#16a34a;border:1px solid #ddd;padding:3px 8px;font-weight:bold}
-        .tot{background:#f0f9ff;font-weight:bold;border:1px solid #ccc;padding:4px 8px}
-        .pos{color:#16a34a;font-weight:bold}
-        .neg{color:#dc2626;font-weight:bold}
-        .tag{background:#EFF6FF;color:#1D4ED8;font-size:9pt;padding:1px 5px;border-radius:3px}
-        tr:nth-child(even) td, tr:nth-child(even) .num{background:#F8FAFC}
-      </style>`;
-
-    const srcRows=sources.map(([s,c])=>`
-      <tr><td class="td">${s}</td><td class="num">${c}</td>
-      <td class="pct">${fLeads>0?Math.round(c/fLeads*100):0}%</td></tr>`).join("");
-
-    const orderRows=orders.map(o=>{
-      const debt=o.total-o.paid;
-      return`<tr>
-        <td class="td"><b>${o.id}</b></td>
-        <td class="td">${o.client}</td>
-        <td class="td">${o.city||"—"}</td>
-        <td class="num">${o.windows}</td>
-        <td class="num">₪${o.total.toLocaleString()}</td>
-        <td class="num ${o.paid>0?"pos":""}">${o.paid>0?"₪"+o.paid.toLocaleString():"—"}</td>
-        <td class="num ${debt>0?"neg":""}">${debt>0?"₪"+debt.toLocaleString():"—"}</td>
-        <td class="td"><span class="tag">${o.status}</span></td>
-        <td class="td">${o.created||""}</td></tr>`;}).join("");
-
-    const leadRows=leads.map(l=>`<tr>
-      <td class="td"><b>${l.name}</b></td>
-      <td class="td">${l.phone||""}</td>
-      <td class="td">${l.city||""}</td>
-      <td class="td">${l.type||""}</td>
-      <td class="td">${l.jobType||""}</td>
-      <td class="td"><span class="tag">${l.status}</span></td>
-      <td class="num ${l.value>0?"pos":""}">${l.value>0?"₪"+l.value.toLocaleString():"—"}</td>
-      <td class="td">${l.followUp||"—"}</td>
-      <td class="td">${l.source||""}</td>
-      <td class="td">${l.date||""}</td></tr>`).join("");
-
-    const payRows=payments.map(p=>`<tr>
-      <td class="td">${p.order||""}</td>
-      <td class="td"><b>${p.client}</b></td>
-      <td class="td">${p.type}</td>
-      <td class="num"><b>₪${p.amount.toLocaleString()}</b></td>
-      <td class="td">${p.date||""}</td>
-      <td class="td">${p.method||""}</td>
-      <td class="td"><span class="tag">${p.status}</span></td></tr>`).join("");
-
-    const kpiRows=kpi.map(d=>{
-      const e=d.revenue-d.cogs-d.opex;
-      const m=d.revenue>0?Math.round(e/d.revenue*100):0;
-      return`<tr>
-        <td class="td"><b>${d.month}</b></td>
-        <td class="num">${d.leads}</td><td class="num">${d.measures}</td><td class="num">${d.orders}</td>
-        <td class="num">₪${d.revenue.toLocaleString()}</td>
-        <td class="num">₪${d.cogs.toLocaleString()}</td>
-        <td class="num">₪${d.opex.toLocaleString()}</td>
-        <td class="num ${e>=0?"pos":"neg"}"><b>₪${e.toLocaleString()}</b></td>
-        <td class="pct">${m}%</td></tr>`;}).join("");
-
-    const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office"
-      xmlns:x="urn:schemas-microsoft-com:office:excel"
-      xmlns="http://www.w3.org/TR/REC-html40">
-    <head><meta charset="UTF-8">${style}
-    <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>
-      <x:ExcelWorksheet><x:Name>Dashboard</x:Name><x:WorksheetOptions><x:Selected/></x:WorksheetOptions></x:ExcelWorksheet>
-      <x:ExcelWorksheet><x:Name>Лиды</x:Name></x:ExcelWorksheet>
-      <x:ExcelWorksheet><x:Name>Заказы</x:Name></x:ExcelWorksheet>
-      <x:ExcelWorksheet><x:Name>Платежи</x:Name></x:ExcelWorksheet>
-      ${kpi.length?"<x:ExcelWorksheet><x:Name>KPI История</x:Name></x:ExcelWorksheet>":""}
-    </x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
-    </head><body>
-
-    <!-- Dashboard sheet -->
-    <table style="margin-bottom:30px;width:600px">
-      <tr><td colspan="3" class="h1">🏭 WindowOS — KPI Dashboard &nbsp;·&nbsp; ${new Date().toLocaleDateString("ru-RU")}</td></tr>
-      <tr><td colspan="3" style="padding:6px 0"></td></tr>
-      <tr><td colspan="3" class="h2">📊 Воронка конверсии</td></tr>
-      <tr class="th"><td class="th">Показатель</td><td class="th">Значение</td><td class="th">%</td></tr>
-      <tr><td class="td">Лидов всего</td><td class="num"><b>${fLeads}</b></td><td class="pct">—</td></tr>
-      <tr><td class="td">Замеров</td><td class="num"><b>${fMeasured}</b></td><td class="pct">${convLM}%</td></tr>
-      <tr><td class="td">Заказов</td><td class="num"><b>${fOrders}</b></td><td class="pct">${convLO}%</td></tr>
-      <tr><td class="td">Закрыто (выиграли)</td><td class="num pos"><b>${fWon}</b></td><td class="pct">${winRate}%</td></tr>
-      <tr><td colspan="3" style="padding:4px 0"></td></tr>
-      <tr><td colspan="3" class="h2">💰 Финансы</td></tr>
-      <tr><td class="td">Сумма контрактов</td><td class="num"><b>₪${totalContracted.toLocaleString()}</b></td><td class="td"></td></tr>
-      <tr><td class="td">Получено</td><td class="num pos"><b>₪${totalPaid.toLocaleString()}</b></td><td class="td"></td></tr>
-      <tr><td class="td">Ожидается</td><td class="num neg">₪${(totalContracted-totalPaid).toLocaleString()}</td><td class="td"></td></tr>
-      <tr><td class="td">Средний чек</td><td class="num"><b>₪${avgDeal.toLocaleString()}</b></td><td class="td"></td></tr>
-      <tr><td colspan="3" style="padding:4px 0"></td></tr>
-      <tr><td colspan="3" class="h2">📣 Источники лидов</td></tr>
-      <tr><td class="th">Источник</td><td class="th">Кол-во</td><td class="th">Доля</td></tr>
-      ${srcRows}
-    </table>
-
-    <!-- Leads sheet -->
-    <table style="margin-bottom:30px" x-sheet="Лиды">
-      <tr><td colspan="10" class="h1">👤 Лиды — всего ${leads.length}</td></tr>
-      <tr><td class="th">Имя</td><td class="th">Телефон</td><td class="th">Город</td><td class="th">Тип</td><td class="th">Работа</td><td class="th">Статус</td><td class="th">Оценка ₪</td><td class="th">Follow-up</td><td class="th">Источник</td><td class="th">Дата</td></tr>
-      ${leadRows}
-    </table>
-
-    <!-- Orders sheet -->
-    <table style="margin-bottom:30px" x-sheet="Заказы">
-      <tr><td colspan="9" class="h1">📦 Заказы — всего ${orders.length}</td></tr>
-      <tr><td class="th">ID</td><td class="th">Клиент</td><td class="th">Город</td><td class="th">Окон</td><td class="th">Сумма ₪</td><td class="th">Получено ₪</td><td class="th">Остаток ₪</td><td class="th">Статус</td><td class="th">Создан</td></tr>
-      ${orderRows}
-      <tr>
-        <td class="tot" colspan="4">ИТОГО</td>
-        <td class="tot num">₪${totalContracted.toLocaleString()}</td>
-        <td class="tot num pos">₪${totalPaid.toLocaleString()}</td>
-        <td class="tot num neg">₪${(totalContracted-totalPaid).toLocaleString()}</td>
-        <td colspan="2" class="tot"></td>
-      </tr>
-    </table>
-
-    <!-- Payments sheet -->
-    <table style="margin-bottom:30px" x-sheet="Платежи">
-      <tr><td colspan="7" class="h1">💰 Платежи — всего ${payments.length}</td></tr>
-      <tr><td class="th">Заказ</td><td class="th">Клиент</td><td class="th">Тип</td><td class="th">Сумма ₪</td><td class="th">Дата</td><td class="th">Метод</td><td class="th">Статус</td></tr>
-      ${payRows}
-    </table>
-
-    ${kpi.length?`
-    <!-- KPI History sheet -->
-    <table x-sheet="KPI История">
-      <tr><td colspan="9" class="h1">📈 KPI по месяцам</td></tr>
-      <tr><td class="th">Месяц</td><td class="th">Лиды</td><td class="th">Замеры</td><td class="th">Заказы</td><td class="th">Выручка ₪</td><td class="th">Себест. ₪</td><td class="th">OPEX ₪</td><td class="th">EBITDA ₪</td><td class="th">Маржа</td></tr>
-      ${kpiRows}
-    </table>`:""}
-    </body></html>`;
-
-    const blob=new Blob(["\uFEFF"+html],{type:"application/vnd.ms-excel;charset=utf-8"});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    a.href=url;a.download=`WindowOS_KPI_${new Date().toISOString().slice(0,10)}.xls`;
-    a.click();URL.revokeObjectURL(url);
+  // Status breakdown
+  const statuses=["Новый лид","Замер назначен","КП отправлено","Follow-up","Закрыт (выиграли)","Закрыт (проиграли)"];
+  const statusColors={
+    "Новый лид":D.accentLight,"Замер назначен":D.teal,"КП отправлено":D.yellow,
+    "Follow-up":"#EC4899","Закрыт (выиграли)":D.green,"Закрыт (проиграли)":D.red
   };
-  const addMonth=()=>{
-    if(!form.month)return;
-    setKpi(p=>[...p,{month:form.month,leads:+form.leads||0,measures:+form.measures||0,
-      orders:+form.orders||0,revenue:+form.revenue||0,cogs:+form.cogs||0,opex:+form.opex||0,adSpend:+form.adSpend||0}]);
-    setModal(false);
+
+  // Excel export
+  const exportExcel=()=>{
+    const style=`<style>body{font-family:Arial,sans-serif;font-size:11pt}.h1{background:#1E3A8A;color:#fff;font-size:14pt;font-weight:bold;padding:6px}.h2{background:#2563EB;color:#fff;font-size:11pt;font-weight:bold;padding:4px}.th{background:#1E293B;color:#fff;font-weight:bold;border:1px solid #ccc;padding:4px 8px}.td{border:1px solid #ddd;padding:3px 8px}.num{text-align:right;border:1px solid #ddd;padding:3px 8px}.pct{text-align:right;color:#16a34a;border:1px solid #ddd;padding:3px 8px;font-weight:bold}.tot{background:#f0f9ff;font-weight:bold;border:1px solid #ccc;padding:4px 8px}.pos{color:#16a34a;font-weight:bold}.neg{color:#dc2626;font-weight:bold}.tag{background:#EFF6FF;color:#1D4ED8;font-size:9pt;padding:1px 5px;border-radius:3px}tr:nth-child(even) td,tr:nth-child(even) .num{background:#F8FAFC}</style>`;
+    const leadRows=leads.map(l=>`<tr><td class="td"><b>${l.name}</b></td><td class="td">${l.phone||""}</td><td class="td">${l.city||""}</td><td class="td">${l.type||""}</td><td class="td"><span class="tag">${l.status}</span></td><td class="num ${l.value>0?"pos":""}">${l.value>0?"₪"+l.value.toLocaleString():"—"}</td><td class="td">${l.followUp||"—"}</td><td class="td">${l.source||""}</td><td class="td">${l.date||""}</td></tr>`).join("");
+    const orderRows=orders.map(o=>`<tr><td class="td"><b>${o.id}</b></td><td class="td">${o.client}</td><td class="td">${o.city||"—"}</td><td class="num">${o.windows}</td><td class="num">₪${o.total.toLocaleString()}</td><td class="num ${o.paid>0?"pos":""}">${o.paid>0?"₪"+o.paid.toLocaleString():"—"}</td><td class="num ${(o.total-o.paid)>0?"neg":""}">${(o.total-o.paid)>0?"₪"+(o.total-o.paid).toLocaleString():"—"}</td><td class="td"><span class="tag">${o.status}</span></td><td class="td">${o.created||""}</td></tr>`).join("");
+    const payRows=payments.map(p=>`<tr><td class="td">${p.order||""}</td><td class="td"><b>${p.client}</b></td><td class="td">${p.type}</td><td class="num"><b>₪${p.amount.toLocaleString()}</b></td><td class="td">${p.date||""}</td><td class="td">${p.method||""}</td><td class="td"><span class="tag">${p.status}</span></td></tr>`).join("");
+    const monthRows=monthList.map(m=>`<tr><td class="td"><b>${m.label}</b></td><td class="num">${m.leads}</td><td class="num">${m.measures}</td><td class="num">${m.orders}</td><td class="num">₪${m.revenue.toLocaleString()}</td><td class="num pos">₪${m.paid.toLocaleString()}</td></tr>`).join("");
+    const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8">${style}<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Dashboard</x:Name><x:WorksheetOptions><x:Selected/></x:WorksheetOptions></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>Лиды</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>Заказы</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>Платежи</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>По месяцам</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>
+    <table style="margin-bottom:30px;width:600px"><tr><td colspan="3" class="h1">🏭 WindowOS — KPI · ${new Date().toLocaleDateString("ru-RU")}</td></tr><tr><td colspan="3" class="h2">📊 Воронка</td></tr><tr><td class="th">Показатель</td><td class="th">Значение</td><td class="th">%</td></tr><tr><td class="td">Лидов</td><td class="num"><b>${fLeads}</b></td><td class="pct">—</td></tr><tr><td class="td">Замеров</td><td class="num"><b>${fMeasured}</b></td><td class="pct">${convLM}%</td></tr><tr><td class="td">Заказов</td><td class="num"><b>${fOrders}</b></td><td class="pct">${convLO}%</td></tr><tr><td class="td">Закрыто</td><td class="num pos"><b>${fWon}</b></td><td class="pct">${winRate}%</td></tr><tr><td colspan="3" class="h2">💰 Финансы</td></tr><tr><td class="td">Сумма КП</td><td class="num">₪${totalContracted.toLocaleString()}</td><td></td></tr><tr><td class="td">Получено</td><td class="num pos">₪${totalPaid.toLocaleString()}</td><td></td></tr><tr><td class="td">Средний чек</td><td class="num">₪${avgDeal.toLocaleString()}</td><td></td></tr></table>
+    <table style="margin-bottom:30px" x-sheet="Лиды"><tr><td colspan="9" class="h1">👤 Лиды — ${leads.length}</td></tr><tr><td class="th">Имя</td><td class="th">Телефон</td><td class="th">Город</td><td class="th">Тип</td><td class="th">Статус</td><td class="th">Оценка</td><td class="th">Follow-up</td><td class="th">Источник</td><td class="th">Дата</td></tr>${leadRows}</table>
+    <table style="margin-bottom:30px" x-sheet="Заказы"><tr><td colspan="9" class="h1">📦 Заказы — ${orders.length}</td></tr><tr><td class="th">ID</td><td class="th">Клиент</td><td class="th">Город</td><td class="th">Окон</td><td class="th">Сумма</td><td class="th">Получено</td><td class="th">Остаток</td><td class="th">Статус</td><td class="th">Дата</td></tr>${orderRows}<tr><td class="tot" colspan="4">ИТОГО</td><td class="tot num">₪${totalContracted.toLocaleString()}</td><td class="tot num pos">₪${totalPaid.toLocaleString()}</td><td class="tot num neg">₪${(totalContracted-totalPaid).toLocaleString()}</td><td colspan="2" class="tot"></td></tr></table>
+    <table style="margin-bottom:30px" x-sheet="Платежи"><tr><td colspan="7" class="h1">💰 Платежи — ${payments.length}</td></tr><tr><td class="th">Заказ</td><td class="th">Клиент</td><td class="th">Тип</td><td class="th">Сумма</td><td class="th">Дата</td><td class="th">Метод</td><td class="th">Статус</td></tr>${payRows}</table>
+    <table x-sheet="По месяцам"><tr><td colspan="6" class="h1">📈 По месяцам</td></tr><tr><td class="th">Месяц</td><td class="th">Лидов</td><td class="th">Замеров</td><td class="th">Заказов</td><td class="th">Выручка</td><td class="th">Получено</td></tr>${monthRows}</table>
+    </body></html>`;
+    const blob=new Blob(["\uFEFF"+html],{type:"application/vnd.ms-excel;charset=utf-8"});
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");
+    a.href=url;a.download=`WindowOS_KPI_${new Date().toISOString().slice(0,10)}.xls`;a.click();URL.revokeObjectURL(url);
+  };
+
+  const FunnelBar=({label,value,max,color})=>{
+    const pct=max>0?Math.min(Math.round(value/max*100),100):0;
+    return(<div style={{marginBottom:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+        <span style={{fontSize:12,color:D.muted}}>{label}</span>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <span style={{fontSize:14,fontWeight:800,color}}>{value}</span>
+          <span style={{fontSize:10,color:D.muted}}>{pct}%</span>
+        </div>
+      </div>
+      <div style={{background:D.surface,borderRadius:6,height:8,overflow:"hidden"}}>
+        <div style={{width:`${pct}%`,height:"100%",borderRadius:6,
+          background:`linear-gradient(90deg,${color},${color}99)`,transition:"width 0.6s"}}/>
+      </div>
+    </div>);
   };
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>KPI & Аналитика</div>
-        <div style={{fontSize:13,color:D.muted}}>Реальные данные + история</div></div>
-      <div style={{display:"flex",gap:8}}>
-        <Btn onClick={exportExcel} variant="success"><Download size={13}/> Excel</Btn>
-        <Btn onClick={()=>setModal(true)}><Plus size={13}/> Добавить месяц</Btn>
+      <div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>KPI · Аналитика</div>
+        <div style={{fontSize:12,color:D.muted}}>Всё считается автоматически из реальных данных</div>
       </div>
+      <Btn onClick={exportExcel} variant="ghost"><Download size={13}/> Excel</Btn>
     </div>
 
-    {/* Real-time KPIs */}
-    <div style={{background:D.card,border:`1px solid ${D.accentLight}30`,borderRadius:14,padding:16,marginBottom:20}}>
-      <div style={{fontSize:11,fontWeight:800,color:D.accentLight,textTransform:"uppercase",marginBottom:14}}>
-        📊 Реальные показатели (из системы)
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>
-        <KCard icon={Users} label="Лидов всего" value={fLeads} color={D.accentLight}/>
-        <KCard icon={Ruler} label="Замеров" value={fMeasured} color={D.purple}/>
-        <KCard icon={ShoppingCart} label="Заказов" value={fOrders} color={D.yellow}/>
-        <KCard icon={DollarSign} label="Получено" value={fmt(totalPaid)} color={D.green}/>
-      </div>
+    {/* Top KPI cards */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>
+      {[
+        ["👤 Лидов",fLeads,D.accentLight,"всего в CRM"],
+        ["📦 Заказов",fOrders,D.yellow,`из ${fMeasured} замеров`],
+        ["✅ Закрыто",fWon,D.green,`Win rate ${winRate}%`],
+        ["💰 Получено",fmt(totalPaid),D.green,`из ${fmt(totalContracted)} КП`],
+      ].map(([l,v,c,s])=>(
+        <div key={l} style={{background:D.card,border:`1px solid ${c}30`,borderRadius:12,padding:"14px 16px",borderTop:`3px solid ${c}`}}>
+          <div style={{fontSize:10,color:D.muted,marginBottom:4,fontWeight:700}}>{l}</div>
+          <div style={{fontSize:22,fontWeight:900,color:c}}>{v}</div>
+          <div style={{fontSize:10,color:D.muted,marginTop:3}}>{s}</div>
+        </div>
+      ))}
     </div>
 
-    {/* Funnel conversion */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+      {/* Funnel */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:16}}>🎯 ВОРОНКА КОНВЕРСИИ</div>
+        <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:14}}>📊 Воронка конверсии</div>
+        <FunnelBar label="👤 Лидов" value={fLeads} max={fLeads} color={D.accentLight}/>
+        <FunnelBar label="📐 Замеров" value={fMeasured} max={fLeads} color={D.teal}/>
+        <FunnelBar label="📋 КП отправлено" value={leads.filter(l=>["КП отправлено","Follow-up","Закрыт (выиграли)"].includes(l.status)).length} max={fLeads} color={D.yellow}/>
+        <FunnelBar label="📦 Заказов" value={fOrders} max={fLeads} color={D.purple}/>
+        <FunnelBar label="✅ Закрыто (выиграли)" value={fWon} max={fLeads} color={D.green}/>
+        <div style={{marginTop:14,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          {[
+            [`Лид→Замер`,`${convLM}%`,D.teal],
+            [`Замер→Заказ`,`${convMO}%`,D.purple],
+            [`Лид→Заказ`,`${convLO}%`,D.yellow],
+            [`Win Rate`,`${winRate}%`,D.green],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{background:D.surface,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+              <div style={{fontSize:9,color:D.muted,marginBottom:2}}>{l}</div>
+              <div style={{fontSize:16,fontWeight:900,color:c}}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Financial KPIs */}
+      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
+        <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:14}}>💰 Финансовые KPI</div>
         {[
-          {label:"Лиды",value:fLeads,color:D.accentLight},
-          {label:"Замеры",value:fMeasured,color:D.purple},
-          {label:"Заказы",value:fOrders,color:D.yellow},
-          {label:"Закрыто (выиграли)",value:fWon,color:D.green},
-        ].map(({label,value,color})=>(
-          <div key={label} style={{marginBottom:14}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
-              <span style={{fontSize:12,color:D.muted}}>{label}</span>
-              <span style={{fontSize:14,fontWeight:900,color}}>{value}</span>
-            </div>
-            <div style={{background:D.surface,borderRadius:6,height:10,overflow:"hidden"}}>
-              <div style={{width:fLeads>0?`${Math.min(value/fLeads*100,100)}%`:"0%",height:"100%",
-                background:`linear-gradient(90deg,${color},${color}88)`,borderRadius:6,transition:"width 0.5s"}}/>
-            </div>
+          ["Сумма контрактов",fmt(totalContracted),D.text],
+          ["Получено",fmt(totalPaid),D.green],
+          ["Ожидается",fmt(totalPending),D.yellow],
+          ["Средний чек",fmt(avgDeal),D.accentLight],
+          ["Сбор платежей",collectRate+"%",collectRate>=80?D.green:collectRate>=50?D.yellow:D.red],
+        ].map(([l,v,c])=>(
+          <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${D.border}`}}>
+            <span style={{fontSize:12,color:D.muted}}>{l}</span>
+            <span style={{fontSize:14,fontWeight:800,color:c}}>{v}</span>
           </div>
         ))}
-        {/* Conversion rates */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginTop:8}}>
-          {[
-            ["Лид→Замер",convLM+"%",D.purple],
-            ["Замер→Заказ",convMO+"%",D.yellow],
-            ["Лид→Заказ",convLO+"%",D.green],
-            ["Win Rate",winRate+"%",D.teal],
-          ].map(([l,v,c])=>(
-            <div key={l} style={{background:D.surface,borderRadius:8,padding:"8px 6px",textAlign:"center"}}>
-              <div style={{fontSize:18,fontWeight:900,color:c}}>{v}</div>
-              <div style={{fontSize:9,color:D.muted,fontWeight:700,marginTop:2,textTransform:"uppercase"}}>{l}</div>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      <div style={{display:"flex",flexDirection:"column",gap:12}}>
-        {/* Avg deal + pipeline */}
-        <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>💰 ФИНАНСЫ</div>
-          {[
-            ["Средний чек",fmt(avgDeal),D.yellow],
-            ["Контрактов",fmt(totalContracted),D.text],
-            ["Получено",fmt(totalPaid),D.green],
-            ["Ожидается",fmt(totalContracted-totalPaid),D.yellow],
-          ].map(([l,v,c])=>(
-            <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-              <span style={{fontSize:11,color:D.muted}}>{l}</span>
-              <span style={{fontSize:13,fontWeight:800,color:c}}>{v}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Source breakdown */}
-        {sources.length>0&&(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>📣 ИСТОЧНИКИ ЛИДОВ</div>
+        {/* Sources */}
+        {sources.length>0&&(<>
+          <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",margin:"14px 0 8px"}}>📣 Источники лидов</div>
           {sources.slice(0,5).map(([src,cnt])=>(
-            <div key={src} style={{marginBottom:8}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                <span style={{fontSize:11,color:D.muted}}>{src}</span>
-                <span style={{fontSize:11,fontWeight:700,color:D.text}}>{cnt} ({fLeads>0?Math.round(cnt/fLeads*100):0}%)</span>
-              </div>
-              <div style={{background:D.surface,borderRadius:3,height:4}}>
-                <div style={{width:`${fLeads>0?cnt/fLeads*100:0}%`,height:"100%",borderRadius:3,background:D.accentLight}}/>
+            <div key={src} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:11,color:D.text}}>{src||"Не указан"}</span>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <div style={{background:D.surface,borderRadius:4,height:6,width:80,overflow:"hidden"}}>
+                  <div style={{width:`${fLeads>0?Math.round(cnt/fLeads*100):0}%`,height:"100%",background:D.accentLight,borderRadius:4}}/>
+                </div>
+                <span style={{fontSize:11,fontWeight:700,color:D.accentLight,minWidth:30,textAlign:"right"}}>{cnt}</span>
+                <span style={{fontSize:10,color:D.muted}}>{fLeads>0?Math.round(cnt/fLeads*100):0}%</span>
               </div>
             </div>
           ))}
-        </div>)}
+        </>)}
       </div>
     </div>
 
-    {/* Historical KPI chart */}
-    {kpi.length>0&&(<>
-      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}}>
-        <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>💹 ИСТОРИЯ: ВЫРУЧКА / EBITDA</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={kpi.map(d=>({month:d.month,"Выручка":d.revenue,"EBITDA":d.revenue-d.cogs-d.opex}))} barGap={3}>
-              <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
-              <YAxis stroke={D.muted} tick={{fontSize:10,fill:D.muted}} tickFormatter={v=>"₪"+v/1000+"k"}/>
-              <Tooltip content={<TT/>}/>
-              <ReferenceLine y={0} stroke={D.red} strokeDasharray="4 4"/>
-              <Bar dataKey="Выручка" fill={D.accentLight+"80"} radius={[3,3,0,0]}/>
-              <Bar dataKey="EBITDA" fill={D.green} radius={[3,3,0,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>📈 ИСТОРИЯ: ЛИДЫ / ЗАКАЗЫ</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={kpi}>
-              <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
-              <YAxis stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
-              <Tooltip content={<TT/>}/>
-              <Line dataKey="leads" name="Лиды" stroke={D.accentLight} strokeWidth={2} dot={{r:3}}/>
-              <Line dataKey="orders" name="Заказы" stroke={D.green} strokeWidth={2} dot={{r:3}}/>
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+    {/* Monthly table — auto */}
+    {monthList.length>0&&(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+      <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:12}}>
+        📈 Динамика по месяцам — автоматически
       </div>
-      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",padding:"8px 14px",background:D.surface,gap:10}}>
-          {["Месяц","Лиды","Замеры","Заказы","Выручка","Себест.","OPEX","EBITDA"].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
-        </div>
-        {kpi.map((d,i)=>{const e=d.revenue-d.cogs-d.opex;return(
-          <div key={i} style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",padding:"10px 14px",gap:10,
-            background:i%2===0?D.card:D.surface,borderTop:`1px solid ${D.border}`}}>
-            <div style={{fontSize:13,fontWeight:800,color:D.text}}>{d.month}</div>
-            {[d.leads,d.measures,d.orders].map((v,ci)=><div key={ci} style={{fontSize:13,fontWeight:700,color:D.text}}>{v}</div>)}
-            {[d.revenue,d.cogs,d.opex].map((v,ci)=><div key={ci} style={{fontSize:12,color:D.muted}}>{fmt(v)}</div>)}
-            <div style={{fontSize:13,fontWeight:800,color:e>=0?D.green:D.red}}>{fmt(e)}</div>
-          </div>
-        );})}
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <thead>
+            <tr style={{background:D.surface}}>
+              {["Месяц","Лидов","Замеров","Заказов","Выручка КП","Получено"].map(h=>(
+                <th key={h} style={{padding:"7px 12px",textAlign:"left",fontSize:9,fontWeight:800,
+                  color:D.muted,textTransform:"uppercase",borderBottom:`1px solid ${D.border}`}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {monthList.map((m,i)=>(
+              <tr key={m.key} style={{background:i%2===0?D.card:D.surface}}>
+                <td style={{padding:"8px 12px",fontWeight:700,color:D.text}}>{m.label}</td>
+                <td style={{padding:"8px 12px",color:D.accentLight,fontWeight:600}}>{m.leads}</td>
+                <td style={{padding:"8px 12px",color:D.teal,fontWeight:600}}>{m.measures}</td>
+                <td style={{padding:"8px 12px",color:D.yellow,fontWeight:600}}>{m.orders}</td>
+                <td style={{padding:"8px 12px",fontWeight:700,color:D.text}}>{fmt(m.revenue)}</td>
+                <td style={{padding:"8px 12px",fontWeight:800,color:D.green}}>{fmt(m.paid)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    </>)}
+    </div>)}
 
-    {modal&&(<Modal title="📅 Добавить месяц" onClose={()=>setModal(false)}>
-      <Sel label="Месяц" value={form.month} onChange={e=>setForm(p=>({...p,month:e.target.value}))} options={["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"]}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Inp label="Лидов" value={form.leads} onChange={e=>setForm(p=>({...p,leads:e.target.value}))} type="number"/>
-        <Inp label="Замеров" value={form.measures} onChange={e=>setForm(p=>({...p,measures:e.target.value}))} type="number"/>
-        <Inp label="Заказов" value={form.orders} onChange={e=>setForm(p=>({...p,orders:e.target.value}))} type="number"/>
-        <Inp label="Выручка ₪" value={form.revenue} onChange={e=>setForm(p=>({...p,revenue:e.target.value}))} type="number"/>
-        <Inp label="Себестоимость ₪" value={form.cogs} onChange={e=>setForm(p=>({...p,cogs:e.target.value}))} type="number"/>
-        <Inp label="OPEX ₪" value={form.opex} onChange={e=>setForm(p=>({...p,opex:e.target.value}))} type="number"/>
+    {/* Status breakdown */}
+    <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
+      <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:12}}>📋 Лиды по статусам</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+        {statuses.map(s=>{
+          const cnt=leads.filter(l=>l.status===s).length;
+          const c=statusColors[s]||D.muted;
+          return(<div key={s} style={{background:c+"15",border:`1px solid ${c}40`,borderRadius:8,
+            padding:"8px 14px",textAlign:"center",minWidth:100}}>
+            <div style={{fontSize:18,fontWeight:900,color:c}}>{cnt}</div>
+            <div style={{fontSize:10,color:D.muted,marginTop:2}}>{s}</div>
+          </div>);
+        })}
       </div>
-      <div style={{display:"flex",gap:8}}>
-        <Btn onClick={addMonth}><Check size={13}/> Добавить</Btn>
-        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
-      </div>
-    </Modal>)}
+    </div>
   </div>);
 }
 
@@ -4983,6 +4919,58 @@ export default function App(){
   useEffect(()=>{save(KEYS.company,company);},[company]);
   useEffect(()=>{save(KEYS.lang,lang);},[lang]);
 
+  // ── FIREBASE SYNC ─────────────────────────────────────────
+  const [fbSynced,setFbSynced]=useState(false);
+  const [fbOnline,setFbOnline]=useState(false);
+
+  useEffect(()=>{
+    // Load from Firebase on app start
+    fbLoadAll().then(fbData=>{
+      if(!fbData){setFbSynced(true);return;}
+      // Update all states from Firebase (cloud is source of truth)
+      const upd=(key,setter)=>{if(fbData[key]!==undefined&&fbData[key]!==null){
+        const val=Array.isArray(fbData[key])?fbData[key]:
+                  typeof fbData[key]==="object"?fbData[key]:fbData[key];
+        localStorage.setItem("wb:"+key,JSON.stringify(val));
+        setter(val);
+      }};
+      upd("leads",setLeads);
+      upd("orders",setOrders);
+      upd("measurements",setMeasurements);
+      upd("installations",setInstallations);
+      upd("inventory",setInventory);
+      upd("payments",setPayments);
+      upd("kpi",setKpi);
+      upd("quotes",setQuotes);
+      upd("templates",setTemplates);
+      upd("activity",setActivity);
+      if(fbData.company)setCompany(fbData.company);
+      setFbOnline(true);
+      setFbSynced(true);
+    }).catch(()=>setFbSynced(true));
+
+    // Subscribe to real-time updates (for multi-device sync)
+    const unsub=fbSubscribe(fbData=>{
+      if(!fbData)return;
+      setFbOnline(true);
+      // Only update if data changed (avoid infinite loop)
+      const upd=(key,setter,current)=>{
+        if(fbData[key]===undefined||fbData[key]===null)return;
+        const remote=JSON.stringify(fbData[key]);
+        const local=JSON.stringify(current);
+        if(remote!==local){localStorage.setItem("wb:"+key,remote);setter(fbData[key]);}
+      };
+      // Note: we use functional state updates to get current values
+      setLeads(cur=>{if(fbData.leads&&JSON.stringify(fbData.leads)!==JSON.stringify(cur))return fbData.leads;return cur;});
+      setOrders(cur=>{if(fbData.orders&&JSON.stringify(fbData.orders)!==JSON.stringify(cur))return fbData.orders;return cur;});
+      setPayments(cur=>{if(fbData.payments&&JSON.stringify(fbData.payments)!==JSON.stringify(cur))return fbData.payments;return cur;});
+      setMeasurements(cur=>{if(fbData.measurements&&JSON.stringify(fbData.measurements)!==JSON.stringify(cur))return fbData.measurements;return cur;});
+      setInstallations(cur=>{if(fbData.installations&&JSON.stringify(fbData.installations)!==JSON.stringify(cur))return fbData.installations;return cur;});
+      setQuotes(cur=>{if(fbData.quotes&&JSON.stringify(fbData.quotes)!==JSON.stringify(cur))return fbData.quotes;return cur;});
+    });
+    return unsub;
+  },[]);
+
   // Request push permission and check follow-ups on load
   useEffect(()=>{
     requestPushPermission().then(granted=>{
@@ -5037,6 +5025,8 @@ export default function App(){
           <div style={{display:"flex",alignItems:"center",gap:4,marginTop:1}}>
             <div style={{width:6,height:6,borderRadius:"50%",background:saved?D.green:D.yellow}}/>
             <span style={{fontSize:9,color:D.muted,fontWeight:600}}>{saved?"Сохранено":"Сохраняю..."}</span>
+            {fbOnline&&<span style={{fontSize:9,color:"#F97316",fontWeight:700,marginLeft:2}}>☁️</span>}
+            {fbSynced&&!fbOnline&&<span style={{fontSize:9,color:D.muted,marginLeft:2}}>offline</span>}
           </div>
         </div>
         <button onClick={()=>setSidebarOpen(false)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4,display:window.innerWidth<768?"flex":"none",alignItems:"center"}}>
@@ -5163,7 +5153,7 @@ export default function App(){
         {page==="payments"&&<Payments payments={payments} setPayments={setPayments} onClientClick={setClientCard} company={company}/>}
         {page==="quotes"&&<Quotes quotes={quotes} setQuotes={setQuotes} onClientClick={setClientCard}/>}
         {page==="finance"&&<FinancePL orders={orders} payments={payments} leads={leads} measurements={measurements} kpi={kpi}/>}
-        {page==="kpi"&&<KPI kpi={kpi} setKpi={setKpi} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
+        {page==="kpi"&&<KPI leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
         {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes} templates={templates} setTemplates={setTemplates} setActivity={setActivity} company={company}/>}
       </div>
     </div>
