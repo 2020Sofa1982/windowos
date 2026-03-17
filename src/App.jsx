@@ -81,7 +81,8 @@ const DB=[
 
 // Dekel glass addons (per m²)
 // ── BILINGUAL HELPER ─────────────────────────────────────────
-const bi=(ru,he)=>`${ru} | ${he}`;
+let _LANG="ru"; // global lang state — updated by App
+const bi=(ru,he)=>_LANG==="he"?he:ru;
 
 const DG=[
   {id:"none",    name:bi("Стандарт (в базе)",       "סטנדרטי (בסיס)"),          price:0,    code:"-"},
@@ -2875,42 +2876,211 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
 // INVENTORY
 // ═══════════════════════════════════════════════════════════════
 function Inventory({inventory,setInventory}){
+  const [modal,setModal]=useState(false);
+  const [editItem,setEditItem]=useState(null);
+  const [form,setForm]=useState({name:"",category:"Профили",unit:"м.п.",qty:"0",minQty:"10",price:"0"});
+  const [search,setSearch]=useState("");
+  const [selCat,setSelCat]=useState("all");
+
+  const CATS=["Профили","Стекло","Фурнитура","Расходники","Инструменты","Прочее"];
   const low=inventory.filter(i=>i.qty<i.minQty);
-  const cats=[...new Set(inventory.map(i=>i.category))];
+  const cats=["all",...new Set(inventory.map(i=>i.category||"Прочее"))];
+
+  const filtered=inventory.filter(i=>{
+    const matchCat=selCat==="all"||(i.category||"Прочее")===selCat;
+    const matchSearch=!search.trim()||i.name.toLowerCase().includes(search.toLowerCase());
+    return matchCat&&matchSearch;
+  });
+  const groupedCats=[...new Set(filtered.map(i=>i.category||"Прочее"))];
+
+  const openAdd=()=>{setEditItem(null);setForm({name:"",category:"Профили",unit:"м.п.",qty:"0",minQty:"10",price:"0"});setModal(true);};
+  const openEdit=(i)=>{setEditItem(i.id);setForm({name:i.name,category:i.category||"Прочее",unit:i.unit,qty:String(i.qty),minQty:String(i.minQty),price:String(i.price)});setModal(true);};
+
+  const save=()=>{
+    if(!form.name)return;
+    if(editItem){
+      setInventory(p=>p.map(i=>i.id===editItem?{...i,...form,qty:+form.qty||0,minQty:+form.minQty||0,price:+form.price||0}:i));
+    } else {
+      setInventory(p=>[...p,{id:Date.now(),...form,qty:+form.qty||0,minQty:+form.minQty||0,price:+form.price||0}]);
+    }
+    setModal(false);
+  };
+
+  const del=(id)=>{if(confirm("Удалить позицию?"))setInventory(p=>p.filter(i=>i.id!==id));};
   const upd=(id,d)=>setInventory(p=>p.map(i=>i.id===id?{...i,qty:Math.max(0,i.qty+d)}:i));
+  const setQty=(id,v)=>setInventory(p=>p.map(i=>i.id===id?{...i,qty:Math.max(0,+v||0)}:i));
+  const totalVal=inventory.reduce((s,i)=>s+i.qty*i.price,0);
+
   return(<div>
+    {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Склад</div>
-        <div style={{fontSize:13,color:D.muted}}>{inventory.length} позиций {low.length>0&&<span style={{color:D.yellow}}>· ⚠️ {low.length} нужно закупить</span>}</div></div>
-      <Btn onClick={()=>exportCSV(["Наименование","Ед.","Кол","Мин","Цена"],inventory.map(i=>[i.name,i.unit,i.qty,i.minQty,i.price]),"склад.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
+      <div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>Склад</div>
+        <div style={{fontSize:13,color:D.muted}}>
+          {inventory.length} позиций · Стоимость: <b style={{color:D.green}}>{fmt(totalVal)}</b>
+          {low.length>0&&<span style={{color:D.yellow}}> · ⚠️ {low.length} нужно закупить</span>}
+        </div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <Btn onClick={()=>exportCSV(["Наименование","Категория","Ед.","Кол","Мин","Цена","Сумма"],
+          inventory.map(i=>[i.name,i.category,i.unit,i.qty,i.minQty,i.price,i.qty*i.price]),"склад.csv")}
+          variant="ghost"><Download size={13}/> CSV</Btn>
+        <Btn onClick={openAdd}><Plus size={13}/> Добавить позицию</Btn>
+      </div>
     </div>
-    {low.length>0&&(<div style={{background:D.yellow+"15",border:`1px solid ${D.yellow}40`,borderRadius:12,padding:"12px 16px",marginBottom:16}}>
+
+    {/* Low stock alert */}
+    {low.length>0&&(<div style={{background:D.yellow+"15",border:`1px solid ${D.yellow}40`,borderRadius:12,padding:"10px 16px",marginBottom:14}}>
       <div style={{fontSize:11,fontWeight:800,color:D.yellow,marginBottom:6}}>⚠️ ТРЕБУЕТСЯ ЗАКУПКА</div>
       <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-        {low.map(i=><span key={i.id} style={{background:D.yellow+"20",border:`1px solid ${D.yellow}40`,borderRadius:6,padding:"2px 8px",fontSize:11,color:D.yellow,fontWeight:700}}>{i.name}: {i.qty}/{i.minQty}</span>)}
-      </div>
-    </div>)}
-    {cats.map(cat=>(<div key={cat} style={{marginBottom:18}}>
-      <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:8}}>{cat}</div>
-      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:12,overflow:"hidden"}}>
-        {inventory.filter(i=>i.category===cat).map((i,idx,arr)=>(
-          <div key={i.id} style={{display:"grid",gridTemplateColumns:"2.5fr 1fr 1.5fr 1fr 80px",
-            padding:"10px 16px",gap:10,alignItems:"center",background:idx%2===0?D.card:D.surface,
-            borderBottom:idx<arr.length-1?`1px solid ${D.border}`:"none"}}>
-            <div style={{fontSize:13,fontWeight:600,color:i.qty<i.minQty?D.yellow:D.text}}>{i.name}</div>
-            <div style={{fontSize:11,color:D.muted}}>{i.unit}</div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <button onClick={()=>upd(i.id,-1)} style={{background:D.border,border:"none",borderRadius:5,width:22,height:22,cursor:"pointer",color:D.text,fontWeight:800}}>−</button>
-              <span style={{fontSize:14,fontWeight:800,color:i.qty<i.minQty?D.yellow:D.green,minWidth:30,textAlign:"center"}}>{i.qty}</span>
-              <button onClick={()=>upd(i.id,1)} style={{background:D.border,border:"none",borderRadius:5,width:22,height:22,cursor:"pointer",color:D.text,fontWeight:800}}>+</button>
-              <span style={{fontSize:10,color:D.muted}}>/ {i.minQty}</span>
-            </div>
-            <div style={{fontSize:12,color:D.muted}}>{fmt(i.price)}</div>
-            <div style={{fontSize:12,fontWeight:700,color:D.text}}>{fmt(i.qty*i.price)}</div>
-          </div>
+        {low.map(i=>(
+          <span key={i.id} onClick={()=>openEdit(i)}
+            style={{background:D.yellow+"20",border:`1px solid ${D.yellow}40`,borderRadius:6,
+              padding:"2px 10px",fontSize:11,color:D.yellow,fontWeight:700,cursor:"pointer"}}>
+            {i.name}: {i.qty}/{i.minQty} {i.unit}
+          </span>
         ))}
       </div>
-    </div>))}
+    </div>)}
+
+    {/* Filters */}
+    <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+      <div style={{position:"relative",flex:1,minWidth:200}}>
+        <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск..."
+          style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
+            padding:"7px 10px 7px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+      </div>
+      {cats.map(c=>(
+        <button key={c} onClick={()=>setSelCat(c)}
+          style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${selCat===c?D.accent:D.border}`,
+            background:selCat===c?D.accent+"20":"transparent",
+            color:selCat===c?D.accentLight:D.muted,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+          {c==="all"?`Все (${inventory.length})`:c}
+        </button>
+      ))}
+    </div>
+
+    {/* Items by category */}
+    {filtered.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,
+      padding:40,textAlign:"center",color:D.muted}}>
+      Нет позиций. Нажми «Добавить позицию» чтобы начать.
+    </div>}
+
+    {groupedCats.map(cat=>(
+      <div key={cat} style={{marginBottom:18}}>
+        <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",
+          marginBottom:8,display:"flex",justifyContent:"space-between"}}>
+          <span>{cat}</span>
+          <span style={{color:D.text}}>
+            {fmt(filtered.filter(i=>(i.category||"Прочее")===cat).reduce((s,i)=>s+i.qty*i.price,0))}
+          </span>
+        </div>
+        <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:12,overflow:"hidden"}}>
+          <div style={{display:"grid",gridTemplateColumns:"2.5fr 0.7fr 1.8fr 0.8fr 0.8fr 80px",
+            padding:"6px 14px",background:D.surface,gap:10}}>
+            {["Наименование","Ед.","Количество","Мин.","Цена","Сумма"].map(h=>(
+              <div key={h} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>
+            ))}
+          </div>
+          {filtered.filter(i=>(i.category||"Прочее")===cat).map((i,idx,arr)=>(
+            <div key={i.id} style={{display:"grid",gridTemplateColumns:"2.5fr 0.7fr 1.8fr 0.8fr 0.8fr 80px",
+              padding:"10px 14px",gap:10,alignItems:"center",
+              background:idx%2===0?D.card:D.surface,
+              borderBottom:idx<arr.length-1?`1px solid ${D.border}`:"none"}}>
+              {/* Name */}
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                {i.qty<i.minQty&&<span style={{color:D.yellow,fontSize:12}}>⚠️</span>}
+                <span style={{fontSize:13,fontWeight:600,color:i.qty<i.minQty?D.yellow:D.text,
+                  cursor:"pointer"}} onClick={()=>openEdit(i)}>
+                  {i.name}
+                </span>
+              </div>
+              {/* Unit */}
+              <div style={{fontSize:11,color:D.muted}}>{i.unit}</div>
+              {/* Qty controls */}
+              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                <button onClick={()=>upd(i.id,-1)}
+                  style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:5,
+                    width:24,height:24,cursor:"pointer",color:D.text,fontWeight:800,fontSize:14}}>−</button>
+                <input type="number" value={i.qty} min={0}
+                  onChange={e=>setQty(i.id,e.target.value)}
+                  style={{width:50,background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,
+                    padding:"3px 6px",color:i.qty<i.minQty?D.yellow:D.green,fontSize:13,
+                    fontWeight:800,outline:"none",textAlign:"center"}}/>
+                <button onClick={()=>upd(i.id,1)}
+                  style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:5,
+                    width:24,height:24,cursor:"pointer",color:D.text,fontWeight:800,fontSize:14}}>+</button>
+                <span style={{fontSize:10,color:D.muted}}>/{i.minQty}</span>
+              </div>
+              {/* Min qty */}
+              <div style={{fontSize:12,color:D.muted}}>{i.minQty}</div>
+              {/* Price */}
+              <div style={{fontSize:12,color:D.muted}}>{fmt(i.price)}</div>
+              {/* Total + actions */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:12,fontWeight:700,color:D.text}}>{fmt(i.qty*i.price)}</span>
+                <div style={{display:"flex",gap:4}}>
+                  <button onClick={()=>openEdit(i)} title="Редактировать"
+                    style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:2}}>
+                    <Eye size={12}/>
+                  </button>
+                  <button onClick={()=>del(i.id)} title="Удалить"
+                    style={{background:"none",border:"none",cursor:"pointer",color:D.red,padding:2,opacity:0.6}}>
+                    <Trash2 size={12}/>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ))}
+
+    {/* Add/Edit Modal */}
+    {modal&&(<Modal title={editItem?"✏️ Редактировать позицию":"➕ Новая позиция"} onClose={()=>setModal(false)}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        <div style={{gridColumn:"1/-1"}}>
+          <Inp label="Наименование *" value={form.name}
+            onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Профиль Klil 7000..."/>
+        </div>
+        <div>
+          <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Категория</div>
+          <select value={form.category} onChange={e=>setForm(p=>({...p,category:e.target.value}))}
+            style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
+              padding:"7px 10px",color:D.text,fontSize:12,outline:"none"}}>
+            {CATS.map(c=><option key={c} value={c} style={{background:D.card}}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Единица</div>
+          <select value={form.unit} onChange={e=>setForm(p=>({...p,unit:e.target.value}))}
+            style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
+              padding:"7px 10px",color:D.text,fontSize:12,outline:"none"}}>
+            {["м.п.","кг","шт","м²","л","рул.","уп."].map(u=><option key={u} value={u} style={{background:D.card}}>{u}</option>)}
+          </select>
+        </div>
+        <Inp label="Количество" value={form.qty}
+          onChange={e=>setForm(p=>({...p,qty:e.target.value}))} type="number" placeholder="0"/>
+        <Inp label="Минимум (сигнал)" value={form.minQty}
+          onChange={e=>setForm(p=>({...p,minQty:e.target.value}))} type="number" placeholder="10"/>
+        <div style={{gridColumn:"1/-1"}}>
+          <Inp label="Цена за единицу ₪" value={form.price}
+            onChange={e=>setForm(p=>({...p,price:e.target.value}))} type="number" placeholder="0"/>
+        </div>
+      </div>
+      {editItem&&(<div style={{fontSize:11,color:D.teal,marginBottom:12,padding:"6px 10px",
+        background:D.teal+"12",borderRadius:6}}>
+        Количество можно также менять кнопками +/− прямо в таблице
+      </div>)}
+      <div style={{display:"flex",gap:8}}>
+        <Btn onClick={save} variant="success"><Check size={13}/> {editItem?"Сохранить":"Добавить"}</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+        {editItem&&<Btn onClick={()=>{del(editItem);setModal(false);}} variant="ghost">
+          <Trash2 size={13}/> Удалить
+        </Btn>}
+      </div>
+    </Modal>)}
   </div>);
 }
 
@@ -4899,7 +5069,11 @@ export default function App(){
   const [quotes,setQuotes]=useState(()=>load(KEYS.quotes,[]));
   const [templates,setTemplates]=useState(()=>load(KEYS.templates,[]));
   const [activity,setActivity]=useState(()=>load(KEYS.activity,[]));
-  const [lang,setLang]=useState(()=>load(KEYS.lang,"ru"));
+  const [lang,setLang]=useState(()=>{
+    const stored=load(KEYS.lang,"ru");
+    _LANG=stored;
+    return stored;
+  });
   const [company,setCompany]=useState(()=>load(KEYS.company,{
     name:"חלונות אלומיניום",nameRu:"Алюминиевые окна",
     phone:"050-000-0000",address:"",email:"",
@@ -4917,7 +5091,7 @@ export default function App(){
   useEffect(()=>{save(KEYS.templates,templates);},[templates]);
   useEffect(()=>{save(KEYS.activity,activity);},[activity]);
   useEffect(()=>{save(KEYS.company,company);},[company]);
-  useEffect(()=>{save(KEYS.lang,lang);},[lang]);
+  useEffect(()=>{_LANG=lang;save(KEYS.lang,lang);},[lang]);
 
   // ── FIREBASE SYNC ─────────────────────────────────────────
   const [fbSynced,setFbSynced]=useState(false);
