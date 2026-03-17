@@ -83,13 +83,241 @@ const DB=[
 // ── BILINGUAL HELPER ─────────────────────────────────────────
 let _LANG="ru";
 const bi=(ru,he,en)=>({ru,he:he||ru,en:en||ru});
-const t=(x)=>{if(!x)return"";if(typeof x==="string")return x;if(typeof x==="object")return x[_LANG]||x.ru||"";return String(x);};
-const UI={
-  ru:{dashboard:"Дашборд",leads:"Лиды / CRM",measurements:"Замеры",calc:"Калькулятор КП",quotes:"КП История",orders:"Заказы",install:"Монтаж",payments:"Касса",calendar:"Календарь",finance:"P&L · Финансы",kpi:"KPI",inventory:"Склад",save:"Сохранить",cancel:"Отмена",delete:"Удалить",edit:"Редактировать",search:"Поиск...",add:"Добавить",received:"Получен",pending:"Ожидается",today:"Сегодня",total:"Итого",client:"Клиент",phone:"Телефон",address:"Адрес",date:"Дата",notes:"Заметки",status:"Статус",settings:"Настройки компании"},
-  he:{dashboard:"דשבורד",leads:"לידים / CRM",measurements:"מדידות",calc:"מחשבון הצעת מחיר",quotes:"היסטוריית הצעות",orders:"הזמנות",install:"התקנה",payments:"קופה",calendar:"לוח שנה",finance:"P&L · פיננסים",kpi:"KPI",inventory:"מחסן",save:"שמור",cancel:"ביטול",delete:"מחק",edit:"ערוך",search:"חיפוש...",add:"הוסף",received:"התקבל",pending:"ממתין",today:"היום",total:'סה"כ',client:"לקוח",phone:"טלפון",address:"כתובת",date:"תאריך",notes:"הערות",status:"סטטוס",settings:"הגדרות חברה"},
-  en:{dashboard:"Dashboard",leads:"Leads / CRM",measurements:"Measurements",calc:"Quote Calculator",quotes:"Quote History",orders:"Orders",install:"Installation",payments:"Cash Register",calendar:"Calendar",finance:"P&L · Finance",kpi:"KPI",inventory:"Inventory",save:"Save",cancel:"Cancel",delete:"Delete",edit:"Edit",search:"Search...",add:"Add",received:"Received",pending:"Pending",today:"Today",total:"Total",client:"Client",phone:"Phone",address:"Address",date:"Date",notes:"Notes",status:"Status",settings:"Company Settings"},
+
+// ── English slugs stored in Firebase (never change) ──────────────
+const STATUS={
+  NEW_LEAD:"new_lead",MEASURE:"measurement_set",QUOTE_SENT:"quote_sent",
+  FOLLOWUP:"followup",WON:"won",LOST:"lost",
+  WAIT_MAT:"wait_materials",IN_PROD:"in_production",READY:"ready_install",
+  INSTALLING:"installing",DONE:"completed",
+  PLANNED:"planned",IN_PROGRESS:"in_progress",INST_DONE:"inst_completed",APPROVED:"approved",
+  RECEIVED:"received",PENDING:"pending",DRAFT:"draft",SENT:"sent",ACCEPTED:"accepted",
 };
-const ui=(key)=>UI[_LANG]?.[key]||UI.ru[key]||key;
+// Migrate old Russian values → English slugs (runs once on Firebase load)
+const MIGRATE_STATUS={
+  "new_lead":"new_lead","measurement_set":"measurement_set","quote_sent":"quote_sent",
+  "followup":"followup","won":"won","lost":"lost",
+  "wait_materials":"wait_materials","in_production":"in_production",
+  "ready_install":"ready_install","installing":"installing","completed":"completed",
+  "planned":"planned","in_progress":"in_progress","inst_completed":"inst_completed",
+  "approved":"approved","received":"received","pending":"pending",
+  "draft":"draft","sent":"sent","accepted":"accepted",
+  "Google":"google","Рекомендация":"recommendation","Повторный клиент":"repeat",
+  "Yad2":"yad2","Facebook":"facebook","Другое":"other","Сарафан":"word_of_mouth",
+  "Частный":"private","Подрядчик":"contractor","Застройщик":"developer",
+  "Архитектор":"architect","Прораб":"foreman",
+  "Железобетон":"concrete","Газобетон":"aerated","Кирпич":"brick","Дерево":"wood",
+  "Замена":"replacement","Новое строительство":"new_construction",
+  "Расширение":"extension","Ремонт":"renovation",
+  "Высокий":"high","Средний":"medium","Низкий":"low",
+  "Предоплата":"deposit","Промежуточный":"interim","Финальный":"final",
+  "Наличные":"cash","Банк. перевод":"bank_transfer","Чек":"check",
+  "Кредитная карта":"credit_card","Bit":"bit",
+};
+const mig=(v)=>MIGRATE_STATUS[v]||v;
+// Migrate an entire object's key fields
+const migObj=(o)=>{
+  if(!o)return o;
+  const fields=["status","source","clientType","wallType","jobType","priority","payType","payMethod"];
+  const r={...o};
+  fields.forEach(f=>{if(r[f])r[f]=mig(r[f]);});
+  return r;
+};
+
+const UI={
+ru:{
+nav_dashboard:"Дашборд",nav_leads:"Лиды / CRM",nav_measurements:"Замеры",
+nav_calc:"Калькулятор КП",nav_quotes:"КП История",nav_orders:"Заказы",
+nav_install:"installing",nav_payments:"Касса",nav_calendar:"Календарь",
+nav_finance:"P&L · Финансы",nav_kpi:"KPI",nav_inventory:"Склад",
+save:"Сохранить",cancel:"Отмена",delete:"Удалить",edit:"Редактировать",
+add:"Добавить",create:"Создать",send:"Отправить",export:"Экспорт",
+search:"Поиск...",close:"Закрыть",print:"Печать",
+client:"Клиент",phone:"Телефон",address:"Адрес",city:"Город",date:"Дата",
+notes:"Заметки",status:"Статус",amount:"Сумма",total:"Итого",price:"Цена",
+qty:"Кол-во",name:"Название",type:"Тип",source:"Источник",priority:"Приоритет",
+floor:"Этаж",room:"Помещение",width:"Ш (см)",height:"В (см)",
+new_lead:"new_lead",measurement_set:"measurement_set",quote_sent:"quote_sent",
+followup:"followup",won:"won",lost:"lost",
+wait_materials:"wait_materials",in_production:"in_production",
+ready_install:"ready_install",installing:"installing",completed:"completed",
+planned:"planned",in_progress:"in_progress",inst_completed:"inst_completed",
+approved:"approved",received:"received",pending:"pending",
+draft:"draft",sent:"sent",accepted:"accepted",
+google:"Google",recommendation:"Рекомендация",repeat:"Повторный клиент",
+yad2:"Yad2",facebook:"Facebook",other:"Другое",word_of_mouth:"Сарафан",
+private:"Частный",contractor:"Подрядчик",developer:"Застройщик",
+architect:"Архитектор",foreman:"Прораб",
+concrete:"Железобетон",aerated:"Газобетон",brick:"Кирпич",wood:"Дерево",
+replacement:"Замена",new_construction:"Новое строительство",
+extension:"Расширение",renovation:"Ремонт",
+high:"Высокий",medium:"Средний",low:"Низкий",
+deposit:"Предоплата",interim:"Промежуточный",final:"Финальный",
+cash:"Наличные",bank_transfer:"Банк. перевод",check:"Чек",credit_card:"Кредитная карта",bit:"Bit",
+m1:"Янв",m2:"Фев",m3:"Мар",m4:"Апр",m5:"Май",m6:"Июн",m7:"Июл",m8:"Авг",m9:"Сен",m10:"Окт",m11:"Ноя",m12:"Дек",
+mf1:"Январь",mf2:"Февраль",mf3:"Март",mf4:"Апрель",mf5:"Май",mf6:"Июнь",mf7:"Июль",mf8:"Август",mf9:"Сентябрь",mf10:"Октябрь",mf11:"Ноябрь",mf12:"Декабрь",
+d1:"Пн",d2:"Вт",d3:"Ср",d4:"Чт",d5:"Пт",d6:"Сб",d7:"Вс",
+newLead:"new_lead",editLead:"Редактировать лид",newMeasure:"Новый замер",newOrder:"Новый заказ",
+allLeads:"Все лиды",inCRM:"всего в CRM",today:"Сегодня",
+clientType:"Тип клиента",jobType:"Тип работы",wallType:"Тип стены",
+actHistory:"История активности",addNote:"Добавить заметку...",
+fromMeasurements:"из замеров",openCalc:"В калькулятор",
+addWindow:"Добавить окно",saveQuote:"Сохранить КП",pdfQuote:"PDF КП",
+createOrder:"Создать заказ",margin:"Маржа %",
+profile:"Профиль",glass:"Стекло",screen:"Сетка",shutter:"Роллет",
+color:"Цвет профиля",accessories:"Аксессуары",extras:"Доплаты",
+demolition:"Демонтаж",crane:"Кран",highFloor:"Высокий этаж",
+quoteHistory:"История КП",activeOrders:"Активные",completedOrders:"Завершённые",allOrders:"Все",
+addPayment:"Добавить платёж",deleteOrder:"Удалить заказ",
+newDoc:"Новый документ",docType:"Тип документа",payMethod:"Способ оплаты",
+allocationNum:"מספר הקצאה",issuedDocs:"Выданные документы",
+monthView:"Месяц",weekView:"Неделя",noEvents:"Нет событий",upcoming:"Ближайшие 7 дней",
+revenue:"Выручка",fixedCosts:"Постоянные затраты",salaries:"Зарплаты",
+oneTime:"Разовые расходы",totalExp:"Итого расходов",netProfit:"Чистая прибыль",
+breakeven:"Точка безубыточности",goals:"Цели на месяц",
+analytics:"Аналитика",funnel:"Воронка конверсии",avgDeal:"Средний чек",
+collection:"Сбор платежей",contracted:"Сумма контрактов",
+addItem:"Добавить позицию",needPurchase:"ТРЕБУЕТСЯ ЗАКУПКА",
+stockValue:"Стоимость склада",pricePerUnit:"Цена за единицу ₪",minimum:"Минимум (сигнал)",
+cat_profiles:"Профили",cat_glass:"Стекло",cat_hardware:"Фурнитура",
+cat_consumables:"Расходники",cat_tools:"Инструменты",cat_other:"Прочее",
+wa_first:"👋 Первый контакт",wa_measure:"📐 Подтверждение замера",wa_quote:"📋 Отправка КП",
+wa_followup:"🔔 Follow-up",wa_order:"✅ Подтверждение заказа",wa_install:"🔧 Дата монтажа",wa_done:"🎉 Работа завершена",
+settings:"Настройки компании",saved:"Сохранено",saving:ui("saving"),
+clientRequired:"Укажи имя клиента",confirmDelete:"Удалить?",
+inWork:"В работе",noData:"Нет данных",positions:"позиций",
+deleteOrderQ:"Удалить этот заказ?",deletePaymentQ:"Удалить платёж?",
+},
+he:{
+nav_dashboard:"דשבורד",nav_leads:"לידים / CRM",nav_measurements:"מדידות",
+nav_calc:"מחשבון הצעת מחיר",nav_quotes:"היסטוריית הצעות",nav_orders:"הזמנות",
+nav_install:"התקנה",nav_payments:"קופה",nav_calendar:"לוח שנה",
+nav_finance:"P&L · פיננסים",nav_kpi:"KPI",nav_inventory:"מחסן",
+save:"שמור",cancel:"ביטול",delete:"מחק",edit:"ערוך",
+add:"הוסף",create:"צור",send:"שלח",export:"ייצוא",
+search:"חיפוש...",close:"סגור",print:"הדפס",
+client:"לקוח",phone:"טלפון",address:"כתובת",city:"עיר",date:"תאריך",
+notes:"הערות",status:"סטטוס",amount:"סכום",total:'סה"כ',price:"מחיר",
+qty:"כמות",name:"שם",type:"סוג",source:"מקור",priority:"עדיפות",
+floor:"קומה",room:"חדר",width:'ר\' (ס"מ)',height:'ג\' (ס"מ)',
+new_lead:"ליד חדש",measurement_set:"נקבעה מדידה",quote_sent:"הצעת מחיר נשלחה",
+followup:"פולו-אפ",won:"נסגר (זכינו)",lost:"נסגר (הפסדנו)",
+wait_materials:"ממתין לחומרים",in_production:"בייצור",
+ready_install:"מוכן להתקנה",installing:"בהתקנה",completed:"הושלם",
+planned:"מתוכנן",in_progress:"בתהליך",inst_completed:"בוצע",
+approved:"אושר",received:"התקבל",pending:"ממתין",
+draft:"טיוטה",sent:"נשלח",accepted:"אושר",
+google:"Google",recommendation:"המלצה",repeat:"לקוח חוזר",
+yad2:"יד2",facebook:"Facebook",other:"אחר",word_of_mouth:"פה לאוזן",
+private:"פרטי",contractor:"קבלן",developer:"יזם",
+architect:"אדריכל",foreman:"מנהל עבודה",
+concrete:"בטון מזוין",aerated:"בלוק בטון",brick:"לבנים",wood:"עץ",
+replacement:"החלפה",new_construction:"בנייה חדשה",extension:"הרחבה",renovation:"שיפוץ",
+high:"גבוהה",medium:"בינונית",low:"נמוכה",
+deposit:"מקדמה",interim:"ביניים",final:"סופי",
+cash:"מזומן",bank_transfer:"העברה בנקאית",check:"צ'ק",credit_card:"כרטיס אשראי",bit:"ביט",
+m1:"ינו׳",m2:"פבר׳",m3:"מרץ",m4:"אפר׳",m5:"מאי",m6:"יוני",m7:"יולי",m8:"אוג׳",m9:"ספט׳",m10:"אוק׳",m11:"נוב׳",m12:"דצ׳",
+mf1:"ינואר",mf2:"פברואר",mf3:"מרץ",mf4:"אפריל",mf5:"מאי",mf6:"יוני",mf7:"יולי",mf8:"אוגוסט",mf9:"ספטמבר",mf10:"אוקטובר",mf11:"נובמבר",mf12:"דצמבר",
+d1:"ב׳",d2:"ג׳",d3:"ד׳",d4:"ה׳",d5:"ו׳",d6:"ש׳",d7:"א׳",
+newLead:"ליד חדש",editLead:"ערוך ליד",newMeasure:"מדידה חדשה",newOrder:"הזמנה חדשה",
+allLeads:"כל הלידים",inCRM:'בסה"כ ב-CRM',today:"היום",
+clientType:"סוג לקוח",jobType:"סוג עבודה",wallType:"סוג קיר",
+actHistory:"היסטוריית פעילות",addNote:"הוסף הערה...",
+fromMeasurements:"ממדידות",openCalc:"פתח במחשבון",
+addWindow:"הוסף חלון",saveQuote:"שמור הצעה",pdfQuote:"PDF הצעה",
+createOrder:"צור הזמנה",margin:"מרג'ין %",
+profile:"פרופיל",glass:"זכוכית",screen:"רשת",shutter:"תריס",
+color:"צבע פרופיל",accessories:"אביזרים",extras:"תוספות",
+demolition:"פירוק",crane:"מנוף",highFloor:"קומה גבוהה",
+quoteHistory:"היסטוריית הצעות",activeOrders:"פעילות",completedOrders:"שהושלמו",allOrders:"הכל",
+addPayment:"הוסף תשלום",deleteOrder:"מחק הזמנה",
+newDoc:"מסמך חדש",docType:"סוג מסמך",payMethod:"אמצעי תשלום",
+allocationNum:"מספר הקצאה",issuedDocs:"מסמכים שהופקו",
+monthView:"חודש",weekView:"שבוע",noEvents:"אין אירועים",upcoming:"7 ימים הקרובים",
+revenue:"הכנסות",fixedCosts:"הוצאות קבועות",salaries:"משכורות",
+oneTime:"הוצאות חד-פעמיות",totalExp:'סה"כ הוצאות',netProfit:"רווח נקי",
+breakeven:"נקודת איזון",goals:"יעדים חודשיים",
+analytics:"אנליטיקה",funnel:"משפך המרה",avgDeal:"עסקה ממוצעת",
+collection:"גביית תשלומים",contracted:"סכום חוזים",
+addItem:"הוסף פריט",needPurchase:"נדרשת רכישה",
+stockValue:"שווי מלאי",pricePerUnit:"מחיר ליחידה ₪",minimum:"מינימום (התראה)",
+cat_profiles:"פרופילים",cat_glass:"זכוכית",cat_hardware:"חומרה",
+cat_consumables:"מתכלים",cat_tools:"כלים",cat_other:"אחר",
+wa_first:"👋 יצירת קשר ראשונה",wa_measure:"📐 אישור מדידה",wa_quote:"📋 שליחת הצעת מחיר",
+wa_followup:"🔔 פולו-אפ",wa_order:"✅ אישור הזמנה",wa_install:"🔧 תאריך התקנה",wa_done:"🎉 העבודה הושלמה",
+settings:"הגדרות חברה",saved:"נשמר",saving:"שומר...",
+clientRequired:"יש לציין שם לקוח",confirmDelete:"למחוק?",
+inWork:"בעבודה",noData:"אין נתונים",positions:"פריטים",
+deleteOrderQ:"למחוק את ההזמנה?",deletePaymentQ:"למחוק תשלום?",
+},
+en:{
+nav_dashboard:"Dashboard",nav_leads:"Leads / CRM",nav_measurements:"Measurements",
+nav_calc:"Quote Calculator",nav_quotes:"Quote History",nav_orders:"Orders",
+nav_install:"Installation",nav_payments:"Cash Register",nav_calendar:"Calendar",
+nav_finance:"P&L · Finance",nav_kpi:"KPI",nav_inventory:"Inventory",
+save:"Save",cancel:"Cancel",delete:"Delete",edit:"Edit",
+add:"Add",create:"Create",send:"Send",export:"Export",
+search:"Search...",close:"Close",print:"Print",
+client:"Client",phone:"Phone",address:"Address",city:"City",date:"Date",
+notes:"Notes",status:"Status",amount:"Amount",total:"Total",price:"Price",
+qty:"Qty",name:"Name",type:"Type",source:"Source",priority:"Priority",
+floor:"Floor",room:"Room",width:"W (cm)",height:"H (cm)",
+new_lead:"New Lead",measurement_set:"Measurement Set",quote_sent:"Quote Sent",
+followup:"followup",won:"Closed (Won)",lost:"Closed (Lost)",
+wait_materials:"Awaiting Materials",in_production:"In Production",
+ready_install:"Ready to Install",installing:"Installing",completed:"Completed",
+planned:"Planned",in_progress:"In Progress",inst_completed:"Completed",
+approved:"Approved",received:"Received",pending:"Pending",
+draft:"Draft",sent:"Sent",accepted:"Accepted",
+google:"Google",recommendation:"Recommendation",repeat:"Repeat client",
+yad2:"Yad2",facebook:"Facebook",other:"Other",word_of_mouth:"Word of mouth",
+private:"Private",contractor:"Contractor",developer:"Developer",
+architect:"Architect",foreman:"Site manager",
+concrete:"Reinforced concrete",aerated:"Aerated block",brick:"Brick",wood:"Wood",
+replacement:"Replacement",new_construction:"New construction",extension:"Extension",renovation:"Renovation",
+high:"High",medium:"Medium",low:"Low",
+deposit:"Deposit",interim:"Interim",final:"Final",
+cash:"Cash",bank_transfer:"Bank transfer",check:"Check",credit_card:"Credit card",bit:"Bit",
+m1:"Jan",m2:"Feb",m3:"Mar",m4:"Apr",m5:"May",m6:"Jun",m7:"Jul",m8:"Aug",m9:"Sep",m10:"Oct",m11:"Nov",m12:"Dec",
+mf1:"January",mf2:"February",mf3:"March",mf4:"April",mf5:"May",mf6:"June",mf7:"July",mf8:"August",mf9:"September",mf10:"October",mf11:"November",mf12:"December",
+d1:"Mo",d2:"Tu",d3:"We",d4:"Th",d5:"Fr",d6:"Sa",d7:"Su",
+newLead:"New Lead",editLead:"Edit Lead",newMeasure:"New Measurement",newOrder:"New Order",
+allLeads:"All Leads",inCRM:"total in CRM",today:"Today",
+clientType:"Client type",jobType:"Job type",wallType:"Wall type",
+actHistory:"Activity history",addNote:"Add note...",
+fromMeasurements:"from measurements",openCalc:"Open in calculator",
+addWindow:"Add window",saveQuote:"Save Quote",pdfQuote:"PDF Quote",
+createOrder:"Create Order",margin:"Margin %",
+profile:"Profile",glass:"Glass",screen:"Screen",shutter:"Shutter",
+color:"Profile color",accessories:"Accessories",extras:"Extras",
+demolition:"Demolition",crane:"Crane",highFloor:"High floor",
+quoteHistory:"Quote History",activeOrders:"Active",completedOrders:"Completed",allOrders:"All",
+addPayment:"Add Payment",deleteOrder:"Delete Order",
+newDoc:"New Document",docType:"Document type",payMethod:"Payment method",
+allocationNum:"Allocation Number",issuedDocs:"Issued Documents",
+monthView:"Month",weekView:"Week",noEvents:"No events",upcoming:"Next 7 days",
+revenue:"Revenue",fixedCosts:"Fixed Costs",salaries:"Salaries",
+oneTime:"One-time Costs",totalExp:"Total Expenses",netProfit:"Net Profit",
+breakeven:"Break-even Point",goals:"Monthly Goals",
+analytics:"Analytics",funnel:"Conversion Funnel",avgDeal:"Avg Deal",
+collection:"Collection Rate",contracted:"Contracted",
+addItem:"Add Item",needPurchase:"PURCHASE NEEDED",
+stockValue:"Stock Value",pricePerUnit:"Price per unit ₪",minimum:"Minimum (alert)",
+cat_profiles:"Profiles",cat_glass:"Glass",cat_hardware:"Hardware",
+cat_consumables:"Consumables",cat_tools:"Tools",cat_other:"Other",
+wa_first:"👋 First contact",wa_measure:"📐 Confirm measurement",wa_quote:"📋 Send quote",
+wa_followup:"🔔 Follow-up",wa_order:"✅ Confirm order",wa_install:"🔧 Install date",wa_done:"🎉 Work complete",
+settings:"Company Settings",saved:"Saved",saving:"Saving...",
+clientRequired:"Enter client name",confirmDelete:"Delete?",
+inWork:"In progress",noData:"No data",positions:"items",
+deleteOrderQ:"Delete this order?",deletePaymentQ:"Delete payment?",
+}};
+// Translate UI key → current language
+const ui=(k)=>UI[_LANG]?.[k]??UI.ru?.[k]??k;
+// Translate a stored slug value (e.g. "completed" → "completed")
+const ds=(v)=>{if(!v)return"";return UI[_LANG]?.[v]??UI.ru?.[v]??v;};
+// Translate bi() object or slug string
+const t=(x)=>{if(!x)return"";if(typeof x==="string")return ds(x);if(typeof x==="object")return x[_LANG]||x.ru||"";return String(x);};
 
 const DG=[
   {id:"none",    name:bi("Стандарт (в базе)","סטנדרטי (בסיס)","Standard (base)"),          price:0,    code:"-"},
@@ -376,14 +604,14 @@ const dekelLookup=(op,profile,areaSqm)=>{
 
 // ── INIT DATA ────────────────────────────────────────────────
 const IL=[
-  {id:1,name:"Давид Коэн",phone:"052-111-2233",city:"Тель-Авив",type:"Частный",windows:4,status:"Замер назначен",date:"2025-03-12",source:"Google Ads",value:12000,notes:""},
-  {id:2,name:"Строй-Проект ЛТД",phone:"054-222-3344",city:"Ришон",type:"Подрядчик",windows:24,status:"КП отправлено",date:"2025-03-10",source:"Рекомендация",value:85000,notes:""},
-  {id:3,name:"Ирина Леви",phone:"050-333-4455",city:"Хайфа",type:"Частный",windows:6,status:"Новый лид",date:"2025-03-14",source:"Google Maps",value:18000,notes:""},
+  {id:1,name:"Давид Коэн",phone:"052-111-2233",city:"Тель-Авив",type:"Частный",windows:4,status:"measurement_set",date:"2025-03-12",source:"Google Ads",value:12000,notes:""},
+  {id:2,name:"Строй-Проект ЛТД",phone:"054-222-3344",city:"Ришон",type:"Подрядчик",windows:24,status:"quote_sent",date:"2025-03-10",source:"Рекомендация",value:85000,notes:""},
+  {id:3,name:"Ирина Леви",phone:"050-333-4455",city:"Хайфа",type:"Частный",windows:6,status:"new_lead",date:"2025-03-14",source:"Google Maps",value:18000,notes:""},
 ];
 const IO=[
-  {id:"WB-001",client:"АрхиМастер",windows:40,total:140000,paid:56000,status:"В производстве",created:"2025-03-06",delivery:"2025-03-25",city:"Иерусалим",progress:60},
-  {id:"WB-002",client:"Давид Коэн",windows:4,total:12000,paid:4800,status:"Ожидает материалов",created:"2025-03-12",delivery:"2025-03-28",city:"Тель-Авив",progress:10},
-  {id:"WB-003",client:"Ноам Шапиро",windows:8,total:28000,paid:28000,status:"Завершён",created:"2025-02-20",delivery:"2025-03-05",city:"Петах-Тиква",progress:100},
+  {id:"WB-001",client:"АрхиМастер",windows:40,total:140000,paid:56000,status:"in_production",created:"2025-03-06",delivery:"2025-03-25",city:"Иерусалим",progress:60},
+  {id:"WB-002",client:"Давид Коэн",windows:4,total:12000,paid:4800,status:"wait_materials",created:"2025-03-12",delivery:"2025-03-28",city:"Тель-Авив",progress:10},
+  {id:"WB-003",client:"Ноам Шапиро",windows:8,total:28000,paid:28000,status:"completed",created:"2025-02-20",delivery:"2025-03-05",city:"Петах-Тиква",progress:100},
 ];
 const II=[
   {id:1,name:"Профиль Alumil S67",unit:"м.п.",qty:340,minQty:100,price:28,category:"Профиль"},
@@ -396,10 +624,10 @@ const II=[
   {id:8,name:"Пена монтажная Soudal",unit:"шт.",qty:6,minQty:10,price:38,category:"Материалы"},
 ];
 const IP=[
-  {id:1,order:"WB-001",client:"АрхиМастер",type:"Предоплата",amount:56000,date:"2025-03-07",method:"Банк",status:"Получен"},
-  {id:2,order:"WB-002",client:"Давид Коэн",type:"Предоплата",amount:4800,date:"2025-03-13",method:"Наличные",status:"Получен"},
-  {id:3,order:"WB-003",client:"Ноам Шапиро",type:"Финальный",amount:28000,date:"2025-03-05",method:"Банк",status:"Получен"},
-  {id:4,order:"WB-001",client:"АрхиМастер",type:"Финальный",amount:84000,date:"2025-03-25",method:"Банк",status:"Ожидается"},
+  {id:1,order:"WB-001",client:"АрхиМастер",type:"Предоплата",amount:56000,date:"2025-03-07",method:"Банк",status:"received"},
+  {id:2,order:"WB-002",client:"Давид Коэн",type:"Предоплата",amount:4800,date:"2025-03-13",method:"Наличные",status:"received"},
+  {id:3,order:"WB-003",client:"Ноам Шапиро",type:"Финальный",amount:28000,date:"2025-03-05",method:"Банк",status:"received"},
+  {id:4,order:"WB-001",client:"АрхиМастер",type:"Финальный",amount:84000,date:"2025-03-25",method:"Банк",status:"pending"},
 ];
 const IK=[
   {month:"Янв",leads:8,measures:4,orders:2,revenue:28000,cogs:17000,opex:19000,adSpend:4000},
@@ -408,7 +636,7 @@ const IK=[
 ];
 const IM=[
   {id:1,client:"Давид Коэн",phone:"052-111-2233",address:"ул. Дизенгоф 45, Тель-Авив",
-   date:"2025-03-15",specialist:"Алекс",status:"Выполнен",
+   date:"2025-03-15",specialist:"Алекс",status:"inst_completed",
    openings:[
      {id:101,room:"Гостиная",width:180,height:140,type:"Хаза 2-трек",qty:1,notes:""},
      {id:102,room:"Кухня",width:90,height:90,type:"Поворотно-откидное",qty:1,notes:""},
@@ -435,13 +663,18 @@ const II_INST=[];
 const D={bg:"#090E1A",surface:"#0F1729",card:"#131D30",border:"#1E2D45",
   text:"#E8EDF5",muted:"#4A607A",accent:"#2563EB",accentLight:"#3B82F6",
   green:"#10B981",yellow:"#F59E0B",red:"#EF4444",purple:"#8B5CF6",teal:"#14B8A6"};
-const SC={"Новый лид":"#3B82F6","Замер назначен":"#8B5CF6","КП отправлено":"#F59E0B",
-  "Follow-up":"#EC4899","Закрыт (выиграли)":"#10B981","Закрыт (проиграли)":"#EF4444",
-  "Ожидает материалов":"#F59E0B","В производстве":"#3B82F6","Монтаж":"#8B5CF6","Завершён":"#10B981",
-  "Получен":"#10B981","Ожидается":"#F59E0B","Запланирован":"#8B5CF6","Выполнен":"#3B82F6","Утверждён":"#10B981"};
-const LST=["Новый лид","Замер назначен","КП отправлено","Follow-up","Закрыт (выиграли)","Закрыт (проиграли)"];
-const OST=["Ожидает материалов","В производстве","Монтаж","Завершён"];
-const MST=["Запланирован","Выполнен","Утверждён"];
+const SC={
+  "new_lead":"#3B82F6","measurement_set":"#8B5CF6","quote_sent":"#F59E0B",
+  "followup":"#EC4899","won":"#10B981","lost":"#EF4444",
+  "wait_materials":"#F59E0B","in_production":"#3B82F6","ready_install":"#14B8A6",
+  "installing":"#8B5CF6","completed":"#10B981",
+  "received":"#10B981","pending":"#F59E0B","draft":"#64748B",
+  "sent":"#3B82F6","accepted":"#10B981",
+  "planned":"#8B5CF6","in_progress":"#F59E0B","inst_completed":"#10B981","approved":"#10B981"
+};
+const LST=["new_lead","measurement_set","quote_sent","followup","won","lost"];
+const OST=["wait_materials","in_production","installing","completed"];
+const MST=["planned","inst_completed","approved"];
 const MOP_T=[
   bi("Хаза 2-трек",         "הזזה 2 מסלולים"),
   bi("Хаза 3-трек",         "הזזה 3 מסלולים"),
@@ -461,7 +694,7 @@ const WT=[
   bi("Дерево","עץ"),
   bi("Другое","אחר"),
 ];
-const PM={"Ожидает материалов":10,"В производстве":50,"Монтаж":85,"Завершён":100};
+const PM={"wait_materials":10,"in_production":50,"installing":85,"completed":100};
 const fmt=n=>"₪"+Math.round(n).toLocaleString("ru-RU");
 const fmtSize=b=>b<1024?b+"B":b<1048576?(b/1024).toFixed(1)+"KB":(b/1048576).toFixed(1)+"MB";
 const fileIcon=t=>{if(!t)return"📎";if(t.startsWith("image/"))return"🖼️";if(t==="application/pdf")return"📄";if(t.includes("dwg")||t.includes("dxf"))return"📐";return"📎";};
@@ -553,16 +786,16 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   // ── Today's agenda ──
   const todayMeasures=measurements.filter(m=>m.date===today);
   const todayInstalls=installations.filter(i=>i.scheduledDate===today);
-  const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
-  const todayFollowUps=leads.filter(l=>l.followUp===today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
-  const pendingPayments=payments.filter(p=>p.status==="Ожидается");
+  const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["won","lost"].includes(l.status));
+  const todayFollowUps=leads.filter(l=>l.followUp===today&&!["won","lost"].includes(l.status));
+  const pendingPayments=payments.filter(p=>p.status==="pending");
 
   // ── Real financials ──
-  const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
-  const totalPending=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const totalPaid=payments.filter(p=>p.status==="received").reduce((s,p)=>s+p.amount,0);
+  const totalPending=payments.filter(p=>p.status==="pending").reduce((s,p)=>s+p.amount,0);
   const totalContracted=orders.reduce((s,o)=>s+o.total,0);
-  const activeOrders=orders.filter(o=>o.status!=="Завершён");
-  const completedOrders=orders.filter(o=>o.status==="Завершён");
+  const activeOrders=orders.filter(o=>o.status!=="completed");
+  const completedOrders=orders.filter(o=>o.status==="completed");
   const avgDeal=orders.length>0?Math.round(totalContracted/orders.length):0;
 
   // ── Funnel ──
@@ -575,16 +808,16 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   const convLO=fLeads>0?Math.round(fOrders/fLeads*100):0;
 
   // ── Pipeline value ──
-  const pipeline=leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status))
+  const pipeline=leads.filter(l=>!["won","lost"].includes(l.status))
     .reduce((s,l)=>s+(l.value||0),0);
 
   // ── Status breakdown ──
   const pie=[
-    {name:"Новый",value:leads.filter(l=>l.status==="Новый лид").length,c:D.accentLight},
-    {name:"Замер",value:leads.filter(l=>l.status==="Замер назначен").length,c:D.purple},
-    {name:"КП",value:leads.filter(l=>l.status==="КП отправлено").length,c:D.yellow},
-    {name:"Follow-up",value:leads.filter(l=>l.status==="Follow-up").length,c:"#EC4899"},
-    {name:"Выиграли",value:leads.filter(l=>l.status==="Закрыт (выиграли)").length,c:D.green},
+    {name:"Новый",value:leads.filter(l=>l.status==="new_lead").length,c:D.accentLight},
+    {name:"Замер",value:leads.filter(l=>l.status==="measurement_set").length,c:D.purple},
+    {name:"КП",value:leads.filter(l=>l.status==="quote_sent").length,c:D.yellow},
+    {name:"followup",value:leads.filter(l=>l.status==="followup").length,c:"#EC4899"},
+    {name:"Выиграли",value:leads.filter(l=>l.status==="won").length,c:D.green},
   ].filter(d=>d.value>0);
 
   // ── Monthly revenue ──
@@ -604,8 +837,8 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   const revenueChart=Object.values(monthMap).sort((a,b)=>a.key.localeCompare(b.key)).slice(-8);
 
   const lowStock=inventory.filter(i=>i.qty<i.minQty).length;
-  const pending=payments.filter(p=>p.status==="Ожидается");
-  const pendInst=installations.filter(i=>i.status==="Запланирован"||i.status==="В процессе").length;
+  const pending=payments.filter(p=>p.status==="pending");
+  const pendInst=installations.filter(i=>i.status==="planned"||i.status==="in_progress").length;
 
   const hasTodayItems=todayMeasures.length>0||todayInstalls.length>0||todayFollowUps.length>0||overdueFollowUps.length>0||pendingPayments.length>0;
 
@@ -707,7 +940,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
       <KCard icon={DollarSign} label="Получено ₪" value={fmt(totalPaid)} color={D.green} sub={`Ожидается ещё ${fmt(totalPending)}`}/>
       <KCard icon={ShoppingCart} label="В работе" value={activeOrders.length} color={D.accentLight} sub={`Сумма ${fmt(activeOrders.reduce((s,o)=>s+o.total,0))}`}/>
-      <KCard icon={TrendingUp} label="Pipeline" value={fmt(pipeline)} color={D.purple} sub={`${leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status)).length} лидов в работе`}/>
+      <KCard icon={TrendingUp} label="Pipeline" value={fmt(pipeline)} color={D.purple} sub={`${leads.filter(l=>!["won","lost"].includes(l.status)).length} лидов в работе`}/>
       <KCard icon={Users} label="Ср. чек" value={fmt(avgDeal)} color={D.yellow} sub={`${orders.length} заказов всего`}/>
     </div>
 
@@ -831,12 +1064,12 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
             [lowStock>0,`📦 ${lowStock} позиций мало на складе`,D.yellow],
             [pendInst>0,`🔧 ${pendInst} монтажей в работе`,D.purple],
             [totalPending>0,`💰 ${fmt(totalPending)} ожидается`,D.green],
-            [leads.filter(l=>l.status==="Новый лид").length>0,
-              `👤 ${leads.filter(l=>l.status==="Новый лид").length} новых лидов`,D.accentLight],
+            [leads.filter(l=>l.status==="new_lead").length>0,
+              `👤 ${leads.filter(l=>l.status==="new_lead").length} новых лидов`,D.accentLight],
           ].filter(([cond])=>cond).map(([,text,color],i)=>(
             <div key={i} style={{fontSize:11,color,fontWeight:700,marginBottom:5}}>• {text}</div>
           ))}
-          {[lowStock,pendInst,totalPending,leads.filter(l=>l.status==="Новый лид").length].every(v=>!v)&&
+          {[lowStock,pendInst,totalPending,leads.filter(l=>l.status==="new_lead").length].every(v=>!v)&&
             <div style={{fontSize:11,color:D.green}}>✓ Всё в порядке</div>}
         </div>
       </div>
@@ -854,16 +1087,16 @@ const PRIORITIES=[
 ];
 const JOB_TYPES=["Новый проект","Ремонт","Замена окна","По чертежу"];
 const KANBAN_COLS=[
-  {id:"Новый лид",          label:"Новый лид",         color:"#3B82F6"},
-  {id:"Замер назначен",     label:"Замер назначен",     color:"#8B5CF6"},
-  {id:"КП отправлено",      label:"КП отправлено",      color:"#F59E0B"},
-  {id:"Follow-up",          label:"Follow-up",          color:"#EC4899"},
-  {id:"Закрыт (выиграли)",  label:"✅ Выиграли",        color:"#10B981"},
-  {id:"Закрыт (проиграли)", label:"❌ Проиграли",       color:"#EF4444"},
+  {id:"new_lead",          label:"new_lead",         color:"#3B82F6"},
+  {id:"measurement_set",     label:"measurement_set",     color:"#8B5CF6"},
+  {id:"quote_sent",      label:"quote_sent",      color:"#F59E0B"},
+  {id:"followup",          label:"followup",          color:"#EC4899"},
+  {id:"won",  label:"✅ Выиграли",        color:"#10B981"},
+  {id:"lost", label:"❌ Проиграли",       color:"#EF4444"},
 ];
 
 const EMPTY_LEAD=()=>({name:"",phone:"",city:"",type:"Частный",jobType:"Новый проект",
-  windows:"1",source:"Google Ads",status:"Новый лид",priority:"normal",
+  windows:"1",source:"Google Ads",status:"new_lead",priority:"normal",
   value:"",followUp:"",notes:""});
 
 function Leads({leads,setLeads,onClientClick}){
@@ -877,7 +1110,7 @@ function Leads({leads,setLeads,onClientClick}){
     l.name.toLowerCase().includes(search.toLowerCase())||
     (l.phone||"").includes(search)||(l.city||"").toLowerCase().includes(search.toLowerCase()));
 
-  const openAdd=(status="Новый лид")=>{setEdit(null);setForm({...EMPTY_LEAD(),status});setModal(true);};
+  const openAdd=(status="new_lead")=>{setEdit(null);setForm({...EMPTY_LEAD(),status});setModal(true);};
   const openEdit=l=>{setEdit(l.id);setForm({...EMPTY_LEAD(),...l,windows:String(l.windows||1),value:String(l.value||0)});setModal(true);};
   const submit=()=>{
     if(!form.name||!form.phone)return;
@@ -891,7 +1124,7 @@ function Leads({leads,setLeads,onClientClick}){
   const pLabel=id=>PRIORITIES.find(p=>p.id===id)?.label||"";
 
   const today=new Date().toISOString().split("T")[0];
-  const overdueFollowUp=l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status);
+  const overdueFollowUp=l=>l.followUp&&l.followUp<today&&!["won","lost"].includes(l.status);
 
   // ── KANBAN CARD ──
   const KanbanCard=({l})=>(
@@ -905,7 +1138,7 @@ function Leads({leads,setLeads,onClientClick}){
         <span style={{fontSize:9,color:pColor(l.priority),fontWeight:800,whiteSpace:"nowrap"}}>{pLabel(l.priority)}</span>
       </div>
       {l.jobType&&<div style={{display:"inline-block",background:D.surface,border:`1px solid ${D.border}`,
-        borderRadius:4,padding:"1px 6px",fontSize:9,color:D.muted,fontWeight:700,marginBottom:5}}>{l.jobType}</div>}
+        borderRadius:4,padding:"1px 6px",fontSize:9,color:D.muted,fontWeight:700,marginBottom:5}}>{ds(l.jobType)}</div>}
       <div style={{fontSize:11,color:D.muted,marginBottom:4}}>📞 {l.phone}</div>
       {l.city&&<div style={{fontSize:10,color:D.muted}}>📍 {l.city}</div>}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,paddingTop:6,borderTop:`1px solid ${D.border}`}}>
@@ -938,7 +1171,7 @@ function Leads({leads,setLeads,onClientClick}){
             </button>
           ))}
         </div>
-        <Btn onClick={()=>exportCSV(["Имя","Телефон","Город","Тип","Работа","Статус","Приоритет","Сумма","Follow-up","Дата"],
+        <Btn onClick={()=>exportCSV(["Имя","Телефон","Город","Тип","Работа","Статус","Приоритет","Сумма","followup","Дата"],
           leads.map(l=>[l.name,l.phone,l.city,l.type,l.jobType||"",l.status,l.priority||"",l.value,l.followUp||"",l.date]),"лиды.csv")} variant="ghost">
           <Download size={13}/> CSV
         </Btn>
@@ -985,7 +1218,7 @@ function Leads({leads,setLeads,onClientClick}){
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
         <div style={{display:"grid",gridTemplateColumns:"2fr 1.1fr 0.8fr 0.8fr 1.2fr 1fr 1fr 56px",
           padding:"8px 14px",background:D.surface,gap:8}}>
-          {["Клиент / Работа","Телефон","Город","Приоритет","Статус","Оценка","Follow-up",""].map((h,i)=>(
+          {["Клиент / Работа","Телефон","Город","Приоритет","Статус","Оценка","followup",""].map((h,i)=>(
             <div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
         </div>
         {filtered.length===0&&<div style={{padding:40,textAlign:"center",color:D.muted}}>Нет лидов</div>}
@@ -1068,14 +1301,14 @@ function Leads({leads,setLeads,onClientClick}){
 // MEASUREMENTS
 // ═══════════════════════════════════════════════════════════════
 // Lead status pipeline helper
-const MSTATUS_TO_LSTATUS={"Запланирован":"Замер назначен","Выполнен":"КП отправлено","Утверждён":"Follow-up"};
+const MSTATUS_TO_LSTATUS={"planned":"measurement_set","inst_completed":"quote_sent","approved":"followup"};
 
 function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,onClientClick}){
   const [modal,setModal]=useState(false);
   const [viewM,setViewM]=useState(null);
   const [editId,setEditId]=useState(null);
   const ef=()=>({client:"",phone:"",address:"",date:new Date().toISOString().split("T")[0],
-    specialist:"",status:"Запланирован",leadId:"",mode:"Выезд",
+    specialist:"",status:"planned",leadId:"",mode:"Выезд",
     openings:[{id:Date.now(),room:"",width:"",height:"",type:"Хаза 2-трек",qty:1,notes:""}],
     wallType:"Железобетон",floor:"1",crane:false,demolition:false,installNotes:"",files:[]});
   const [form,setForm]=useState(ef());
@@ -1119,9 +1352,9 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       </div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
-      <KCard icon={Clock} label="Запланировано" value={measurements.filter(m=>m.status==="Запланирован").length} color={D.purple}/>
-      <KCard icon={Ruler} label="Выполнено" value={measurements.filter(m=>m.status==="Выполнен").length} color={D.accentLight}/>
-      <KCard icon={Check} label="Утверждено" value={measurements.filter(m=>m.status==="Утверждён").length} color={D.green}/>
+      <KCard icon={Clock} label="Запланировано" value={measurements.filter(m=>m.status==="planned").length} color={D.purple}/>
+      <KCard icon={Ruler} label="Выполнено" value={measurements.filter(m=>m.status==="inst_completed").length} color={D.accentLight}/>
+      <KCard icon={Check} label="Утверждено" value={measurements.filter(m=>m.status==="approved").length} color={D.green}/>
     </div>
     {measurements.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:40,textAlign:"center",color:D.muted}}>Нет замеров</div>}
     <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -1268,8 +1501,8 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
             client:lead?lead.name:f.client,phone:lead?lead.phone:f.phone}));
         }} style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 12px",color:D.text,fontSize:13,outline:"none"}}>
           <option value="" style={{background:D.card}}>— без привязки —</option>
-          {leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status)).map(l=>(
-            <option key={l.id} value={l.id} style={{background:D.card}}>{l.name} · {l.phone} · {l.status}</option>
+          {leads.filter(l=>!["won","lost"].includes(l.status)).map(l=>(
+            <option key={l.id} value={l.id} style={{background:D.card}}>{l.name} · {l.phone} · {ds(l.status)}</option>
           ))}
         </select>
         {form.leadId&&<div style={{fontSize:10,color:D.teal,marginTop:4}}>✓ При сохранении статус лида обновится автоматически</div>}
@@ -1630,8 +1863,8 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
     if(!client)return alert("Укажи имя клиента");
     const id="WB-"+String(orders.length+1).padStart(3,"0");
     setOrders(p=>[...p,{id,client,city:"",windows:items.reduce((s,i)=>s+i.qty,0),total:saleTotal,paid:0,
-      status:"Ожидает материалов",progress:10,created:new Date().toISOString().split("T")[0],delivery:""}]);
-    setLeads(p=>p.map(l=>l.name===client?{...l,status:"Закрыт (выиграли)",value:saleTotal}:l));
+      status:"wait_materials",progress:10,created:new Date().toISOString().split("T")[0],delivery:""}]);
+    setLeads(p=>p.map(l=>l.name===client?{...l,status:"won",value:saleTotal}:l));
     if(setActivity)addActivity(setActivity,client,"order",`📦 Создан заказ ${id} на ${fmt(saleTotal)}`);
     alert(`Заказ ${id} создан! Лид обновлён.`);
   };
@@ -1641,7 +1874,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
     if(!setQuotes)return;
     const id="QT-"+Date.now().toString().slice(-6);
     const rec={id,client,date:new Date().toISOString().split("T")[0],
-      total:saleTotal,margin,split,status:"Черновик",
+      total:saleTotal,margin,split,status:"draft",
       items:calced.filter(c=>c.valid).map(c=>({
         name:c.name,w:c.w,h:c.h,qty:c.qty,op:c.op,profile:c.profile,
         glass:c.glass,screen:c.screen,shutter:c.shutter,color:c.color,
@@ -2105,7 +2338,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
             </div>
           </div>
           {/* Wall type — info only */}
-          {extras.wallType&&<div style={{fontSize:10,color:D.muted,marginTop:4}}>🧱 {extras.wallType}</div>}
+          {extras.wallType&&<div style={{fontSize:10,color:D.muted,marginTop:4}}>🧱 {ds(extras.wallType)}</div>}
         </div>
 
         {/* Shutter market factor */}
@@ -2417,7 +2650,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
   const [viewId,setViewId]=useState(null);
   const ef=()=>({client:"",phone:"",address:"",orderId:"",specialist:"",
     scheduledDate:new Date().toISOString().split("T")[0],completedDate:"",
-    status:"Запланирован",checklist:CHECKLIST_STEPS.map(()=>false),
+    status:"planned",checklist:CHECKLIST_STEPS.map(()=>false),
     notes:"",photosBefore:[],photosAfter:[]});
   const [form,setForm]=useState(ef());
   const [editId,setEditId]=useState(null);
@@ -2454,10 +2687,10 @@ function Installation({installations,setInstallations,orders,onClientClick}){
     </div>
     {/* Stats */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
-      <KCard icon={Clock} label="Запланировано" value={installations.filter(i=>i.status==="Запланирован").length} color={D.purple}/>
-      <KCard icon={Wrench} label="В процессе" value={installations.filter(i=>i.status==="В процессе").length} color={D.accentLight}/>
-      <KCard icon={Check} label="Завершено" value={installations.filter(i=>i.status==="Завершён").length} color={D.green}/>
-      <KCard icon={ClipboardCheck} label="Актов выдано" value={installations.filter(i=>i.status==="Завершён").length} color={D.teal}/>
+      <KCard icon={Clock} label="Запланировано" value={installations.filter(i=>i.status==="planned").length} color={D.purple}/>
+      <KCard icon={Wrench} label="in_progress" value={installations.filter(i=>i.status==="in_progress").length} color={D.accentLight}/>
+      <KCard icon={Check} label="Завершено" value={installations.filter(i=>i.status==="completed").length} color={D.green}/>
+      <KCard icon={ClipboardCheck} label="Актов выдано" value={installations.filter(i=>i.status==="completed").length} color={D.teal}/>
     </div>
     {installations.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:40,textAlign:"center",color:D.muted}}>Нет монтажей. Нажми «Новый монтаж» чтобы начать.</div>}
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -2477,7 +2710,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
               <select value={inst.status} onChange={e=>setInstallations(p=>p.map(x=>x.id===inst.id?{...x,status:e.target.value}:x))}
                 style={{background:(SC[inst.status]||D.muted)+"18",color:SC[inst.status]||D.muted,
                   border:`1px solid ${(SC[inst.status]||D.muted)}40`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                {["Запланирован","В процессе","Завершён"].map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+                {["planned","in_progress","completed"].map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
               </select>
               <Btn onClick={()=>setViewId(inst.id)} variant="teal" small><Eye size={12}/> Чек-лист</Btn>
               <Btn onClick={()=>printAct(inst,ord)} variant="success" small><Download size={12}/> Акт PDF</Btn>
@@ -2590,7 +2823,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
         <Inp label="Дата завершения" value={form.completedDate} onChange={e=>setForm(p=>({...p,completedDate:e.target.value}))} type="date"/>
-        <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={["Запланирован","В процессе","Завершён"]}/>
+        <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={["planned","in_progress","completed"]}/>
       </div>
       <Inp label="Заметки / Замечания" value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
       <div style={{display:"flex",gap:8}}>
@@ -2619,7 +2852,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
     if(!form.client||!form.total)return;
     const id="WB-"+String(orders.length+1).padStart(3,"0");
     setOrders(p=>[...p,{...form,id,windows:+form.windows||1,total:+form.total,paid:0,
-      status:"Ожидает материалов",progress:10,created:new Date().toISOString().split("T")[0]}]);
+      status:"wait_materials",progress:10,created:new Date().toISOString().split("T")[0]}]);
     setModal(false);setForm({client:"",city:"",windows:"1",total:"",delivery:""});
   };
 
@@ -2639,7 +2872,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
     const payId=Date.now();
     setPayments(p=>[...p,{id:payId,order:o.id,client:o.client,type,
       amount:Math.min(amount,debt),date:new Date().toISOString().split("T")[0],
-      method:"Банк",status:"Ожидается"}]);
+      method:"Банк",status:"pending"}]);
     setOrders(p=>p.map(x=>x.id===o.id?{...x,paid:Math.min(x.paid+amount,x.total)}:x));
   };
 
@@ -2658,15 +2891,15 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
 
   // Filter and search
   const filtered=orders.filter(o=>{
-    const matchFilter=filter==="all"||(filter==="active"&&o.status!=="Завершён")||(filter==="completed"&&o.status==="Завершён");
+    const matchFilter=filter==="all"||(filter==="active"&&o.status!=="completed")||(filter==="completed"&&o.status==="completed");
     const matchSearch=!search.trim()||o.client.toLowerCase().includes(search.toLowerCase())||o.id.toLowerCase().includes(search.toLowerCase());
     return matchFilter&&matchSearch;
   });
   const totalPages=Math.ceil(filtered.length/PAGE_SIZE);
   const paged=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
 
-  const activeCount=orders.filter(o=>o.status!=="Завершён").length;
-  const completedCount=orders.filter(o=>o.status==="Завершён").length;
+  const activeCount=orders.filter(o=>o.status!=="completed").length;
+  const completedCount=orders.filter(o=>o.status==="completed").length;
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
@@ -2715,7 +2948,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
         const margin=o.paid>0?Math.round(profit/o.paid*100):0;
         const hasPl=matC>0||labC>0||extC>0;
         const orderPays=(payments||[]).filter(p=>p.order===o.id);
-        const isCompleted=o.status==="Завершён";
+        const isCompleted=o.status==="completed";
 
         return(<div key={o.id} style={{background:D.card,border:`1px solid ${isCompleted?D.green+"40":D.border}`,
           borderRadius:14,padding:"18px 20px",opacity:isCompleted?0.9:1}}>
@@ -2774,12 +3007,12 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
                 </div>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
                   <select value={pay.status} onChange={e=>editPayStatus(pay.id,e.target.value)}
-                    style={{background:(pay.status==="Получен"?D.green:D.yellow)+"20",
-                      color:pay.status==="Получен"?D.green:D.yellow,
-                      border:`1px solid ${(pay.status==="Получен"?D.green:D.yellow)}40`,
+                    style={{background:(pay.status==="received"?D.green:D.yellow)+"20",
+                      color:pay.status==="received"?D.green:D.yellow,
+                      border:`1px solid ${(pay.status==="received"?D.green:D.yellow)}40`,
                       borderRadius:6,padding:"3px 6px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
-                    <option value="Ожидается" style={{background:D.card,color:D.text}}>Ожидается</option>
-                    <option value="Получен" style={{background:D.card,color:D.text}}>Получен</option>
+                    <option value="pending" style={{background:D.card,color:D.text}}>Ожидается</option>
+                    <option value="received" style={{background:D.card,color:D.text}}>Получен</option>
                   </select>
                   <button onClick={()=>deletePay(pay.id,o.id,pay.amount)}
                     title="Удалить платёж"
@@ -3271,8 +3504,8 @@ function Payments({payments,setPayments,onClientClick,company}){
   const isVat=["עוסק מורשה","חברה בעמ","שותפות"].includes(bizType);
   const VAT=0.18;
 
-  const rcv=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
-  const pnd=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const rcv=payments.filter(p=>p.status==="received").reduce((s,p)=>s+p.amount,0);
+  const pnd=payments.filter(p=>p.status==="pending").reduce((s,p)=>s+p.amount,0);
   const totalDocs=docs.reduce((s,d)=>s+d.amount,0);
 
   // Doc type options per business type
@@ -3307,7 +3540,7 @@ function Payments({payments,setPayments,onClientClick,company}){
     if(df.docType==="קבלה"||df.docType==="חשבונית מס קבלה"){
       setPayments(p=>[...p,{id:Date.now()+1,order:df.orderId||"",client:df.client,
         type:df.docType,amount:amtNum,date:doc.date,method:df.method,
-        status:"Получен",docNum}]);
+        status:"received",docNum}]);
     }
     setNewDoc(false);
     setDf({docType:"חשבונית מס קבלה",client:"",clientTaxId:"",clientAddress:"",
@@ -3391,11 +3624,11 @@ function Payments({payments,setPayments,onClientClick,company}){
           <div onClick={()=>onClientClick&&onClientClick(p.client)}
             style={{fontSize:13,color:D.text,cursor:"pointer",fontWeight:600}}>{p.client}</div>
           <div style={{fontSize:10,color:D.muted}}>{p.type}</div>
-          <div style={{fontSize:14,fontWeight:800,color:p.status==="Получен"?D.green:D.yellow}}>{fmt(p.amount)}</div>
+          <div style={{fontSize:14,fontWeight:800,color:p.status==="received"?D.green:D.yellow}}>{fmt(p.amount)}</div>
           <div style={{fontSize:11,color:D.muted}}>{p.date}</div>
           <Badge status={p.status}/>
-          {p.status==="Ожидается"
-            ?<Btn onClick={()=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,status:"Получен"}:x))} variant="success" small>
+          {p.status==="pending"
+            ?<Btn onClick={()=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,status:"received"}:x))} variant="success" small>
                <Check size={11}/> התקבל
              </Btn>
             :<div style={{width:72}}/>}
@@ -3651,7 +3884,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
       monthMap[m].cogs+=(+pl.materialsCost||0)+(+pl.laborCost||0)+(+pl.extrasCost||0);
     }catch{}
   });
-  payments.filter(p=>p.status==="Получен").forEach(p=>{
+  payments.filter(p=>p.status==="received").forEach(p=>{
     const m=p.date?.slice(0,7)||"";
     if(!m)return;
     if(!monthMap[m])monthMap[m]={key:m,label:`${MONTHS_RU[parseInt(m.slice(5))-1]} ${m.slice(2,4)}`,revenue:0,paid:0,orders:0,cogs:0};
@@ -3665,8 +3898,8 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
   const totalMonthlyExp=totalFixed+totalSalaries;
 
   const totalRevenue=orders.reduce((s,o)=>s+o.total,0);
-  const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
-  const totalPending=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const totalPaid=payments.filter(p=>p.status==="received").reduce((s,p)=>s+p.amount,0);
+  const totalPending=payments.filter(p=>p.status==="pending").reduce((s,p)=>s+p.amount,0);
   const grossProfit=Math.round(totalPaid*0.35); // ~35% margin estimate
   const netProfit=grossProfit-totalMonthlyExp-totalOneTime;
   const breakevenRevenue=totalMonthlyExp>0?Math.round(totalMonthlyExp/0.35):0;
@@ -3895,8 +4128,8 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
     {/* Follow-up alerts */}
     {(()=>{
       const today=new Date().toISOString().split("T")[0];
-      const overdue=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
-      const todayFu=leads.filter(l=>l.followUp===today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+      const overdue=leads.filter(l=>l.followUp&&l.followUp<today&&!["won","lost"].includes(l.status));
+      const todayFu=leads.filter(l=>l.followUp===today&&!["won","lost"].includes(l.status));
       if(overdue.length===0&&todayFu.length===0)return null;
       return(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:18}}>
         <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:12}}>🔔 Follow-up напоминания</div>
@@ -3906,7 +4139,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
             border:`1px solid ${(l._over?D.red:D.yellow)}30`,borderRadius:8,marginBottom:6}}>
             <div>
               <div style={{fontSize:12,fontWeight:700,color:D.text}}>{l.name}</div>
-              <div style={{fontSize:10,color:D.muted}}>{l._over?"🔴 Просрочено: "+l.followUp:"🟡 Сегодня"} · {l.status}</div>
+              <div style={{fontSize:10,color:D.muted}}>{l._over?"🔴 Просрочено: "+l.followUp:"🟡 Сегодня"} · {ds(l.status)}</div>
             </div>
             <div style={{display:"flex",gap:6}}>
               {l.phone&&<a href={`tel:${l.phone}`} style={{background:D.green+"20",border:`1px solid ${D.green}40`,
@@ -3930,15 +4163,15 @@ function KPI({leads,measurements,orders,payments}){
   const fLeads=leads.length;
   const fMeasured=measurements.length;
   const fOrders=orders.length;
-  const fWon=leads.filter(l=>l.status==="Закрыт (выиграли)").length;
-  const fLost=leads.filter(l=>l.status==="Закрыт (проиграли)").length;
+  const fWon=leads.filter(l=>l.status==="won").length;
+  const fLost=leads.filter(l=>l.status==="lost").length;
   const convLM=fLeads>0?+(fMeasured/fLeads*100).toFixed(0):0;
   const convMO=fMeasured>0?+(fOrders/fMeasured*100).toFixed(0):0;
   const convLO=fLeads>0?+(fOrders/fLeads*100).toFixed(0):0;
   const winRate=fWon+fLost>0?+(fWon/(fWon+fLost)*100).toFixed(0):0;
 
-  const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
-  const totalPending=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const totalPaid=payments.filter(p=>p.status==="received").reduce((s,p)=>s+p.amount,0);
+  const totalPending=payments.filter(p=>p.status==="pending").reduce((s,p)=>s+p.amount,0);
   const totalContracted=orders.reduce((s,o)=>s+o.total,0);
   const avgDeal=orders.length>0?Math.round(totalContracted/orders.length):0;
   const collectRate=totalContracted>0?Math.round(totalPaid/totalContracted*100):0;
@@ -3950,7 +4183,7 @@ function KPI({leads,measurements,orders,payments}){
     if(!monthMap[m])monthMap[m]={key:m,label:`${MONTHS_RU[parseInt(m.slice(5))-1]} ${m.slice(2,4)}`,revenue:0,paid:0,orders:0,leads:0,measures:0};
     monthMap[m].revenue+=o.total; monthMap[m].orders++;
   });
-  payments.filter(p=>p.status==="Получен").forEach(p=>{
+  payments.filter(p=>p.status==="received").forEach(p=>{
     const m=p.date?.slice(0,7)||""; if(!m)return;
     if(!monthMap[m])monthMap[m]={key:m,label:`${MONTHS_RU[parseInt(m.slice(5))-1]} ${m.slice(2,4)}`,revenue:0,paid:0,orders:0,leads:0,measures:0};
     monthMap[m].paid+=p.amount;
@@ -3973,18 +4206,18 @@ function KPI({leads,measurements,orders,payments}){
   const sources=Object.entries(srcMap).sort((a,b)=>b[1]-a[1]);
 
   // Status breakdown
-  const statuses=["Новый лид","Замер назначен","КП отправлено","Follow-up","Закрыт (выиграли)","Закрыт (проиграли)"];
+  const statuses=["new_lead","measurement_set","quote_sent","followup","won","lost"];
   const statusColors={
-    "Новый лид":D.accentLight,"Замер назначен":D.teal,"КП отправлено":D.yellow,
-    "Follow-up":"#EC4899","Закрыт (выиграли)":D.green,"Закрыт (проиграли)":D.red
+    "new_lead":D.accentLight,"measurement_set":D.teal,"quote_sent":D.yellow,
+    "followup":"#EC4899","won":D.green,"lost":D.red
   };
 
   // Excel export
   const exportExcel=()=>{
     const style=`<style>body{font-family:Arial,sans-serif;font-size:11pt}.h1{background:#1E3A8A;color:#fff;font-size:14pt;font-weight:bold;padding:6px}.h2{background:#2563EB;color:#fff;font-size:11pt;font-weight:bold;padding:4px}.th{background:#1E293B;color:#fff;font-weight:bold;border:1px solid #ccc;padding:4px 8px}.td{border:1px solid #ddd;padding:3px 8px}.num{text-align:right;border:1px solid #ddd;padding:3px 8px}.pct{text-align:right;color:#16a34a;border:1px solid #ddd;padding:3px 8px;font-weight:bold}.tot{background:#f0f9ff;font-weight:bold;border:1px solid #ccc;padding:4px 8px}.pos{color:#16a34a;font-weight:bold}.neg{color:#dc2626;font-weight:bold}.tag{background:#EFF6FF;color:#1D4ED8;font-size:9pt;padding:1px 5px;border-radius:3px}tr:nth-child(even) td,tr:nth-child(even) .num{background:#F8FAFC}</style>`;
-    const leadRows=leads.map(l=>`<tr><td class="td"><b>${l.name}</b></td><td class="td">${l.phone||""}</td><td class="td">${l.city||""}</td><td class="td">${l.type||""}</td><td class="td"><span class="tag">${l.status}</span></td><td class="num ${l.value>0?"pos":""}">${l.value>0?"₪"+l.value.toLocaleString():"—"}</td><td class="td">${l.followUp||"—"}</td><td class="td">${l.source||""}</td><td class="td">${l.date||""}</td></tr>`).join("");
-    const orderRows=orders.map(o=>`<tr><td class="td"><b>${o.id}</b></td><td class="td">${o.client}</td><td class="td">${o.city||"—"}</td><td class="num">${o.windows}</td><td class="num">₪${o.total.toLocaleString()}</td><td class="num ${o.paid>0?"pos":""}">${o.paid>0?"₪"+o.paid.toLocaleString():"—"}</td><td class="num ${(o.total-o.paid)>0?"neg":""}">${(o.total-o.paid)>0?"₪"+(o.total-o.paid).toLocaleString():"—"}</td><td class="td"><span class="tag">${o.status}</span></td><td class="td">${o.created||""}</td></tr>`).join("");
-    const payRows=payments.map(p=>`<tr><td class="td">${p.order||""}</td><td class="td"><b>${p.client}</b></td><td class="td">${p.type}</td><td class="num"><b>₪${p.amount.toLocaleString()}</b></td><td class="td">${p.date||""}</td><td class="td">${p.method||""}</td><td class="td"><span class="tag">${p.status}</span></td></tr>`).join("");
+    const leadRows=leads.map(l=>`<tr><td class="td"><b>${l.name}</b></td><td class="td">${l.phone||""}</td><td class="td">${l.city||""}</td><td class="td">${l.type||""}</td><td class="td"><span class="tag">${ds(l.status)}</span></td><td class="num ${l.value>0?"pos":""}">${l.value>0?"₪"+l.value.toLocaleString():"—"}</td><td class="td">${l.followUp||"—"}</td><td class="td">${l.source||""}</td><td class="td">${l.date||""}</td></tr>`).join("");
+    const orderRows=orders.map(o=>`<tr><td class="td"><b>${o.id}</b></td><td class="td">${o.client}</td><td class="td">${o.city||"—"}</td><td class="num">${o.windows}</td><td class="num">₪${o.total.toLocaleString()}</td><td class="num ${o.paid>0?"pos":""}">${o.paid>0?"₪"+o.paid.toLocaleString():"—"}</td><td class="num ${(o.total-o.paid)>0?"neg":""}">${(o.total-o.paid)>0?"₪"+(o.total-o.paid).toLocaleString():"—"}</td><td class="td"><span class="tag">${ds(o.status)}</span></td><td class="td">${o.created||""}</td></tr>`).join("");
+    const payRows=payments.map(p=>`<tr><td class="td">${p.order||""}</td><td class="td"><b>${p.client}</b></td><td class="td">${p.type}</td><td class="num"><b>₪${p.amount.toLocaleString()}</b></td><td class="td">${p.date||""}</td><td class="td">${p.method||""}</td><td class="td"><span class="tag">${ds(p.status)}</span></td></tr>`).join("");
     const monthRows=monthList.map(m=>`<tr><td class="td"><b>${m.label}</b></td><td class="num">${m.leads}</td><td class="num">${m.measures}</td><td class="num">${m.orders}</td><td class="num">₪${m.revenue.toLocaleString()}</td><td class="num pos">₪${m.paid.toLocaleString()}</td></tr>`).join("");
     const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8">${style}<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Dashboard</x:Name><x:WorksheetOptions><x:Selected/></x:WorksheetOptions></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>Лиды</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>Заказы</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>Платежи</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>По месяцам</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>
     <table style="margin-bottom:30px;width:600px"><tr><td colspan="3" class="h1">🏭 WindowOS — KPI · ${new Date().toLocaleDateString("ru-RU")}</td></tr><tr><td colspan="3" class="h2">📊 Воронка</td></tr><tr><td class="th">Показатель</td><td class="th">Значение</td><td class="th">%</td></tr><tr><td class="td">Лидов</td><td class="num"><b>${fLeads}</b></td><td class="pct">—</td></tr><tr><td class="td">Замеров</td><td class="num"><b>${fMeasured}</b></td><td class="pct">${convLM}%</td></tr><tr><td class="td">Заказов</td><td class="num"><b>${fOrders}</b></td><td class="pct">${convLO}%</td></tr><tr><td class="td">Закрыто</td><td class="num pos"><b>${fWon}</b></td><td class="pct">${winRate}%</td></tr><tr><td colspan="3" class="h2">💰 Финансы</td></tr><tr><td class="td">Сумма КП</td><td class="num">₪${totalContracted.toLocaleString()}</td><td></td></tr><tr><td class="td">Получено</td><td class="num pos">₪${totalPaid.toLocaleString()}</td><td></td></tr><tr><td class="td">Средний чек</td><td class="num">₪${avgDeal.toLocaleString()}</td><td></td></tr></table>
@@ -4046,7 +4279,7 @@ function KPI({leads,measurements,orders,payments}){
         <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:14}}>📊 Воронка конверсии</div>
         <FunnelBar label="👤 Лидов" value={fLeads} max={fLeads} color={D.accentLight}/>
         <FunnelBar label="📐 Замеров" value={fMeasured} max={fLeads} color={D.teal}/>
-        <FunnelBar label="📋 КП отправлено" value={leads.filter(l=>["КП отправлено","Follow-up","Закрыт (выиграли)"].includes(l.status)).length} max={fLeads} color={D.yellow}/>
+        <FunnelBar label="📋 КП отправлено" value={leads.filter(l=>["quote_sent","followup","won"].includes(l.status)).length} max={fLeads} color={D.yellow}/>
         <FunnelBar label="📦 Заказов" value={fOrders} max={fLeads} color={D.purple}/>
         <FunnelBar label="✅ Закрыто (выиграли)" value={fWon} max={fLeads} color={D.green}/>
         <div style={{marginTop:14,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
@@ -4070,7 +4303,7 @@ function KPI({leads,measurements,orders,payments}){
         {[
           ["Сумма контрактов",fmt(totalContracted),D.text],
           ["Получено",fmt(totalPaid),D.green],
-          ["Ожидается",fmt(totalPending),D.yellow],
+          ["pending",fmt(totalPending),D.yellow],
           ["Средний чек",fmt(avgDeal),D.accentLight],
           ["Сбор платежей",collectRate+"%",collectRate>=80?D.green:collectRate>=50?D.yellow:D.red],
         ].map(([l,v,c])=>(
@@ -4232,7 +4465,7 @@ function Quotes({quotes,setQuotes,onClientClick}){
     const matchFilter=filter==="Все"||q.status===filter;
     return matchSearch&&matchFilter;
   });
-  const QSTATUS=["Черновик","Отправлено","Принято","Отклонено","Истекло"];
+  const QSTATUS=["draft","sent","accepted","Отклонено","Истекло"];
   const QSC={Черновик:D.muted,Отправлено:D.yellow,Принято:D.green,Отклонено:D.red,Истекло:"#94a3b8"};
 
   const updateStatus=(id,status)=>setQuotes(p=>p.map(q=>q.id===id?{...q,status}:q));
@@ -4254,9 +4487,9 @@ function Quotes({quotes,setQuotes,onClientClick}){
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
       {[
         ["Всего КП",quotes.length,D.accentLight],
-        ["Принято",quotes.filter(q=>q.status==="Принято").length,D.green],
-        ["Ожидают ответа",quotes.filter(q=>q.status==="Отправлено").length,D.yellow],
-        ["Сумма принятых",fmt(quotes.filter(q=>q.status==="Принято").reduce((s,q)=>s+q.total,0)),D.teal],
+        ["accepted",quotes.filter(q=>q.status==="accepted").length,D.green],
+        ["Ожидают ответа",quotes.filter(q=>q.status==="sent").length,D.yellow],
+        ["Сумма принятых",fmt(quotes.filter(q=>q.status==="accepted").reduce((s,q)=>s+q.total,0)),D.teal],
       ].map(([l,v,c])=>(
         <div key={l} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:12,padding:"12px 16px"}}>
           <div style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:4}}>{l}</div>
@@ -4403,8 +4636,8 @@ const sendPushNotification=(title,body,onClick)=>{
 // ── CHECK FOLLOW-UPS and send push ──────────────────────────
 const checkFollowUps=(leads)=>{
   const today=new Date().toISOString().split("T")[0];
-  const due=leads.filter(l=>l.followUp===today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
-  const overdue=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
+  const due=leads.filter(l=>l.followUp===today&&!["won","lost"].includes(l.status));
+  const overdue=leads.filter(l=>l.followUp&&l.followUp<today&&!["won","lost"].includes(l.status));
   if(due.length>0)sendPushNotification(`📞 Follow-up сегодня (${due.length})`,due.map(l=>l.name).join(", "));
   if(overdue.length>0)sendPushNotification(`🔴 Просрочено (${overdue.length})`,overdue.map(l=>l.name).join(", "));
 };
@@ -4420,8 +4653,8 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
   const cPay=payments.filter(p=>p.client===clientName);
   const cQuotes=(quotes||[]).filter(q=>q.client===clientName);
   const cActivity=(activity||[]).filter(a=>a.client===clientName);
-  const paid=cPay.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
-  const pending=cPay.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const paid=cPay.filter(p=>p.status==="received").reduce((s,p)=>s+p.amount,0);
+  const pending=cPay.filter(p=>p.status==="pending").reduce((s,p)=>s+p.amount,0);
   const phone=lead?.phone||cMeasures[0]?.phone||"";
   const waNum=phone.replace(/[^0-9]/g,"").replace(/^0/,"972");
   const [waModal,setWaModal]=useState(false);
@@ -4471,10 +4704,10 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div>
               <div style={{fontSize:20,fontWeight:900,color:D.text}}>{clientName}</div>
-              {lead&&<div style={{fontSize:11,color:D.muted,marginTop:2}}>{lead.type} · {lead.city||"—"} · {lead.source}</div>}
+              {lead&&<div style={{fontSize:11,color:D.muted,marginTop:2}}>{lead.type} · {lead.city||"—"} · {ds(lead.source)}</div>}
               {lead&&<div style={{display:"inline-block",marginTop:6,background:(SC[lead.status]||D.muted)+"20",
                 color:SC[lead.status]||D.muted,border:`1px solid ${(SC[lead.status]||D.muted)}40`,
-                borderRadius:12,padding:"2px 10px",fontSize:10,fontWeight:700}}>{lead.status}</div>}
+                borderRadius:12,padding:"2px 10px",fontSize:10,fontWeight:700}}>{ds(lead.status)}</div>}
             </div>
             <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}><X size={18}/></button>
           </div>
@@ -4526,7 +4759,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
             {[
               ["КП сумма",fmt(cOrders.reduce((s,o)=>s+o.total,0)),D.text],
               ["Оплачено",fmt(paid),D.green],
-              ["Ожидается",fmt(pending),D.yellow],
+              ["pending",fmt(pending),D.yellow],
             ].map(([l,v,c])=>(
               <div key={l} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
                 <div style={{fontSize:8,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{l}</div>
@@ -4598,7 +4831,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
                   <div style={{fontSize:10,color:D.muted}}>{p.method}</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:13,fontWeight:800,color:p.status==="Получен"?D.green:D.yellow}}>{fmt(p.amount)}</div>
+                  <div style={{fontSize:13,fontWeight:800,color:p.status==="received"?D.green:D.yellow}}>{fmt(p.amount)}</div>
                   <Badge status={p.status}/>
                 </div>
               </div>
@@ -4617,7 +4850,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
                 padding:"6px 0",borderBottom:`1px solid ${D.border}`}}>
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:D.text}}>{q.id} · {q.date}</div>
-                  <div style={{fontSize:10,color:D.muted}}>{q.items?.length||0} позиций · {q.status}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{q.items?.length||0} позиций · {ds(q.status)}</div>
                 </div>
                 <span style={{fontSize:12,fontWeight:800,color:D.yellow}}>{fmt(q.total)}</span>
               </div>
@@ -4706,12 +4939,12 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
     addEv(l.followUp,{type:"followup",label:l.name,sub:l.status,color:isPast?D.red:D.yellow,client:l.name,id:l.id,phone:l.phone,isPast});
   });
   payments.forEach(p=>{
-    if(p.status==="Ожидается"&&p.date)
+    if(p.status==="pending"&&p.date)
       addEv(p.date,{type:"payment",label:p.client,sub:`₪${p.amount?.toLocaleString()}`,color:D.green,client:p.client,id:p.id});
   });
 
   const TYPE_ICONS={measure:"📐",install:"🔧",followup:"🔔",payment:"💰"};
-  const TYPE_LABELS={measure:"Замер",install:"Монтаж",followup:"Follow-up",payment:"Платёж"};
+  const TYPE_LABELS={measure:"Замер",install:"installing",followup:"followup",payment:"Платёж"};
 
   // Month grid
   const getDaysInMonth=(y,m)=>{
@@ -4747,12 +4980,12 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
     const id=Date.now();
     if(quickModal.type==="measure"){
       setMeasurements(p=>[...p,{id,client:quickForm.client,phone:quickForm.phone,
-        address:quickForm.address,date:quickModal.date,status:"Запланирован",
+        address:quickForm.address,date:quickModal.date,status:"planned",
         mode:"Выезд",specialist:"",notes:quickForm.notes,openings:[],files:[],
         floor:"1",wallType:"Железобетон",crane:false,demolition:false}]);
     } else if(quickModal.type==="install"){
       setInstallations(p=>[...p,{id,client:quickForm.client,address:quickForm.address,
-        scheduledDate:quickModal.date,status:"Запланирован",specialist:"",
+        scheduledDate:quickModal.date,status:"planned",specialist:"",
         checklist:new Array(11).fill(false),notes:quickForm.notes,
         photosBefore:[],photosAfter:[],completedDate:""}]);
     } else if(quickModal.type==="followup"){
@@ -4795,7 +5028,7 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           {/* Legend */}
           <div style={{display:"flex",gap:8,marginRight:8,fontSize:10,color:D.muted}}>
-            {[["📐",D.teal,"Замер"],["🔧",D.purple,"Монтаж"],["🔔",D.yellow,"Follow-up"],["💰",D.green,"Платёж"]].map(([ico,c,l])=>(
+            {[["📐",D.teal,"Замер"],["🔧",D.purple,"installing"],["🔔",D.yellow,"followup"],["💰",D.green,"Платёж"]].map(([ico,c,l])=>(
               <span key={l} style={{display:"flex",alignItems:"center",gap:3}}>
                 <span style={{width:8,height:8,borderRadius:"50%",background:c,display:"inline-block"}}/>
                 {l}
@@ -5032,18 +5265,18 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
 }
 
 const PAGES=()=>[
-  {id:"dashboard",   icon:LayoutDashboard, label:ui("dashboard")},
-  {id:"leads",       icon:Users,           label:ui("leads")},
-  {id:"measurements",icon:Ruler,           label:ui("measurements")},
-  {id:"calc",        icon:Calculator,      label:ui("calc")},
-  {id:"quotes",      icon:FileText,        label:ui("quotes")},
-  {id:"orders",      icon:ShoppingCart,    label:ui("orders")},
-  {id:"installation",icon:Wrench,          label:ui("install")},
-  {id:"payments",    icon:Wallet,          label:ui("payments")},
-  {id:"calendar",    icon:CalendarDays,    label:ui("calendar")},
-  {id:"finance",     icon:TrendingUp,      label:ui("finance")},
-  {id:"kpi",         icon:BarChart2,       label:ui("kpi")},
-  {id:"inventory",   icon:Package,         label:ui("inventory")},
+  {id:"dashboard",   icon:LayoutDashboard, label:ui("nav_dashboard")},
+  {id:"leads",       icon:Users,           label:ui("nav_leads")},
+  {id:"measurements",icon:Ruler,           label:ui("nav_measurements")},
+  {id:"calc",        icon:Calculator,      label:ui("nav_calc")},
+  {id:"quotes",      icon:FileText,        label:ui("nav_quotes")},
+  {id:"orders",      icon:ShoppingCart,    label:ui("nav_orders")},
+  {id:"installation",icon:Wrench,          label:ui("nav_install")},
+  {id:"payments",    icon:Wallet,          label:ui("nav_payments")},
+  {id:"calendar",    icon:CalendarDays,    label:ui("nav_calendar")},
+  {id:"finance",     icon:TrendingUp,      label:ui("nav_finance")},
+  {id:"kpi",         icon:BarChart2,       label:ui("nav_kpi")},
+  {id:"inventory",   icon:Package,         label:ui("nav_inventory")},
 ];
 
 export default function App(){
@@ -5093,6 +5326,12 @@ export default function App(){
     // Load from Firebase on app start
     fbLoadAll().then(fbData=>{
       if(!fbData){setFbSynced(true);return;}
+      // Migrate old Russian values → English slugs (backwards compat)
+      if(fbData.leads)fbData.leads=fbData.leads.map(migObj);
+      if(fbData.orders)fbData.orders=fbData.orders.map(migObj);
+      if(fbData.measurements)fbData.measurements=fbData.measurements.map(migObj);
+      if(fbData.installations)fbData.installations=fbData.installations.map(migObj);
+      if(fbData.payments)fbData.payments=fbData.payments.map(o=>o?{...o,status:mig(o.status||"")}:o);
       // Update all states from Firebase (cloud is source of truth)
       const upd=(key,setter)=>{if(fbData[key]!==undefined&&fbData[key]!==null){
         const val=Array.isArray(fbData[key])?fbData[key]:
@@ -5158,9 +5397,9 @@ export default function App(){
   const [searchFocus,setSearchFocus]=useState(false);
 
   const today=new Date().toISOString().split("T")[0];
-  const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
-  const pendM=measurements.filter(m=>m.status==="Запланирован").length;
-  const pendInst=installations.filter(i=>i.status==="Запланирован"||i.status==="В процессе").length;
+  const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["won","lost"].includes(l.status));
+  const pendM=measurements.filter(m=>m.status==="planned").length;
+  const pendInst=installations.filter(i=>i.status==="planned"||i.status==="in_progress").length;
   const todayStr2=new Date().toISOString().split("T")[0];
   const todayCalEvents=[
     ...measurements.filter(m=>m.date===todayStr2),
@@ -5168,14 +5407,14 @@ export default function App(){
     ...leads.filter(l=>l.followUp===todayStr2),
   ].length;
   const alerts=[
-    leads.filter(l=>l.status==="Новый лид").length, // dashboard
-    leads.filter(l=>l.status==="Новый лид").length, // leads
+    leads.filter(l=>l.status==="new_lead").length, // dashboard
+    leads.filter(l=>l.status==="new_lead").length, // leads
     pendM,           // measurements
     null,            // calc
     null,            // quotes
     pendInst,        // orders
     inventory.filter(i=>i.qty<i.minQty).length, // installation
-    payments.filter(p=>p.status==="Ожидается").length, // payments
+    payments.filter(p=>p.status==="pending").length, // payments
     todayCalEvents,  // calendar
     overdueFollowUps.length, // finance
     null,            // kpi
@@ -5190,7 +5429,7 @@ export default function App(){
           <div style={{fontSize:13,fontWeight:900,color:D.text}}>WindowOS</div>
           <div style={{display:"flex",alignItems:"center",gap:4,marginTop:1}}>
             <div style={{width:6,height:6,borderRadius:"50%",background:saved?D.green:D.yellow}}/>
-            <span style={{fontSize:9,color:D.muted,fontWeight:600}}>{saved?"Сохранено":"Сохраняю..."}</span>
+            <span style={{fontSize:9,color:D.muted,fontWeight:600}}>{saved?ui("saved"):ui("saving")}</span>
             {fbOnline&&<span style={{fontSize:9,color:"#F97316",fontWeight:700,marginLeft:2}}>☁️</span>}
             {fbSynced&&!fbOnline&&<span style={{fontSize:9,color:D.muted,marginLeft:2}}>offline</span>}
           </div>
@@ -5215,12 +5454,12 @@ export default function App(){
     </nav>
     <div style={{padding:"8px",borderTop:`1px solid ${D.border}`}}>
       {[
-        leads.filter(l=>l.status==="Новый лид").length>0&&[`👤 ${leads.filter(l=>l.status==="Новый лид").length} новых лидов`,"leads"],
+        leads.filter(l=>l.status==="new_lead").length>0&&[`👤 ${leads.filter(l=>l.status==="new_lead").length} новых лидов`,"leads"],
         overdueFollowUps.length>0&&[`🔴 ${overdueFollowUps.length} просрочен follow-up`,"leads"],
         pendM>0&&[`📐 ${pendM} замеров ждут`,"measurements"],
         pendInst>0&&[`🔧 ${pendInst} монтажей активно`,"installation"],
         inventory.filter(i=>i.qty<i.minQty).length>0&&[`📦 нужна закупка`,"inventory"],
-        payments.filter(p=>p.status==="Ожидается").length>0&&[`💰 ожидаются платежи`,"payments"],
+        payments.filter(p=>p.status==="pending").length>0&&[`💰 ожидаются платежи`,"payments"],
       ].filter(Boolean).map(([a,pg],i)=>(<button key={i} onClick={()=>navTo(pg)}
         style={{display:"block",width:"100%",textAlign:"left",background:D.yellow+"12",border:`1px solid ${D.yellow}25`,
           borderRadius:7,padding:"5px 8px",marginBottom:3,fontSize:9,fontWeight:700,color:D.yellow,cursor:"pointer"}}
@@ -5243,7 +5482,7 @@ export default function App(){
       <button onClick={()=>setCompanyModal(true)}
         style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:7,
           padding:"5px 8px",color:D.muted,fontSize:10,cursor:"pointer",textAlign:"left"}}>
-        ⚙️ Реквизиты компании
+        ⚙️ {ui("settings")}
       </button>
     </div>
     <div style={{padding:"6px 14px 8px",fontSize:9,color:D.muted+"55"}}>WindowOS v5.0 🇮🇱</div>
@@ -5336,7 +5575,7 @@ export default function App(){
     />)}
 
     {/* COMPANY SETTINGS MODAL */}
-    {companyModal&&(<Modal title="⚙️ Реквизиты компании" onClose={()=>setCompanyModal(false)}>
+    {companyModal&&(<Modal title={`⚙️ ${ui("settings")}`} onClose={()=>setCompanyModal(false)}>
       {/* Business type selector */}
       <div style={{marginBottom:14}}>
         <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>סוג עסק / Тип бизнеса</div>
