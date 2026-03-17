@@ -81,125 +81,188 @@ const DB=[
 
 // Dekel glass addons (per m²)
 // ── BILINGUAL HELPER ─────────────────────────────────────────
-let _LANG="ru"; // global lang state — updated by App
-const bi=(ru,he)=>_LANG==="he"?he:ru;
+let _LANG="ru";
+const bi=(ru,he,en)=>({ru,he:he||ru,en:en||ru});
+const t=(x)=>{if(!x)return"";if(typeof x==="string")return x;if(typeof x==="object")return x[_LANG]||x.ru||"";return String(x);};
+const UI={
+  ru:{
+    // Nav
+    dashboard:"Дашборд",leads:"Лиды / CRM",measurements:"Замеры",calc:"Калькулятор КП",
+    quotes:"КП История",orders:"Заказы",install:"Монтаж",payments:"Касса",
+    calendar:"Календарь",finance:"P&L · Финансы",kpi:"KPI",inventory:"Склад",
+    // Actions
+    save:"Сохранить",cancel:"Отмена",delete:"Удалить",edit:"Редактировать",
+    add:"Добавить",create:"Создать",search:"Поиск...",close:"Закрыть",export:"Экспорт",
+    // Fields
+    client:"Клиент",phone:"Телефон",address:"Адрес",date:"Дата",notes:"Заметки",
+    status:"Статус",total:"Итого",received:"Получен",pending:"Ожидается",
+    today:"Сегодня",settings:"Настройки компании",
+    // Lead statuses
+    "Новый лид":"Новый лид","Замер назначен":"Замер назначен","КП отправлено":"КП отправлено",
+    "Follow-up":"Follow-up","Закрыт (выиграли)":"Закрыт (выиграли)","Закрыт (проиграли)":"Закрыт (проиграли)",
+    // Order statuses
+    "Ожидает материалов":"Ожидает материалов","В производстве":"В производстве",
+    "Готов к монтажу":"Готов к монтажу","Монтаж":"Монтаж","Завершён":"Завершён",
+    // Install statuses
+    "Запланирован":"Запланирован","В процессе":"В процессе","Выполнен":"Выполнен","Утверждён":"Утверждён",
+    // Payment statuses
+    "Получен":"Получен","Ожидается":"Ожидается","Черновик":"Черновик",
+    // Source
+    "Google":"Google","Рекомендация":"Рекомендация","Повторный клиент":"Повторный клиент",
+    "Yad2":"Yad2","Facebook":"Facebook","Другое":"Другое",
+    // Months
+    m1:"Янв",m2:"Фев",m3:"Мар",m4:"Апр",m5:"Май",m6:"Июн",
+    m7:"Июл",m8:"Авг",m9:"Сен",m10:"Окт",m11:"Ноя",m12:"Дек",
+    d1:"Пн",d2:"Вт",d3:"Ср",d4:"Чт",d5:"Пт",d6:"Сб",d7:"Вс",
+  },
+  he:{
+    dashboard:"דשבורד",leads:"לידים / CRM",measurements:"מדידות",calc:"מחשבון הצעת מחיר",
+    quotes:"היסטוריית הצעות",orders:"הזמנות",install:"התקנה",payments:"קופה",
+    calendar:"לוח שנה",finance:"P&L · פיננסים",kpi:"KPI",inventory:"מחסן",
+    save:"שמור",cancel:"ביטול",delete:"מחק",edit:"ערוך",
+    add:"הוסף",create:"צור",search:"חיפוש...",close:"סגור",export:"ייצוא",
+    client:"לקוח",phone:"טלפון",address:"כתובת",date:"תאריך",notes:"הערות",
+    status:"סטטוס",total:'סה"כ',received:"התקבל",pending:"ממתין",
+    today:"היום",settings:"הגדרות חברה",
+    "Новый лид":"ליד חדש","Замер назначен":"נקבעה מדידה","КП отправлено":"הצעת מחיר נשלחה",
+    "Follow-up":"פולו-אפ","Закрыт (выиграли)":"נסגר (זכינו)","Закрыт (проиграли)":"נסגר (הפסדנו)",
+    "Ожидает материалов":"ממתין לחומרים","В производстве":"בייצור",
+    "Готов к монтажу":"מוכן להתקנה","Монтаж":"בהתקנה","Завершён":"הושלם",
+    "Запланирован":"מתוכנן","В процессе":"בתהליך","Выполнен":"בוצע","Утверждён":"אושר",
+    "Получен":"התקבל","Ожидается":"ממתין","Черновик":"טיוטה",
+    "Google":"Google","Рекомендация":"המלצה","Повторный клиент":"לקוח חוזר",
+    "Yad2":"יד2","Facebook":"Facebook","Другое":"אחר",
+    m1:"ינו׳",m2:"פבר׳",m3:"מרץ",m4:"אפר׳",m5:"מאי",m6:"יוני",
+    m7:"יולי",m8:"אוג׳",m9:"ספט׳",m10:"אוק׳",m11:"נוב׳",m12:"דצ׳",
+    d1:"ב׳",d2:"ג׳",d3:"ד׳",d4:"ה׳",d5:"ו׳",d6:"ש׳",d7:"א׳",
+  },
+  en:{
+    dashboard:"Dashboard",leads:"Leads / CRM",measurements:"Measurements",calc:"Quote Calculator",
+    quotes:"Quote History",orders:"Orders",install:"Installation",payments:"Cash Register",
+    calendar:"Calendar",finance:"P&L · Finance",kpi:"KPI",inventory:"Inventory",
+    save:"Save",cancel:"Cancel",delete:"Delete",edit:"Edit",
+    add:"Add",create:"Create",search:"Search...",close:"Close",export:"Export",
+    client:"Client",phone:"Phone",address:"Address",date:"Date",notes:"Notes",
+    status:"Status",total:"Total",received:"Received",pending:"Pending",
+    today:"Today",settings:"Company Settings",
+    "Новый лид":"New Lead","Замер назначен":"Measurement Set","КП отправлено":"Quote Sent",
+    "Follow-up":"Follow-up","Закрыт (выиграли)":"Closed (Won)","Закрыт (проиграли)":"Closed (Lost)",
+    "Ожидает материалов":"Awaiting Materials","В производстве":"In Production",
+    "Готов к монтажу":"Ready to Install","Монтаж":"Installing","Завершён":"Completed",
+    "Запланирован":"Planned","В процессе":"In Progress","Выполнен":"Completed","Утверждён":"Approved",
+    "Получен":"Received","Ожидается":"Pending","Черновик":"Draft",
+    "Google":"Google","Рекомендация":"Recommendation","Повторный клиент":"Repeat client",
+    "Yad2":"Yad2","Facebook":"Facebook","Другое":"Other",
+    m1:"Jan",m2:"Feb",m3:"Mar",m4:"Apr",m5:"May",m6:"Jun",
+    m7:"Jul",m8:"Aug",m9:"Sep",m10:"Oct",m11:"Nov",m12:"Dec",
+    d1:"Mo",d2:"Tu",d3:"We",d4:"Th",d5:"Fr",d6:"Sa",d7:"Su",
+  },
+};
+const ui=(key)=>UI[_LANG]?.[key]||UI.ru[key]||key;
+// Translate a stored Russian status/value for display
+const ds=(v)=>{if(!v)return"";return UI[_LANG]?.[v]||v;};
 
 const DG=[
-  {id:"none",    name:bi("Стандарт (в базе)",       "סטנדרטי (בסיס)"),          price:0,    code:"-"},
-  {id:"triplex_38",name:bi("Триплекс 3+3 PVB 0.38","טריפלקס 3+3 PVB 0.38"),   price:72.3, code:"12.111.0011"},
-  {id:"triplex_76",name:bi("Триплекс 4+4 PVB 0.76","טריפלקס 4+4 PVB 0.76"),   price:197.8,code:"12.111.0051"},
-  {id:"insul_4", name:bi("Стеклопакет 4+6+4",       "זיגוג כפול 4+6+4"),         price:89.3, code:"12.111.0161"},
-  {id:"insul_5", name:bi("Стеклопакет 5+6+5",       "זיגוג כפול 5+6+5"),         price:170.6,code:"12.111.0163"},
-  {id:"tempered",name:bi("Закалённое 6мм",           "זכוכית מחוסמת 6 מ\"מ"),     price:93.8, code:"12.111.0211"},
-  {id:"tinted",  name:bi("Тонированное 6мм",         "זכוכית מצבעת 6 מ\"מ"),      price:42.9, code:"12.111.0231"},
+  {id:"none",    name:bi("Стандарт (в базе)","סטנדרטי (בסיס)","Standard (base)"),          price:0,    code:"-"},
+  {id:"triplex_38",name:bi("Триплекс 3+3 PVB 0.38","טריפלקס 3+3 PVB 0.38","Triplex 3+3 PVB 0.38"),   price:72.3, code:"12.111.0011"},
+  {id:"triplex_76",name:bi("Триплекс 4+4 PVB 0.76","טריפלקס 4+4 PVB 0.76","Triplex 4+4 PVB 0.76"),   price:197.8,code:"12.111.0051"},
+  {id:"insul_4", name:bi("Стеклопакет 4+6+4","זיגוג כפול 4+6+4","Double glazing 4+6+4"),         price:89.3, code:"12.111.0161"},
+  {id:"insul_5", name:bi("Стеклопакет 5+6+5","זיגוג כפול 5+6+5","Double glazing 5+6+5"),         price:170.6,code:"12.111.0163"},
+  {id:"tempered",name:bi("Закалённое 6мм","זכוכית מחוסמת 6 מ\"מ","Tempered 6mm"),     price:93.8, code:"12.111.0211"},
+  {id:"tinted",  name:bi("Тонированное 6мм","זכוכית מצבעת 6 מ\"מ","Tinted 6mm"),      price:42.9, code:"12.111.0231"},
 ];
-
 const DS=[
-  {id:"none",name:bi("Без сетки",         "ללא רשת"),         price:0,  code:"-"},
-  {id:"std", name:bi("Сетка стандарт",    "רשת סטנדרטית"),    price:565,code:"12.110.0100"},
-  {id:"eco", name:bi("Сетка эконом",      "רשת חסכונית"),     price:452,code:"12.110.0110"},
-  {id:"roll",name:bi("Сетка рулонная",    "רשת גלילה"),        price:362,code:"12.110.0120"},
+  {id:"none",name:bi("Без сетки","ללא רשת","No screen"),         price:0,  code:"-"},
+  {id:"std", name:bi("Сетка стандарт","רשת סטנדרטית","Standard screen"),    price:565,code:"12.110.0100"},
+  {id:"eco", name:bi("Сетка эконом","רשת חסכונית","Economy screen"),      price:452,code:"12.110.0110"},
+  {id:"roll",name:bi("Сетка рулонная","רשת גלילה","Roll-up screen"),        price:362,code:"12.110.0120"},
 ];
-
 const DSHT=[
-  {id:"none",          name:bi("Без роллет",                "ללא תריס"),                    dekelM2:0,   motor:0,    marketFactor:1.0,  code:"-"},
-  {id:"roll_pvc_manual",name:bi("Роллет PVC ручной",        "תריס PVC ידני"),               dekelM2:735, motor:0,    marketFactor:1.38, code:"12.101.1600"},
-  {id:"roll_alum_manual",name:bi("Роллет алюм. ручной",     "תריס אלומיניום ידני"),         dekelM2:915, motor:0,    marketFactor:1.38, code:"12.101.1611"},
-  {id:"roll_alum_motor",name:bi("Роллет алюм. + мотор",     "תריס אלומיניום ממונע"),        dekelM2:915, motor:622,  marketFactor:1.38, code:"12.101.1611+12.101.2000"},
-  {id:"roll_alum_motor_rf",name:bi("Роллет алюм. мотор+пульт","תריס אלומיניום ממונע+שלט"), dekelM2:915, motor:1085, marketFactor:1.38, code:"12.101.1611+12.101.2060"},
-  {id:"slide_pvc_1",   name:bi("Тришс PVC 1-крыло",         "תריס הזזה PVC כנף 1"),        dekelM2:802, motor:0,    marketFactor:1.35, code:"12.101.1200"},
-  {id:"slide_pvc_2",   name:bi("Тришс PVC 2-крыла",         "תריס הזזה PVC 2 כנפיים"),     dekelM2:1017,motor:0,    marketFactor:1.35, code:"12.101.1250"},
+  {id:"none",            name:bi("Без роллет","ללא תריס","No shutters"),                  dekelM2:0,   motor:0,    marketFactor:1.0,  code:"-"},
+  {id:"roll_pvc_manual", name:bi("Роллет PVC ручной","תריס PVC ידני","PVC shutter manual"),             dekelM2:735, motor:0,    marketFactor:1.38, code:"12.101.1600"},
+  {id:"roll_alum_manual",name:bi("Роллет алюм. ручной","תריס אלומיניום ידני","Alum. shutter manual"),   dekelM2:915, motor:0,    marketFactor:1.38, code:"12.101.1611"},
+  {id:"roll_alum_motor", name:bi("Роллет алюм. + мотор","תריס אלומיניום ממונע","Alum. shutter motorized"), dekelM2:915, motor:622,  marketFactor:1.38, code:"12.101.1611+12.101.2000"},
+  {id:"roll_alum_motor_rf",name:bi("Роллет алюм. мотор+пульт","תריס אלומיניום ממונע+שלט","Alum. shutter motor+remote"), dekelM2:915, motor:1085, marketFactor:1.38, code:"12.101.1611+12.101.2060"},
+  {id:"slide_pvc_1",     name:bi("Тришс PVC 1-крыло","תריס הזזה PVC כנף 1","PVC slide 1-leaf"),  dekelM2:802, motor:0,    marketFactor:1.35, code:"12.101.1200"},
+  {id:"slide_pvc_2",     name:bi("Тришс PVC 2-крыла","תריס הזזה PVC 2 כנפיים","PVC slide 2-leaf"), dekelM2:1017,motor:0,    marketFactor:1.35, code:"12.101.1250"},
 ];
-
-// ── ACCESSORIES CATALOG (from Klil 2600 catalog) ─────────────
 const DACC_CATS=[
-  {id:"handle",  label:bi("Ручки","ידיות")},
-  {id:"lock",    label:bi("Замки/Фурнитура","מנעולים/חומרה")},
-  {id:"seal",    label:bi("Уплотнители EPDM","אטמי EPDM")},
-  {id:"roller",  label:bi("Ролики/Направляющие","גלגלים/מסילות")},
-  {id:"connector",label:bi("Соединители","מחברים")},
-  {id:"screw",   label:bi("Крепёж","ברגים")},
-  {id:"cap",     label:bi("Заглушки/Крышки","פקקים/כיסויים")},
+  {id:"handle",   label:bi("Ручки","ידיות","Handles")},
+  {id:"lock",     label:bi("Замки/Фурнитура","מנעולים/חומרה","Locks/Hardware")},
+  {id:"seal",     label:bi("Уплотнители EPDM","אטמי EPDM","EPDM Seals")},
+  {id:"roller",   label:bi("Ролики/Направляющие","גלגלים/מסילות","Rollers/Guides")},
+  {id:"connector",label:bi("Соединители","מחברים","Connectors")},
+  {id:"screw",    label:bi("Крепёж","ברגים","Fasteners")},
+  {id:"cap",      label:bi("Заглушки/Крышки","פקקים/כיסויים","Caps/Covers")},
 ];
-
 const DACC=[
-  // Ручки / ידיות
-  {id:"handle_std",    cat:"handle",  code:"2679",   name:bi("Ручка стандарт",           "ידית סטנדרטית"),              unit:"шт",price:85},
-  {id:"handle_2600_1", cat:"handle",  code:"3190-1", name:bi("Ручка 2600 (короткая)",    "ידית 2600 (קצרה)"),           unit:"шт",price:120},
-  {id:"handle_2600_2", cat:"handle",  code:"3190-2", name:bi("Ручка 2600 (длинная)",     "ידית 2600 (ארוכה)"),          unit:"шт",price:145},
-  {id:"handle_flush",  cat:"handle",  code:"3191",   name:bi("Ручка скрытая",            "ידית שקועה"),                  unit:"шт",price:160},
-  {id:"handle_bau_xl", cat:"handle",  code:"3492",   name:bi("Ручка BAU XL премиум",     "ידית BAU XL פרמיום"),         unit:"шт",price:210},
-  // Замки / מנעולים
-  {id:"lock_multi",    cat:"lock",    code:"6624",   name:bi("Замок многоточечный стд",  "נעילה רב-נקודתית"),            unit:"шт",price:380},
-  {id:"lock_multi_sec",cat:"lock",    code:"6625",   name:bi("Замок многоточечный усил.","נעילה רב-נקודתית מחוזקת"),    unit:"шт",price:520},
-  {id:"lock_multi_xl", cat:"lock",    code:"6626",   name:bi("Замок многоточечный XL",   "נעילה רב-נקודתית XL"),        unit:"шт",price:610},
-  {id:"lock_single",   cat:"lock",    code:"6633",   name:bi("Замок одноточечный",        "נעילה חד-נקודתית"),            unit:"шт",price:180},
-  {id:"lock_anti_lift",cat:"lock",    code:"6635",   name:bi("Антиподъём",               "מנגנון מניעת הרמה"),           unit:"шт",price:95},
-  {id:"lock_keep",     cat:"lock",    code:"6692",   name:bi("Ответная планка BAU-XL",   "תפס BAU-XL"),                  unit:"шт",price:75},
-  {id:"lock_keep2",    cat:"lock",    code:"6693",   name:bi("Ответная планка BAU-33",   "תפס BAU-33"),                  unit:"шт",price:68},
-  // Уплотнители / אטמים
-  {id:"seal_2287",     cat:"seal",    code:"2287",   name:bi("Уплотнитель EPDM 6мм ф",  "אטם EPDM 6 מ\"מ פריפרי"),     unit:"м.п.",price:12},
-  {id:"seal_2310",     cat:"seal",    code:"2310",   name:bi("Уплотнитель EPDM 2-сл.",   "אטם EPDM 2-רכיבי"),           unit:"м.п.",price:18},
-  {id:"seal_2318",     cat:"seal",    code:"2318",   name:bi("Уплотнитель EPDM 4мм",     "אטם EPDM 4 מ\"מ"),            unit:"м.п.",price:15},
-  {id:"seal_2319",     cat:"seal",    code:"2319",   name:bi("Уплотнитель EPDM 4мм кр.", "אטם EPDM 4 מ\"מ ציר"),       unit:"м.п.",price:14},
-  {id:"seal_2382",     cat:"seal",    code:"2382",   name:bi("Уплотнитель EPDM кол. рам.","אטם EPDM עמוד מסגרת"),       unit:"м.п.",price:20},
-  {id:"seal_2385",     cat:"seal",    code:"2385",   name:bi("Уплотнитель EPDM 2к 2.5мм","אטם EPDM דו-רכיבי 2.5 מ\"מ"),unit:"м.п.",price:22},
-  {id:"seal_2386",     cat:"seal",    code:"2386",   name:bi("Уплотнитель EPDM 2к 4мм",  "אטם EPDM דו-רכיבי 4 מ\"מ"),  unit:"м.п.",price:25},
-  // Ролики / גלגלים
-  {id:"roller_std",    cat:"roller",  code:"18027",  name:bi("Роликовый узел стд (2шт)", "מחלק גלגלים סטנדרטי (2)"),    unit:"пара",price:145},
-  {id:"roller_hd",     cat:"roller",  code:"18028",  name:bi("Роликовый узел тяжёлый",   "מחלק גלגלים כבד"),             unit:"пара",price:220},
-  {id:"roller_3t",     cat:"roller",  code:"18029",  name:bi("Роликовый узел 3-трек",    "מחלק גלגלים 3 מסלולים"),       unit:"пара",price:195},
-  {id:"roller_3t_hd",  cat:"roller",  code:"18030",  name:bi("Роликовый узел 3т тяжёлый","מחלק גלגלים 3 מסלולים כבד"),  unit:"пара",price:265},
-  // Соединители / מחברים
-  {id:"conn_corner",   cat:"connector",code:"26010", name:bi("Угловой соединитель",      "מחבר פינה"),                   unit:"шт",price:25},
-  {id:"conn_screw",    cat:"connector",code:"7313",  name:bi("Самосверлящий саморез",    "ברג חורר עצמי"),               unit:"шт",price:3},
-  {id:"conn_t",        cat:"connector",code:"26012", name:bi("T-соединитель",            "מחבר T"),                      unit:"шт",price:22},
-  {id:"conn_cross",    cat:"connector",code:"26014", name:bi("Крестовой соединитель",    "מחבר צלב"),                    unit:"шт",price:28},
-  // Крепёж / ברגים
-  {id:"screw_m5_30",   cat:"screw",   code:"M5×30", name:bi("Болт M5×30 DIN 965",       "ברג M5×30 DIN 965"),           unit:"шт",price:1.5},
-  {id:"screw_m5_20",   cat:"screw",   code:"M5×20", name:bi("Болт M5×20 DIN 965",       "ברג M5×20 DIN 965"),           unit:"шт",price:1.2},
-  {id:"screw_8x12",    cat:"screw",   code:"#8×1/2",name:bi("Саморез #8×1/2\" DIN 7982","ברג קידוח #8×1/2\" DIN 7982"), unit:"шт",price:0.8},
-  {id:"screw_m5_40",   cat:"screw",   code:"M5×40", name:bi("Болт M5×40 DIN 965",       "ברג M5×40 DIN 965"),           unit:"шт",price:1.8},
-  // Заглушки / פקקים
-  {id:"cap_pvc",       cat:"cap",     code:"1705",   name:bi("Заглушка PVC торцевая",    "פקק PVC קצה"),                 unit:"шт",price:8},
-  {id:"cap_frame",     cat:"cap",     code:"1707",   name:bi("Заглушка рамы",            "פקק מסגרת"),                   unit:"шт",price:10},
-  {id:"cap_pvc_2107",  cat:"cap",     code:"2107",   name:bi("Заглушка ∅16 с кронштейном","פקק ∅16 עם סוגר"),           unit:"шт",price:15},
-  {id:"cap_profile",   cat:"cap",     code:"2619",   name:bi("Крышка профиля декор.",    "כיסוי פרופיל דקורטיבי"),      unit:"шт",price:12},
-  {id:"cap_bracket",   cat:"cap",     code:"2402",   name:bi("Кронштейн монтажный 2мм",  "סוגר התקנה 2 מ\"מ"),           unit:"шт",price:18},
-  {id:"cap_bracket3",  cat:"cap",     code:"2403",   name:bi("Кронштейн монтажный 3мм",  "סוגר התקנה 3 מ\"מ"),           unit:"шт",price:20},
+  {id:"handle_std",    cat:"handle",  code:"2679",   name:bi("Ручка стандарт","ידית סטנדרטית","Standard handle"),         unit:"шт",price:85},
+  {id:"handle_2600_1", cat:"handle",  code:"3190-1", name:bi("Ручка 2600 (короткая)","ידית 2600 (קצרה)","2600 handle (short)"), unit:"шт",price:120},
+  {id:"handle_2600_2", cat:"handle",  code:"3190-2", name:bi("Ручка 2600 (длинная)","ידית 2600 (ארוכה)","2600 handle (long)"),  unit:"шт",price:145},
+  {id:"handle_flush",  cat:"handle",  code:"3191",   name:bi("Ручка скрытая","ידית שקועה","Flush handle"),                 unit:"шт",price:160},
+  {id:"handle_bau_xl", cat:"handle",  code:"3492",   name:bi("Ручка BAU XL премиум","ידית BAU XL פרמיום","BAU XL premium handle"), unit:"шт",price:210},
+  {id:"lock_multi",    cat:"lock",    code:"6624",   name:bi("Замок многоточечный стд","נעילה רב-נקודתית","Multi-point lock std"), unit:"шт",price:380},
+  {id:"lock_multi_sec",cat:"lock",    code:"6625",   name:bi("Замок многоточечный усил.","נעילה רב-נקודתית מחוזקת","Multi-point lock reinforced"), unit:"шт",price:520},
+  {id:"lock_multi_xl", cat:"lock",    code:"6626",   name:bi("Замок многоточечный XL","נעילה רב-נקודתית XL","Multi-point lock XL"), unit:"шт",price:610},
+  {id:"lock_single",   cat:"lock",    code:"6633",   name:bi("Замок одноточечный","נעילה חד-נקודתית","Single-point lock"),   unit:"шт",price:180},
+  {id:"lock_anti_lift",cat:"lock",    code:"6635",   name:bi("Антиподъём","מנגנון מניעת הרמה","Anti-lift"),                 unit:"шт",price:95},
+  {id:"lock_keep",     cat:"lock",    code:"6692",   name:bi("Ответная планка BAU-XL","תפס BAU-XL","Strike plate BAU-XL"),  unit:"шт",price:75},
+  {id:"lock_keep2",    cat:"lock",    code:"6693",   name:bi("Ответная планка BAU-33","תפס BAU-33","Strike plate BAU-33"),  unit:"шт",price:68},
+  {id:"seal_2287",     cat:"seal",    code:"2287",   name:bi("Уплотнитель EPDM 6мм","אטם EPDM 6 מ\"מ","EPDM seal 6mm"),   unit:"м.п.",price:12},
+  {id:"seal_2310",     cat:"seal",    code:"2310",   name:bi("Уплотнитель EPDM 2-сл.","אטם EPDM 2-רכיבי","EPDM seal 2-layer"), unit:"м.п.",price:18},
+  {id:"seal_2318",     cat:"seal",    code:"2318",   name:bi("Уплотнитель EPDM 4мм","אטם EPDM 4 מ\"מ","EPDM seal 4mm"),   unit:"м.п.",price:15},
+  {id:"seal_2319",     cat:"seal",    code:"2319",   name:bi("Уплотнитель EPDM 4мм кр.","אטם EPDM 4 מ\"מ ציר","EPDM seal 4mm hinge"), unit:"м.п.",price:14},
+  {id:"seal_2382",     cat:"seal",    code:"2382",   name:bi("Уплотнитель EPDM кол.","אטם EPDM עמוד מסגרת","EPDM seal col."), unit:"м.п.",price:20},
+  {id:"seal_2385",     cat:"seal",    code:"2385",   name:bi("Уплотнитель EPDM 2к 2.5мм","אטם EPDM דו-רכיבי 2.5 מ\"מ","EPDM 2-comp 2.5mm"), unit:"м.п.",price:22},
+  {id:"seal_2386",     cat:"seal",    code:"2386",   name:bi("Уплотнитель EPDM 2к 4мм","אטם EPDM דו-רכיבי 4 מ\"מ","EPDM 2-comp 4mm"), unit:"м.п.",price:25},
+  {id:"roller_std",    cat:"roller",  code:"18027",  name:bi("Роликовый узел стд (2шт)","מחלק גלגלים סטנדרטי (2)","Roller std (2pcs)"), unit:"пара",price:145},
+  {id:"roller_hd",     cat:"roller",  code:"18028",  name:bi("Роликовый узел тяжёлый","מחלק גלגלים כבד","Heavy roller"),   unit:"пара",price:220},
+  {id:"roller_3t",     cat:"roller",  code:"18029",  name:bi("Роликовый узел 3-трек","מחלק גלגלים 3 מסלולים","3-track roller"), unit:"пара",price:195},
+  {id:"roller_3t_hd",  cat:"roller",  code:"18030",  name:bi("Роликовый узел 3т тяжёлый","מחלק גלגלים 3 מסלולים כבד","3-track heavy roller"), unit:"пара",price:265},
+  {id:"conn_corner",   cat:"connector",code:"26010", name:bi("Угловой соединитель","מחבר פינה","Corner connector"),         unit:"шт",price:25},
+  {id:"conn_screw",    cat:"connector",code:"7313",  name:bi("Самосверлящий саморез","ברג חורר עצמי","Self-drilling screw"), unit:"шт",price:3},
+  {id:"conn_t",        cat:"connector",code:"26012", name:bi("T-соединитель","מחבר T","T-connector"),                       unit:"шт",price:22},
+  {id:"conn_cross",    cat:"connector",code:"26014", name:bi("Крестовой соединитель","מחבר צלב","Cross connector"),          unit:"шт",price:28},
+  {id:"screw_m5_30",   cat:"screw",   code:"M5×30", name:bi("Болт M5×30","ברג M5×30","Bolt M5×30"),                       unit:"шт",price:1.5},
+  {id:"screw_m5_20",   cat:"screw",   code:"M5×20", name:bi("Болт M5×20","ברג M5×20","Bolt M5×20"),                       unit:"шт",price:1.2},
+  {id:"screw_8x12",    cat:"screw",   code:"#8×1/2",name:bi("Саморез #8×1/2\"","ברג קידוח #8×1/2\"","Screw #8×1/2\""),   unit:"шт",price:0.8},
+  {id:"screw_m5_40",   cat:"screw",   code:"M5×40", name:bi("Болт M5×40","ברג M5×40","Bolt M5×40"),                       unit:"шт",price:1.8},
+  {id:"cap_pvc",       cat:"cap",     code:"1705",   name:bi("Заглушка PVC торцевая","פקק PVC קצה","PVC end cap"),          unit:"шт",price:8},
+  {id:"cap_frame",     cat:"cap",     code:"1707",   name:bi("Заглушка рамы","פקק מסגרת","Frame cap"),                     unit:"шт",price:10},
+  {id:"cap_pvc_2107",  cat:"cap",     code:"2107",   name:bi("Заглушка ∅16 с кронштейном","פקק ∅16 עם סוגר","Cap ∅16 w/bracket"), unit:"шт",price:15},
+  {id:"cap_profile",   cat:"cap",     code:"2619",   name:bi("Крышка профиля декор.","כיסוי פרופיל דקורטיבי","Decorative profile cap"), unit:"шт",price:12},
+  {id:"cap_bracket",   cat:"cap",     code:"2402",   name:bi("Кронштейн монтажный 2мм","סוגר התקנה 2 מ\"מ","Mounting bracket 2mm"), unit:"шт",price:18},
+  {id:"cap_bracket3",  cat:"cap",     code:"2403",   name:bi("Кронштейн монтажный 3мм","סוגר התקנה 3 מ\"מ","Mounting bracket 3mm"), unit:"шт",price:20},
 ];
-// Helper: get actual shutter price per m² after market correction
 const shutterM2=(opt,mf)=>opt.dekelM2*(mf??opt.marketFactor);
-
-// Op types UI
 const OPS=[
-  {id:"sliding_2_track",      name:bi("Хаза 2-трек",          "הזזה 2 מסלולים"),    profiles:["klil_7000","klil_9000","klil_1700","klil_7300"]},
-  {id:"sliding_multi_sash",   name:bi("Хаза 3-4 трека",       "הזזה 3-4 מסלולים"),  profiles:["klil_7000","klil_9000","klil_7300"]},
-  {id:"pocket_sliding",       name:bi("Карман (כיס)",          "הזזה לכיס"),          profiles:["klil_7000","klil_7300"]},
-  {id:"casement_or_tilt_turn",name:bi("Поворотно-откидное",    "כיפ-כיפ / ציר"),     profiles:["klil_4500","klil_5500","klil_4300"]},
-  {id:"tilt_or_fixed",        name:bi("Kipp / Глухое",         "כיפ / פיקס"),         profiles:["klil_4500","klil_5500","klil_4300","klil_4350"]},
-  {id:"lift_slide_2600",      name:bi("Lift & Slide 2600 🏆",  "הרם והחלק 2600 🏆"),  profiles:["klil_2600_2t","klil_2600_3t","klil_2600_3s"]},
-  {id:"railing",              name:bi("Перила/Ограждение 🔩",  "מעקה / גדר"),         profiles:["klil_railing_std","klil_railing_glass"]},
-  {id:"partition",            name:bi("Перегородка 🪟",         "מחיצה"),              profiles:["klil_partition_std","klil_partition_glass"]},
-  {id:"grille",               name:bi("Решётка/Pergola 🔲",    "סורג / פרגולה"),      profiles:["klil_grille_std"]},
+  {id:"sliding_2_track",      name:bi("Хаза 2-трек","הזזה 2 מסלולים","Sliding 2-track"),    profiles:["klil_7000","klil_9000","klil_1700","klil_7300"]},
+  {id:"sliding_multi_sash",   name:bi("Хаза 3-4 трека","הזזה 3-4 מסלולים","Sliding 3-4 track"),  profiles:["klil_7000","klil_9000","klil_7300"]},
+  {id:"pocket_sliding",       name:bi("Карман","הזזה לכיס","Pocket sliding"),          profiles:["klil_7000","klil_7300"]},
+  {id:"casement_or_tilt_turn",name:bi("Поворотно-откидное","כיפ-כיפ / ציר","Tilt-turn"),     profiles:["klil_4500","klil_5500","klil_4300"]},
+  {id:"tilt_or_fixed",        name:bi("Kipp / Глухое","כיפ / פיקס","Kipp / Fixed"),         profiles:["klil_4500","klil_5500","klil_4300","klil_4350"]},
+  {id:"lift_slide_2600",      name:bi("Lift & Slide 2600 🏆","הרם והחלק 2600 🏆","Lift & Slide 2600 🏆"),  profiles:["klil_2600_2t","klil_2600_3t","klil_2600_3s"]},
+  {id:"railing",              name:bi("Перила/Ограждение 🔩","מעקה / גדר","Railing 🔩"),         profiles:["klil_railing_std","klil_railing_glass"]},
+  {id:"partition",            name:bi("Перегородка 🪟","מחיצה","Partition 🪟"),              profiles:["klil_partition_std","klil_partition_glass"]},
+  {id:"grille",               name:bi("Решётка/Pergola 🔲","סורג / פרגולה","Grille/Pergola 🔲"),      profiles:["klil_grille_std"]},
 ];
 const PNAMES={
-  klil_7000:"Клиль 7000 | קליל 7000",
-  klil_9000:"Клиль 9000 (термо) | קליל 9000 תרמי",
-  klil_1700:"Клиль 1700 (эконом) | קליל 1700 חסכוני",
-  klil_7300:"Клиль 7300 (Slim) | קליל 7300 סלים",
-  klil_4500:"Клиль 4500 | קליל 4500",
-  klil_5500:"Клиль 5500 (премиум) | קליל 5500 פרמיום",
-  klil_4300:"Клиль 4300 | קליל 4300",
-  klil_4350:"Клиль 4350 | קליל 4350",
-  klil_2600_2t:"2600 Bauhaus 2-крыла | 2600 באוהאוס 2 כנפיים",
-  klil_2600_3t:"2600 Bauhaus 3-крыла | 2600 באוהאוס 3 כנפיים",
-  klil_2600_3s:"2600 Bauhaus 3-трека | 2600 באוהאוס 3 מסלולים",
-  klil_railing_std:"Перила алюм. стд | מעקה אלומיניום סטנדרטי",
-  klil_railing_glass:"Перила со стеклом | מעקה עם זכוכית",
-  klil_partition_std:"Перегородка стд | מחיצה סטנדרטית",
-  klil_partition_glass:"Перегородка стекло | מחיצה זכוכית",
-  klil_grille_std:"Решётка алюм. | סורג אלומיניום",
+  klil_7000:      bi("Клиль 7000","קליל 7000","Klil 7000"),
+  klil_9000:      bi("Клиль 9000 (термо)","קליל 9000 תרמי","Klil 9000 (thermo)"),
+  klil_1700:      bi("Клиль 1700 (эконом)","קליל 1700 חסכוני","Klil 1700 (economy)"),
+  klil_7300:      bi("Клиль 7300 (Slim)","קליל 7300 סלים","Klil 7300 (Slim)"),
+  klil_4500:      bi("Клиль 4500","קליל 4500","Klil 4500"),
+  klil_5500:      bi("Клиль 5500 (премиум)","קליל 5500 פרמיום","Klil 5500 (premium)"),
+  klil_4300:      bi("Клиль 4300","קליל 4300","Klil 4300"),
+  klil_4350:      bi("Клиль 4350","קליל 4350","Klil 4350"),
+  klil_2600_2t:   bi("2600 Bauhaus 2-крыла","2600 באוהאוס 2 כנפיים","2600 Bauhaus 2-leaf"),
+  klil_2600_3t:   bi("2600 Bauhaus 3-крыла","2600 באוהאוס 3 כנפיים","2600 Bauhaus 3-leaf"),
+  klil_2600_3s:   bi("2600 Bauhaus 3-трека","2600 באוהאוס 3 מסלולים","2600 Bauhaus 3-track"),
+  klil_railing_std:    bi("Перила алюм. стд","מעקה אלומיניום סטנדרטי","Alum. railing std"),
+  klil_railing_glass:  bi("Перила со стеклом","מעקה עם זכוכית","Glass railing"),
+  klil_partition_std:  bi("Перегородка стд","מחיצה סטנדרטית","Partition std"),
+  klil_partition_glass:bi("Перегородка стекло","מחיצה זכוכית","Glass partition"),
+  klil_grille_std:     bi("Решётка алюм.","סורג אלומיניום","Alum. grille"),
 };
 // Profile key dimensions mm
 const PDIMS={
@@ -478,7 +541,7 @@ const exportCSV=(headers,rows,fn)=>{const csv=[headers,...rows].map(r=>r.map(v=>
 
 // ── UI ATOMS ─────────────────────────────────────────────────
 const Badge=({status})=>(<span style={{background:(SC[status]||D.muted)+"22",color:SC[status]||D.muted,
-  border:`1px solid ${(SC[status]||D.muted)}44`,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{status}</span>);
+  border:`1px solid ${(SC[status]||D.muted)}44`,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{ds(status)}</span>);
 
 const Btn=({children,onClick,variant="primary",small,disabled,style:s})=>{
   const v={primary:{background:"linear-gradient(135deg,#2563EB,#1D4ED8)",color:"#fff",border:"none"},
@@ -600,7 +663,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   orders.forEach(o=>{
     const m=o.created?.slice(0,7)||"";
     if(!m)return;
-    const MONTHS=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+    const MONTHS=[ui("m1"),ui("m2"),ui("m3"),ui("m4"),ui("m5"),ui("m6"),ui("m7"),ui("m8"),ui("m9"),ui("m10"),ui("m11"),ui("m12")];
     const mNum=parseInt(m.slice(5))-1;
     const label=`${MONTHS[mNum]||m.slice(5)} ${m.slice(2,4)}`;
     if(!monthMap[m])monthMap[m]={month:label,key:m,revenue:0,paid:0,profit:0,count:0};
@@ -1358,7 +1421,7 @@ function printKP(client,calced,saleTotal,margin,split,extras,company={}){
   const rows=validItems.map((c,i)=>{
     const linePrice=Math.round(c.totalCost/c.qty*(1+margin/100))*c.qty;
     const unitPrice=Math.round(c.totalCost/c.qty*(1+margin/100));
-    const glassName=c.glass!=="none"?(DG.find(g=>g.id===c.glass)?.name.split("|")[0].trim()||""):"";
+    const glassName=c.glass!=="none"?t(DG.find(g=>g.id===c.glass)?.name)||"":"";
     const screenOpt=DS.find(s=>s.id===c.screen)||DS[0];
     const shutterOpt=DSHT.find(s=>s.id===c.shutter)||DSHT[0];
     const colorOpt=PCOLORS.find(x=>x.id===(c.color||"white"))||PCOLORS[0];
@@ -1370,7 +1433,7 @@ function printKP(client,calced,saleTotal,margin,split,extras,company={}){
       <td style="text-align:center">${i+1}</td>
       <td><b>${c.name}</b>
         ${glassName?`<br/><span class="sub">זכוכית: ${glassName}</span>`:""}
-        <br/><span class="sub">${OPS.find(o=>o.id===c.op)?.name.split("|")[0].trim()||c.op} · ${PNAMES[c.profile]?.split("|")[0].trim()||c.profile}</span>
+        <br/><span class="sub">${t(OPS.find(o=>o.id===c.op)?.name)||c.op} · ${t(PNAMES[c.profile])||c.profile}</span>
         <br/><span class="sub">צבע: ${colorOpt.name.split("|")[1]?.trim()||colorOpt.name.split("|")[0].trim()} ${colorSwatch} ${colorOpt.ral}</span>
       </td>
       <td style="text-align:center">${c.w}×${c.h} ס"מ</td>
@@ -1384,7 +1447,7 @@ function printKP(client,calced,saleTotal,margin,split,extras,company={}){
       const sp=Math.round(screenOpt.price*(1+margin/100));
       html+=`<tr style="background:#f0fdf4">
         <td></td>
-        <td style="padding-right:24px"><span style="color:#16a34a">↳ ${screenOpt.name.split("|")[1]?.trim()||screenOpt.name.split("|")[0].trim()}</span></td>
+        <td style="padding-right:24px"><span style="color:#16a34a">↳ ${t(screenOpt.name)||"screen"}</span></td>
         <td colspan="2"></td><td style="text-align:center">${c.qty}</td>
         <td style="color:#16a34a">₪${sp.toLocaleString("he-IL")}</td>
         <td style="color:#16a34a;font-weight:700">₪${(sp*c.qty).toLocaleString("he-IL")}</td>
@@ -1395,7 +1458,7 @@ function printKP(client,calced,saleTotal,margin,split,extras,company={}){
       const shp=Math.round((shutterOpt.dekelM2*(shutterOpt.marketFactor||1.38)*c.billArea+shutterOpt.motor*c.qty)*(1+margin/100));
       html+=`<tr style="background:#fffbeb">
         <td></td>
-        <td style="padding-right:24px"><span style="color:#d97706">↳ ${shutterOpt.name.split("|")[1]?.trim()||shutterOpt.name.split("|")[0].trim()}</span></td>
+        <td style="padding-right:24px"><span style="color:#d97706">↳ ${t(shutterOpt.name)||"shutter"}</span></td>
         <td style="text-align:center">${c.w}×${c.h} ס"מ</td>
         <td style="text-align:center">${c.area.toFixed(2)} מ"ר</td>
         <td style="text-align:center">${c.qty}</td>
@@ -1411,7 +1474,7 @@ function printKP(client,calced,saleTotal,margin,split,extras,company={}){
         const ap=Math.round(acc.price*(a.qty||1)*c.qty*(1+margin/100));
         html+=`<tr style="background:#f0f9ff">
           <td></td>
-          <td style="padding-right:24px"><span style="color:#0369a1">↳ ${acc.name.split("|")[1]?.trim()||acc.name.split("|")[0].trim()} (${acc.code})</span></td>
+          <td style="padding-right:24px"><span style="color:#0369a1">↳ ${t(acc.name)} (${acc.code})</span></td>
           <td colspan="2"></td>
           <td style="text-align:center">${(a.qty||1)*c.qty}</td>
           <td style="color:#0369a1">₪${Math.round(acc.price*(1+margin/100)).toLocaleString("he-IL")}</td>
@@ -1894,7 +1957,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                       upd(it.id,"profile",newProf);
                     }}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none"}}>
-                      {OPS.map(o=><option key={o.id} value={o.id} style={{background:D.card}}>{o.name}</option>)}
+                      {OPS.map(o=><option key={o.id} value={o.id} style={{background:D.card}}>{t(o.name)}</option>)}
                     </select>
                   </div>
                   <div style={{marginBottom:5}}>
@@ -1911,7 +1974,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                     <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Стекло (доплата)</div>
                     <select value={it.glass} onChange={e=>upd(it.id,"glass",e.target.value)}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none"}}>
-                      {DG.map(g=><option key={g.id} value={g.id} style={{background:D.card}}>{g.name}</option>)}
+                      {DG.map(g=><option key={g.id} value={g.id} style={{background:D.card}}>{t(g.name)}</option>)}
                     </select>
                   </div>
                   {/* Color selector */}
@@ -1939,14 +2002,14 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                     <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Москитная сетка</div>
                     <select value={it.screen} onChange={e=>upd(it.id,"screen",e.target.value)}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none"}}>
-                      {DS.map(s=><option key={s.id} value={s.id} style={{background:D.card}}>{s.name}</option>)}
+                      {DS.map(s=><option key={s.id} value={s.id} style={{background:D.card}}>{t(s.name)}</option>)}
                     </select>
                   </div>
                   <div style={{marginTop:5}}>
                     <div style={{fontSize:9,color:D.muted,marginBottom:2}}>{bi("Роллет / тришс","תריס")}</div>
                     <select value={it.shutter} onChange={e=>upd(it.id,"shutter",e.target.value)}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:it.shutter!=="none"?D.yellow:D.muted,fontSize:11,outline:"none",fontWeight:it.shutter!=="none"?700:400}}>
-                      {DSHT.map(s=><option key={s.id} value={s.id} style={{background:D.card,color:D.text}}>{s.name}</option>)}
+                      {DSHT.map(s=><option key={s.id} value={s.id} style={{background:D.card,color:D.text}}>{t(s.name)}</option>)}
                     </select>
                   </div>
                 </div>
@@ -2008,7 +2071,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                           style={{background:selected.length?D.teal+"20":D.card,border:`1px solid ${selected.length?D.teal:D.border}`,
                             borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:selected.length?700:400,
                             color:selected.length?D.teal:D.muted,cursor:"pointer"}}>
-                          {cat.label}{selected.length>0?` (${selected.length})`:""}
+                          {t(cat.label)}{selected.length>0?` (${selected.length})`:""}
                         </button>
                         {isOpen&&(<>
                           <div onClick={()=>setAccDropdown(null)} style={{position:"fixed",inset:0,zIndex:490}}/>
@@ -2018,7 +2081,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                             boxShadow:"0 8px 32px #00000070",
                             top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                              <div style={{fontSize:10,fontWeight:800,color:D.teal,textTransform:"uppercase"}}>{cat.label}</div>
+                              <div style={{fontSize:10,fontWeight:800,color:D.teal,textTransform:"uppercase"}}>{t(cat.label)}</div>
                               <button onClick={()=>setAccDropdown(null)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:2}}><X size={14}/></button>
                             </div>
                             {catAccs.map(acc=>{
@@ -2033,7 +2096,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                                       else upd(it.id,"accessories",cur.filter(x=>x.id!==acc.id));
                                     }}/>
                                   <div style={{flex:1,minWidth:0}}>
-                                    <div style={{fontSize:11,color:sel?D.text:D.muted,fontWeight:sel?700:400,lineHeight:1.3}}>{acc.name}</div>
+                                    <div style={{fontSize:11,color:sel?D.text:D.muted,fontWeight:sel?700:400,lineHeight:1.3}}>{t(acc.name)}</div>
                                     <div style={{fontSize:9,color:D.muted}}>{acc.code} · {fmt(acc.price)}/{acc.unit}</div>
                                   </div>
                                   {sel&&<input type="number" min={1} max={50} value={sel.qty||1}
@@ -2242,11 +2305,11 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
             background:is2600?D.yellow+"08":i%2===0?D.card:D.surface,alignItems:"center"}}>
             <div style={{fontSize:12,fontWeight:700,color:D.text}}>{c.name}
               <div style={{fontSize:10,color:D.muted}}>{c.qty} шт {is2600?"🏆":""}</div></div>
-            <div style={{fontSize:10,color:is2600?D.yellow:D.muted}}>{PNAMES[c.profile]||c.profile}</div>
+            <div style={{fontSize:10,color:is2600?D.yellow:D.muted}}>{t(PNAMES[c.profile])||c.profile}</div>
             <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{profM} м.п.</div>
             <div style={{fontSize:12,fontWeight:700,color:is2600?D.yellow:D.teal}}>{profKg} кг</div>
             <div style={{fontSize:12,fontWeight:700,color:D.teal}}>{glassM2} м²</div>
-            <div style={{fontSize:11,color:c.screen!=="none"?D.green:D.muted}}>{c.screen!=="none"?`${c.qty} шт (${screenOpt.name})`:"—"}</div>
+            <div style={{fontSize:11,color:c.screen!=="none"?D.green:D.muted}}>{c.screen!=="none"?`${c.qty} шт (${t(screenOpt.name)})`:"—"}</div>
             <div style={{fontSize:11,color:c.shutter!=="none"?D.yellow:D.muted}}>{c.shutter!=="none"?`${glassM2} м²`:"—"}</div>
           </div>);
         })}
@@ -2667,7 +2730,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
   // Filter and search
   const filtered=orders.filter(o=>{
     const matchFilter=filter==="all"||(filter==="active"&&o.status!=="Завершён")||(filter==="completed"&&o.status==="Завершён");
-    const matchSearch=!search.trim()||o.client.toLowerCase().includes(search.toLowerCase())||o.id.toLowerCase().includes(search.toLowerCase());
+    const matchSearch=!search.trim()||(o.client||"").toLowerCase().includes(search.toLowerCase())||(o.id||"").toLowerCase().includes(search.toLowerCase());
     return matchFilter&&matchSearch;
   });
   const totalPages=Math.ceil(filtered.length/PAGE_SIZE);
@@ -3643,7 +3706,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
   useEffect(()=>{save("wb:goals",goals);},[goals]);
 
   // ── Auto financials from real data ──
-  const MONTHS_RU=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+  const MONTHS_RU=[ui("m1"),ui("m2"),ui("m3"),ui("m4"),ui("m5"),ui("m6"),ui("m7"),ui("m8"),ui("m9"),ui("m10"),ui("m11"),ui("m12")];
 
   // Build monthly data from orders and payments
   const monthMap={};
@@ -3933,7 +3996,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
 
 function KPI({leads,measurements,orders,payments}){
   // ── All auto-calculated from real data ──
-  const MONTHS_RU=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+  const MONTHS_RU=[ui("m1"),ui("m2"),ui("m3"),ui("m4"),ui("m5"),ui("m6"),ui("m7"),ui("m8"),ui("m9"),ui("m10"),ui("m11"),ui("m12")];
 
   const fLeads=leads.length;
   const fMeasured=measurements.length;
@@ -4699,7 +4762,7 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
   const [quickForm,setQuickForm]=useState({client:"",phone:"",address:"",time:"09:00",notes:""});
 
   const today=new Date().toISOString().split("T")[0];
-  const DAYS_RU=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+  const DAYS_RU=[ui("d1"),ui("d2"),ui("d3"),ui("d4"),ui("d5"),ui("d6"),ui("d7")];
   const MONTHS_RU=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 
   // Build events map: date → [{type,label,color,client,id}]
@@ -5039,19 +5102,19 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
   </div>);
 }
 
-const PAGES=[
-  {id:"dashboard",   icon:LayoutDashboard, label:"Dashboard"},
-  {id:"leads",       icon:Users,           label:"Лиды / CRM"},
-  {id:"measurements",icon:Ruler,           label:"Замеры"},
-  {id:"calc",        icon:Calculator,      label:"Калькулятор КП"},
-  {id:"quotes",      icon:FileText,        label:"КП История"},
-  {id:"orders",      icon:ShoppingCart,    label:"Заказы"},
-  {id:"installation",icon:Wrench,          label:"Монтаж"},
-  {id:"payments",    icon:Wallet,          label:"Касса"},
-  {id:"calendar",    icon:CalendarDays,    label:"Календарь"},
-  {id:"finance",     icon:TrendingUp,      label:"P&L · Финансы"},
-  {id:"kpi",         icon:BarChart2,       label:"KPI"},
-  {id:"inventory",   icon:Package,         label:"Склад"},
+const PAGES=()=>[
+  {id:"dashboard",   icon:LayoutDashboard, label:ui("dashboard")},
+  {id:"leads",       icon:Users,           label:ui("leads")},
+  {id:"measurements",icon:Ruler,           label:ui("measurements")},
+  {id:"calc",        icon:Calculator,      label:ui("calc")},
+  {id:"quotes",      icon:FileText,        label:ui("quotes")},
+  {id:"orders",      icon:ShoppingCart,    label:ui("orders")},
+  {id:"installation",icon:Wrench,          label:ui("install")},
+  {id:"payments",    icon:Wallet,          label:ui("payments")},
+  {id:"calendar",    icon:CalendarDays,    label:ui("calendar")},
+  {id:"finance",     icon:TrendingUp,      label:ui("finance")},
+  {id:"kpi",         icon:BarChart2,       label:ui("kpi")},
+  {id:"inventory",   icon:Package,         label:ui("inventory")},
 ];
 
 export default function App(){
@@ -5209,7 +5272,7 @@ export default function App(){
       </div>
     </div>
     <nav style={{flex:1,padding:"8px 6px",overflowY:"auto"}}>
-      {PAGES.map(({id,icon:Icon,label},pi)=>{
+      {PAGES().map(({id,icon:Icon,label},pi)=>{
         const active=page===id;const badge=alerts[pi];
         return(<button key={id} onClick={()=>navTo(id)} style={{display:"flex",alignItems:"center",gap:9,
           width:"100%",padding:"9px 10px",borderRadius:9,marginBottom:2,cursor:"pointer",border:"none",
@@ -5238,12 +5301,12 @@ export default function App(){
     <div style={{padding:"8px",borderTop:`1px solid ${D.border}`}}>
       {/* Language switcher */}
       <div style={{display:"flex",gap:4,marginBottom:6}}>
-        {[["ru","🇷🇺 RU"],["he","🇮🇱 HE"]].map(([l,lbl])=>(
-          <button key={l} onClick={()=>setLang(l)}
-            style={{flex:1,padding:"4px",borderRadius:6,border:`1px solid ${lang===l?D.accent:D.border}`,
+        {[["ru","🇷🇺"],["he","🇮🇱"],["en","🇺🇸"]].map(([l,flag])=>(
+          <button key={l} onClick={()=>{_LANG=l;setLang(l);}}
+            style={{flex:1,padding:"5px 2px",borderRadius:6,border:`1px solid ${lang===l?D.accent:D.border}`,
               background:lang===l?D.accent+"20":"transparent",color:lang===l?D.accentLight:D.muted,
-              fontSize:10,fontWeight:700,cursor:"pointer"}}>
-            {lbl}
+              fontSize:13,cursor:"pointer",letterSpacing:0}}>
+            {flag}
           </button>
         ))}
       </div>
@@ -5286,7 +5349,7 @@ export default function App(){
           <Menu size={20}/>
         </button>
         <div style={{fontSize:14,fontWeight:900,color:D.text}}>WindowOS</div>
-        <div style={{fontSize:11,color:D.muted,flex:1}}>{PAGES.find(p=>p.id===page)?.label||""}</div>
+        <div style={{fontSize:11,color:D.muted,flex:1}}>{PAGES().find(p=>p.id===page)?.label||""}</div>
         <div style={{width:8,height:8,borderRadius:"50%",background:saved?D.green:D.yellow}}/>
       </div>
 
@@ -5317,18 +5380,18 @@ export default function App(){
             />
           )}
         </div>
-        {page==="dashboard"&&<Dashboard leads={leads} orders={orders} payments={payments} inventory={inventory} kpi={kpi} measurements={measurements} installations={installations} onClientClick={setClientCard}/>}
-        {page==="calendar"&&<Calendar leads={leads} measurements={measurements} installations={installations} payments={payments} setMeasurements={setMeasurements} setInstallations={setInstallations} setLeads={setLeads} onClientClick={setClientCard} setPage={navTo}/>}
-        {page==="leads"&&<Leads leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
-        {page==="measurements"&&<Measurements measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc} leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
-        {page==="orders"&&<Orders orders={orders} setOrders={setOrders} setPayments={setPayments} payments={payments} onClientClick={setClientCard}/>}
-        {page==="installation"&&<Installation installations={installations} setInstallations={setInstallations} orders={orders} onClientClick={setClientCard}/>}
-        {page==="inventory"&&<Inventory inventory={inventory} setInventory={setInventory}/>}
-        {page==="payments"&&<Payments payments={payments} setPayments={setPayments} onClientClick={setClientCard} company={company}/>}
-        {page==="quotes"&&<Quotes quotes={quotes} setQuotes={setQuotes} onClientClick={setClientCard}/>}
-        {page==="finance"&&<FinancePL orders={orders} payments={payments} leads={leads} measurements={measurements} kpi={kpi}/>}
-        {page==="kpi"&&<KPI leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
-        {page==="calc"&&<Calc preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes} templates={templates} setTemplates={setTemplates} setActivity={setActivity} company={company}/>}
+        {page==="dashboard"&&<Dashboard key={lang} leads={leads} orders={orders} payments={payments} inventory={inventory} kpi={kpi} measurements={measurements} installations={installations} onClientClick={setClientCard}/>}
+        {page==="calendar"&&<Calendar key={lang} leads={leads} measurements={measurements} installations={installations} payments={payments} setMeasurements={setMeasurements} setInstallations={setInstallations} setLeads={setLeads} onClientClick={setClientCard} setPage={navTo}/>}
+        {page==="leads"&&<Leads key={lang} leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
+        {page==="measurements"&&<Measurements key={lang} measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc} leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
+        {page==="orders"&&<Orders key={lang} orders={orders} setOrders={setOrders} setPayments={setPayments} payments={payments} onClientClick={setClientCard}/>}
+        {page==="installation"&&<Installation key={lang} installations={installations} setInstallations={setInstallations} orders={orders} onClientClick={setClientCard}/>}
+        {page==="inventory"&&<Inventory key={lang} inventory={inventory} setInventory={setInventory}/>}
+        {page==="payments"&&<Payments key={lang} payments={payments} setPayments={setPayments} onClientClick={setClientCard} company={company}/>}
+        {page==="quotes"&&<Quotes key={lang} quotes={quotes} setQuotes={setQuotes} onClientClick={setClientCard}/>}
+        {page==="finance"&&<FinancePL key={lang} orders={orders} payments={payments} leads={leads} measurements={measurements} kpi={kpi}/>}
+        {page==="kpi"&&<KPI key={lang} leads={leads} measurements={measurements} orders={orders} payments={payments}/>}
+        {page==="calc"&&<Calc key={lang} preload={calcPreload} setPreload={setCalcPreload} orders={orders} setOrders={setOrders} leads={leads} setLeads={setLeads} quotes={quotes} setQuotes={setQuotes} templates={templates} setTemplates={setTemplates} setActivity={setActivity} company={company}/>}
       </div>
     </div>
 
