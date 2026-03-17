@@ -1599,6 +1599,7 @@ function printKP(client,calced,saleTotal,margin,split,extras,company={}){
   <div class="footer">${company.name||"WindowOS"} · הצעה זו הופקה באופן אוטומטי · ${date}</div>
   </body></html>`;
   const w=window.open("","_blank","width=900,height=750");
+  if(!w){alert("Браузер заблокировал всплывающее окно. Разрешите pop-ups для этого сайта.");return;}
   w.document.write(html);w.document.close();
   setTimeout(()=>w.print(),500);
 }
@@ -1979,7 +1980,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                   </div>
                   {/* Color selector */}
                   <div style={{marginBottom:5}}>
-                    <div style={{fontSize:9,color:D.muted,marginBottom:4}}>{bi("Цвет профиля","צבע פרופיל")}</div>
+                    <div style={{fontSize:9,color:D.muted,marginBottom:4}}>{t(bi("Цвет профиля","צבע פרופיל"))}</div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
                       {PCOLORS.map(c=>{
                         const sel=(it.color||"white")===c.id;
@@ -2006,7 +2007,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                     </select>
                   </div>
                   <div style={{marginTop:5}}>
-                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>{bi("Роллет / тришс","תריס")}</div>
+                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>{t(bi("Роллет / тришс","תריס"))}</div>
                     <select value={it.shutter} onChange={e=>upd(it.id,"shutter",e.target.value)}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:it.shutter!=="none"?D.yellow:D.muted,fontSize:11,outline:"none",fontWeight:it.shutter!=="none"?700:400}}>
                       {DSHT.map(s=><option key={s.id} value={s.id} style={{background:D.card,color:D.text}}>{t(s.name)}</option>)}
@@ -2056,7 +2057,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
               {/* ACCESSORIES PANEL */}
               <div style={{borderTop:`1px solid ${D.border}`,padding:"8px 14px",background:D.surface+"80",borderBottomLeftRadius:14,borderBottomRightRadius:14}}>
                 <div style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:6}}>
-                  🔧 {bi("Аксессуары","אביזרים")}
+                  🔧 {t(bi("Аксессуары","אביזרים"))}
                   {it.accessories?.length>0&&<span style={{marginLeft:6,color:D.teal}}>{it.accessories.length} выбрано · {fmt(Math.round((it.accessories||[]).reduce((s,a)=>{const ac=DACC.find(d=>d.id===a.id);return s+(ac?ac.price*(a.qty||1)*it.qty:0);},0)))}</span>}
                 </div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
