@@ -672,7 +672,7 @@ const SC={
   "planned":"#8B5CF6","in_progress":"#F59E0B","inst_completed":"#10B981","approved":"#10B981"
 };
 const LST=["new_lead","measurement_set","quote_sent","followup","won","lost"];
-const OST=["wait_materials","in_production","installing","completed"];
+const OST=["wait_materials","in_production","ready_install","installing","completed"];
 const MST=["planned","inst_completed","approved"];
 const MOP_T=[
   {v:"sliding_2",    label:bi("Хаза 2-трек",        "הזזה 2 מסלולים",       "Sliding 2-track")},
@@ -1265,19 +1265,19 @@ function Leads({leads,setLeads,onClientClick}){
     {modal&&(<Modal title={edit?"✏️ Редактировать лид":"➕ Новый лид"} onClose={()=>setModal(false)} wide>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <Inp label="Имя *" value={t(form.name)} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
-        <Inp label="Телефон *" value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
+        <Inp label={`${ui("phone")} *`} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-        <Inp label="Город" value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
-        <Sel label="Тип клиента" value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} options={["Частный","Подрядчик","Архитектор","Застройщик"]}/>
+        <Inp label={ui("city")} value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
+        <Sel label={ui("clientType")} value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} options={["Частный","Подрядчик","Архитектор","Застройщик"]}/>
         <Inp label="Кол-во окон" value={form.windows} onChange={e=>setForm(p=>({...p,windows:e.target.value}))} type="number"/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Sel label="Тип работы" value={form.jobType} onChange={e=>setForm(p=>({...p,jobType:e.target.value}))} options={JOB_TYPES}/>
-        <Sel label="Источник" value={form.source} onChange={e=>setForm(p=>({...p,source:e.target.value}))} options={["Google Ads","Google Maps","Рекомендация","Instagram","Архитектор","Прораб","Повторный клиент"]}/>
+        <Sel label={ui("jobType")} value={form.jobType} onChange={e=>setForm(p=>({...p,jobType:e.target.value}))} options={JOB_TYPES}/>
+        <Sel label={ui("source")} value={form.source} onChange={e=>setForm(p=>({...p,source:e.target.value}))} options={["Google Ads","Google Maps","Рекомендация","Instagram","Архитектор","Прораб","Повторный клиент"]}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
-        <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={LST}/>
+        <Sel label={ui("status")} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={LST}/>
         <div style={{marginBottom:12}}>
           <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>Приоритет</div>
           <div style={{display:"flex",gap:5}}>
@@ -1295,10 +1295,10 @@ function Leads({leads,setLeads,onClientClick}){
         <Inp label="Оценка ₪" value={form.value} onChange={e=>setForm(p=>({...p,value:e.target.value}))} type="number"/>
         <Inp label="Follow-up дата" value={form.followUp} onChange={e=>setForm(p=>({...p,followUp:e.target.value}))} type="date"/>
       </div>
-      <Inp label="Заметки" value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
+      <Inp label={ui("notes")} value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={submit}><Check size={13}/> {edit?"Сохранить":"Добавить"}</Btn>
-        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">{ui("cancel")}</Btn>
       </div>
     </Modal>)}
   </div>);
@@ -1351,7 +1351,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Замеры</div>
+      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>{ui("nav_measurements")}</div>
         <div style={{fontSize:13,color:D.muted}}>{measurements.length} замеров</div></div>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={()=>exportCSV(["Клиент","Адрес","Дата","Статус","м²"],measurements.map(m=>[m.client,m.address,m.date,m.status,totalArea(m).toFixed(2)]),"замеры.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
@@ -1492,13 +1492,13 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       <SH title="👤 Клиент и объект"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <Inp label="Имя клиента *" value={form.client} onChange={e=>setForm(f=>({...f,client:e.target.value}))}/>
-        <Inp label="Телефон" value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))}/>
+        <Inp label={ui("phone")} value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))}/>
       </div>
       <Inp label="Адрес объекта" value={form.address} onChange={e=>setForm(f=>({...f,address:e.target.value}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-        <Inp label="Дата" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} type="date"/>
+        <Inp label={ui("date")} value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} type="date"/>
         <Inp label={form.mode==="По чертежу"?"Ответственный":"Специалист (выезд)"} value={form.specialist} onChange={e=>setForm(f=>({...f,specialist:e.target.value}))}/>
-        <Sel label="Статус" value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} options={MST}/>
+        <Sel label={ui("status")} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} options={MST}/>
       </div>
       {leads.length>0&&(<div style={{marginBottom:12}}>
         <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>Привязать к лиду (авто-статус)</div>
@@ -1540,8 +1540,8 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       </div>
       <SH title="🔧 Монтаж"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-        <Sel label="Тип стены" value={form.wallType} onChange={e=>setForm(f=>({...f,wallType:e.target.value}))} options={WT}/>
-        <Inp label="Этаж" value={form.floor} onChange={e=>setForm(f=>({...f,floor:e.target.value}))}/>
+        <Sel label={ui("wallType")} value={form.wallType} onChange={e=>setForm(f=>({...f,wallType:e.target.value}))} options={WT}/>
+        <Inp label={ui("floor")} value={form.floor} onChange={e=>setForm(f=>({...f,floor:e.target.value}))}/>
         <div style={{marginBottom:12}}>
           <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:8,textTransform:"uppercase"}}>Доп. работы</div>
           <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",marginBottom:6}}>
@@ -1573,7 +1573,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       </div>)}
       <div style={{display:"flex",gap:8,marginTop:8,paddingTop:14,borderTop:`1px solid ${D.border}`}}>
         <Btn onClick={submit}><Check size={13}/> {editId?"Сохранить":"Создать"}</Btn>
-        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">{ui("cancel")}</Btn>
       </div>
     </Modal>)}
   </div>);
@@ -2004,14 +2004,14 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
         </div>
         <button onClick={()=>setProfModal(null)}
           style={{width:"100%",marginTop:8,padding:"5px",background:"none",border:`1px solid ${D.border}`,
-            borderRadius:6,color:D.muted,fontSize:10,cursor:"pointer"}}>Закрыть</button>
+            borderRadius:6,color:D.muted,fontSize:10,cursor:"pointer"}}>{ui("close")}</button>
       </div>)}
     </div>);
   };
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Калькулятор КП</div>
+      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>{ui("nav_calc")}</div>
         <div style={{fontSize:13,color:D.muted}}>Dekel 2022 × 1.13 (цены 2026)</div></div>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={()=>printKP(client,calced,saleTotal,margin,split,extras,company)} variant="success"><Download size={13}/> PDF КП</Btn>
@@ -2211,7 +2211,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                     <div style={{marginTop:6,padding:"8px",background:D.surface,borderRadius:8}}>
                       <div style={{fontSize:10,color:D.muted}}>Себест. за 1 шт</div>
                       <div style={{fontSize:13,fontWeight:800,color:D.text}}>{fmt(Math.round(it.totalCost/it.qty))}</div>
-                      <div style={{fontSize:10,color:D.muted,marginTop:4}}>Монтаж</div>
+                      <div style={{fontSize:10,color:D.muted,marginTop:4}}>{ui("nav_install")}</div>
                       <input type="range" min={1.0} max={1.3} step={0.01} value={it.install}
                         onChange={e=>upd(it.id,"install",+e.target.value)}
                         style={{width:"100%",accentColor:D.accent,margin:"3px 0"}}/>
@@ -2511,7 +2511,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
         placeholder="Напр: Стандартная квартира, Балкон 3 окна..."/>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={saveTemplate}><Check size={13}/> Сохранить</Btn>
-        <Btn onClick={()=>setTplModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={()=>setTplModal(false)} variant="ghost">{ui("cancel")}</Btn>
       </div>
     </Modal>)}
 
@@ -2688,7 +2688,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Монтаж</div>
+      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>{ui("nav_install")}</div>
         <div style={{fontSize:13,color:D.muted}}>{installations.length} объектов</div></div>
       <Btn onClick={openAdd}><Plus size={13}/> Новый монтаж</Btn>
     </div>
@@ -2774,8 +2774,8 @@ function Installation({installations,setInstallations,orders,onClientClick}){
     {/* ADD/EDIT MODAL */}
     {modal&&(<Modal title={editId?"✏️ Редактировать монтаж":"🔧 Новый монтаж"} onClose={()=>setModal(false)} wide>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Inp label="Клиент *" value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
-        <Inp label="Телефон" value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
+        <Inp label={`${ui("client")} *`} value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
+        <Inp label={ui("phone")} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
       </div>
       <Inp label="Адрес объекта" value={form.address} onChange={e=>setForm(p=>({...p,address:e.target.value}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
@@ -2830,12 +2830,12 @@ function Installation({installations,setInstallations,orders,onClientClick}){
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
         <Inp label="Дата завершения" value={form.completedDate} onChange={e=>setForm(p=>({...p,completedDate:e.target.value}))} type="date"/>
-        <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={["planned","in_progress","completed"]}/>
+        <Sel label={ui("status")} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={["planned","in_progress","completed"]}/>
       </div>
       <Inp label="Заметки / Замечания" value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={submit}><Check size={13}/> {editId?"Сохранить":"Создать"}</Btn>
-        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">{ui("cancel")}</Btn>
       </div>
     </Modal>)}
   </div>);
@@ -2872,7 +2872,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
   };
 
   const addPay=o=>{
-    const debt=o.total-o.paid; if(debt<=0)return;
+    const debt=(o.total||0)-(o.paid||0); if(debt<=0)return;
     const amount=+prompt(`Сумма платежа (остаток: ₪${debt.toLocaleString()}):`,debt);
     if(!amount||amount<=0)return;
     const type=prompt("Тип платежа:","Финальный")||"Финальный";
@@ -2899,7 +2899,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
   // Filter and search
   const filtered=orders.filter(o=>{
     const matchFilter=filter==="all"||(filter==="active"&&o.status!=="completed")||(filter==="completed"&&o.status==="completed");
-    const matchSearch=!search.trim()||o.client.toLowerCase().includes(search.toLowerCase())||o.id.toLowerCase().includes(search.toLowerCase());
+    const matchSearch=!search.trim()||(o.client||"").toLowerCase().includes(search.toLowerCase())||(o.id||"").toLowerCase().includes(search.toLowerCase());
     return matchFilter&&matchSearch;
   });
   const totalPages=Math.ceil(filtered.length/PAGE_SIZE);
@@ -2911,7 +2911,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
       <div>
-        <div style={{fontSize:22,fontWeight:900,color:D.text}}>Заказы</div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>{ui("nav_orders")}</div>
         <div style={{fontSize:13,color:D.muted}}>
           {activeCount} активных · {completedCount} завершённых · {orders.length} всего
         </div>
@@ -2947,7 +2947,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
 
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       {paged.map(o=>{
-        const debt=o.total-o.paid;
+        const debt=(o.total||0)-(o.paid||0);
         const pl=getPl(o.id);
         const matC=+pl.materialsCost||0; const labC=+pl.laborCost||0; const extC=+pl.extrasCost||0;
         const totalCost=matC+labC+extC;
@@ -3084,13 +3084,13 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
     </div>)}
 
     {modal&&(<Modal title="📦 Новый заказ" onClose={()=>setModal(false)}>
-      <Inp label="Клиент *" value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
+      <Inp label={`${ui("client")} *`} value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Inp label="Город" value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
+        <Inp label={ui("city")} value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
         <Inp label="Кол-во окон" value={form.windows} onChange={e=>setForm(p=>({...p,windows:e.target.value}))} type="number"/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Inp label="Сумма ₪ *" value={form.total} onChange={e=>setForm(p=>({...p,total:e.target.value}))} type="number"/>
+        <Inp label={`${ui("amount")} ₪ *`} value={form.total} onChange={e=>setForm(p=>({...p,total:e.target.value}))} type="number"/>
         <Inp label="Дата сдачи" value={form.delivery} onChange={e=>setForm(p=>({...p,delivery:e.target.value}))} type="date"/>
       </div>
       {form.total&&<div style={{background:D.surface,borderRadius:8,padding:12,marginBottom:12,fontSize:12,color:D.muted}}>
@@ -3098,7 +3098,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
       </div>}
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={addOrder}><Check size={13}/> Создать</Btn>
-        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">{ui("cancel")}</Btn>
       </div>
     </Modal>)}
   </div>);
@@ -3147,7 +3147,7 @@ function Inventory({inventory,setInventory}){
     {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
       <div>
-        <div style={{fontSize:22,fontWeight:900,color:D.text}}>Склад</div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>{ui("nav_inventory")}</div>
         <div style={{fontSize:13,color:D.muted}}>
           {inventory.length} позиций · Стоимость: <b style={{color:D.green}}>{fmt(totalVal)}</b>
           {low.length>0&&<span style={{color:D.yellow}}> · ⚠️ {low.length} нужно закупить</span>}
@@ -3179,7 +3179,7 @@ function Inventory({inventory,setInventory}){
     <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
       <div style={{position:"relative",flex:1,minWidth:200}}>
         <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск..."
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={ui("search")}
           style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
             padding:"7px 10px 7px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
       </div>
@@ -3307,7 +3307,7 @@ function Inventory({inventory,setInventory}){
       </div>)}
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={save} variant="success"><Check size={13}/> {editItem?"Сохранить":"Добавить"}</Btn>
-        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">{ui("cancel")}</Btn>
         {editItem&&<Btn onClick={()=>{del(editItem);setModal(false);}} variant="ghost">
           <Trash2 size={13}/> Удалить
         </Btn>}
@@ -4226,7 +4226,7 @@ function KPI({leads,measurements,orders,payments}){
     const orderRows=orders.map(o=>`<tr><td class="td"><b>${o.id}</b></td><td class="td">${o.client}</td><td class="td">${o.city||"—"}</td><td class="num">${o.windows}</td><td class="num">₪${o.total.toLocaleString()}</td><td class="num ${o.paid>0?"pos":""}">${o.paid>0?"₪"+o.paid.toLocaleString():"—"}</td><td class="num ${(o.total-o.paid)>0?"neg":""}">${(o.total-o.paid)>0?"₪"+(o.total-o.paid).toLocaleString():"—"}</td><td class="td"><span class="tag">${ds(o.status)}</span></td><td class="td">${o.created||""}</td></tr>`).join("");
     const payRows=payments.map(p=>`<tr><td class="td">${p.order||""}</td><td class="td"><b>${p.client}</b></td><td class="td">${p.type}</td><td class="num"><b>₪${p.amount.toLocaleString()}</b></td><td class="td">${p.date||""}</td><td class="td">${p.method||""}</td><td class="td"><span class="tag">${ds(p.status)}</span></td></tr>`).join("");
     const monthRows=monthList.map(m=>`<tr><td class="td"><b>${m.label}</b></td><td class="num">${m.leads}</td><td class="num">${m.measures}</td><td class="num">${m.orders}</td><td class="num">₪${m.revenue.toLocaleString()}</td><td class="num pos">₪${m.paid.toLocaleString()}</td></tr>`).join("");
-    const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8">${style}<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Dashboard</x:Name><x:WorksheetOptions><x:Selected/></x:WorksheetOptions></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>Лиды</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>Заказы</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>Платежи</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>По месяцам</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>
+    const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8">${style}<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Dashboard</x:Name><x:WorksheetOptions><x:Selected/></x:WorksheetOptions></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>Лиды</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>{ui("nav_orders")}</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>Платежи</x:Name></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>По месяцам</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>
     <table style="margin-bottom:30px;width:600px"><tr><td colspan="3" class="h1">🏭 WindowOS — KPI · ${new Date().toLocaleDateString("ru-RU")}</td></tr><tr><td colspan="3" class="h2">📊 Воронка</td></tr><tr><td class="th">Показатель</td><td class="th">Значение</td><td class="th">%</td></tr><tr><td class="td">Лидов</td><td class="num"><b>${fLeads}</b></td><td class="pct">—</td></tr><tr><td class="td">Замеров</td><td class="num"><b>${fMeasured}</b></td><td class="pct">${convLM}%</td></tr><tr><td class="td">Заказов</td><td class="num"><b>${fOrders}</b></td><td class="pct">${convLO}%</td></tr><tr><td class="td">Закрыто</td><td class="num pos"><b>${fWon}</b></td><td class="pct">${winRate}%</td></tr><tr><td colspan="3" class="h2">💰 Финансы</td></tr><tr><td class="td">Сумма КП</td><td class="num">₪${totalContracted.toLocaleString()}</td><td></td></tr><tr><td class="td">Получено</td><td class="num pos">₪${totalPaid.toLocaleString()}</td><td></td></tr><tr><td class="td">Средний чек</td><td class="num">₪${avgDeal.toLocaleString()}</td><td></td></tr></table>
     <table style="margin-bottom:30px" x-sheet="Лиды"><tr><td colspan="9" class="h1">👤 Лиды — ${leads.length}</td></tr><tr><td class="th">Имя</td><td class="th">Телефон</td><td class="th">Город</td><td class="th">Тип</td><td class="th">Статус</td><td class="th">Оценка</td><td class="th">Follow-up</td><td class="th">Источник</td><td class="th">Дата</td></tr>${leadRows}</table>
     <table style="margin-bottom:30px" x-sheet="Заказы"><tr><td colspan="9" class="h1">📦 Заказы — ${orders.length}</td></tr><tr><td class="th">ID</td><td class="th">Клиент</td><td class="th">Город</td><td class="th">Окон</td><td class="th">Сумма</td><td class="th">Получено</td><td class="th">Остаток</td><td class="th">Статус</td><td class="th">Дата</td></tr>${orderRows}<tr><td class="tot" colspan="4">ИТОГО</td><td class="tot num">₪${totalContracted.toLocaleString()}</td><td class="tot num pos">₪${totalPaid.toLocaleString()}</td><td class="tot num neg">₪${(totalContracted-totalPaid).toLocaleString()}</td><td colspan="2" class="tot"></td></tr></table>
@@ -5253,19 +5253,19 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
     {quickModal&&(<Modal title={`${TYPE_ICONS[quickModal.type]} Создать ${TYPE_LABELS[quickModal.type]} — ${new Date(quickModal.date).toLocaleDateString("ru-RU",{day:"numeric",month:"long"})}`}
       onClose={()=>setQuickModal(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
-        <Inp label="Клиент *" value={quickForm.client} onChange={e=>setQuickForm(p=>({...p,client:e.target.value}))} placeholder="Имя клиента"/>
-        {quickModal.type!=="followup"&&<Inp label="Телефон" value={quickForm.phone} onChange={e=>setQuickForm(p=>({...p,phone:e.target.value}))} placeholder="05X-XXXXXXX"/>}
-        {quickModal.type!=="followup"&&<Inp label="Адрес" value={quickForm.address} onChange={e=>setQuickForm(p=>({...p,address:e.target.value}))} placeholder="Улица, город"/>}
+        <Inp label={`${ui("client")} *`} value={quickForm.client} onChange={e=>setQuickForm(p=>({...p,client:e.target.value}))} placeholder="Имя клиента"/>
+        {quickModal.type!=="followup"&&<Inp label={ui("phone")} value={quickForm.phone} onChange={e=>setQuickForm(p=>({...p,phone:e.target.value}))} placeholder="05X-XXXXXXX"/>}
+        {quickModal.type!=="followup"&&<Inp label={ui("address")} value={quickForm.address} onChange={e=>setQuickForm(p=>({...p,address:e.target.value}))} placeholder="Улица, город"/>}
         {quickModal.type==="followup"&&(
           <div style={{fontSize:11,color:D.muted,background:D.surface,borderRadius:8,padding:10}}>
             Для Follow-up введи имя клиента точно как в CRM — дата follow-up обновится автоматически.
           </div>
         )}
-        <Inp label="Заметки" value={quickForm.notes} onChange={e=>setQuickForm(p=>({...p,notes:e.target.value}))} placeholder="Доп. информация..."/>
+        <Inp label={ui("notes")} value={quickForm.notes} onChange={e=>setQuickForm(p=>({...p,notes:e.target.value}))} placeholder="Доп. информация..."/>
       </div>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={saveQuick} variant="success"><Check size={13}/> Сохранить</Btn>
-        <Btn onClick={()=>setQuickModal(null)} variant="ghost">Отмена</Btn>
+        <Btn onClick={()=>setQuickModal(null)} variant="ghost">{ui("cancel")}</Btn>
       </div>
     </Modal>)}
   </div>);
