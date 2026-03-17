@@ -1151,7 +1151,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
     wallType:"Железобетон",floor:"1",crane:false,demolition:false,installNotes:"",files:[]});
   const [form,setForm]=useState(ef());
   const openAdd=()=>{setEditId(null);setForm(ef());setModal(true);};
-  const openEdit=m=>{setEditId(m.id);setForm({...m,openings:m.openings.map(o=>({...o})),files:m.files.map(f=>({...f}))});setModal(true);};
+  const openEdit=m=>{setEditId(m.id);setForm({...m,openings:(m.openings||[]).map(o=>({...o})),files:(m.files||[]).map(f=>({...f}))});setModal(true);};
   const addRow=()=>setForm(f=>({...f,openings:[...f.openings,{id:Date.now(),room:"",width:"",height:"",type:"Хаза 2-трек",qty:1,notes:""}]}));
   const delRow=id=>setForm(f=>({...f,openings:f.openings.filter(o=>o.id!==id)}));
   const updRow=(id,k,v)=>setForm(f=>({...f,openings:f.openings.map(o=>o.id===id?{...o,[k]:v}:o)}));
@@ -1178,7 +1178,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
     setMeasurements(p=>p.map(x=>x.id===m.id?{...x,status:newStatus}:x));
     syncLeadStatus(m.leadId,newStatus);
   };
-  const totalArea=m=>m.openings.reduce((s,o)=>s+(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1),0);
+  const totalArea=m=>(m.openings||[]).reduce((s,o)=>s+(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1),0);
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
@@ -1212,9 +1212,9 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
                   <span style={{fontSize:11,color:D.muted}}>📅 {m.date}</span>
                   {m.mode==="По чертежу"&&<span style={{fontSize:10,fontWeight:700,color:D.teal,background:D.teal+"18",borderRadius:4,padding:"1px 5px"}}>📄 По чертежу</span>}
                   {m.specialist&&<span style={{fontSize:11,color:D.muted}}>👤 {m.specialist}</span>}
-                  <span style={{fontSize:11,color:D.muted}}>🪟 {m.openings.length} проёмов</span>
+                  <span style={{fontSize:11,color:D.muted}}>🪟 {(m.openings||[]).length} проёмов</span>
                   <span style={{fontSize:11,color:D.green,fontWeight:700}}>📐 {area.toFixed(2)} м²</span>
-                  {m.files.length>0&&<span style={{fontSize:11,color:D.muted}}>📎 {m.files.length} файлов</span>}
+                  {(m.files||[]).length>0&&<span style={{fontSize:11,color:D.muted}}>📎 {(m.files||[]).length} файлов</span>}
                 </div>
               </div>
             </div>
@@ -1230,11 +1230,11 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
               <button onClick={()=>setMeasurements(p=>p.filter(x=>x.id!==m.id))} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}><Trash2 size={13}/></button>
             </div>
           </div>
-          {m.openings.length>0&&(<div style={{marginTop:12,background:D.surface,borderRadius:8,overflow:"hidden"}}>
+          {(m.openings||[]).length>0&&(<div style={{marginTop:12,background:D.surface,borderRadius:8,overflow:"hidden"}}>
             <div style={{display:"grid",gridTemplateColumns:"1.5fr 80px 80px 1.5fr 50px 1fr",padding:"5px 10px",gap:8}}>
               {["Помещение","Ш (см)","В (см)","Тип","Кол","Заметки"].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
             </div>
-            {m.openings.map((o,i)=>(<div key={o.id} style={{display:"grid",gridTemplateColumns:"1.5fr 80px 80px 1.5fr 50px 1fr",
+            {(m.openings||[]).map((o,i)=>(<div key={o.id} style={{display:"grid",gridTemplateColumns:"1.5fr 80px 80px 1.5fr 50px 1fr",
               padding:"6px 10px",gap:8,borderTop:`1px solid ${D.border}`,background:i%2===0?D.card+"80":D.surface}}>
               <div style={{fontSize:12,fontWeight:600,color:D.text}}>{o.room||"—"}</div>
               <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{o.width}</div>
@@ -1366,7 +1366,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
         <Btn onClick={addRow} variant="ghost" small><Plus size={12}/> Добавить проём</Btn>
         <div style={{fontSize:12,color:D.muted}}>
-          {form.openings.some(o=>o.width&&o.height)&&<><b style={{color:D.green}}>{form.openings.reduce((s,o)=>s+(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1),0).toFixed(2)} м²</b></>}
+          {(form.openings||[]).some(o=>o.width&&o.height)&&<><b style={{color:D.green}}>{(form.openings||[]).reduce((s,o)=>s+(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1),0).toFixed(2)} м²</b></>}
         </div>
       </div>
       <SH title="🔧 Монтаж"/>
@@ -1391,8 +1391,8 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
         <div style={{fontSize:12,color:D.muted,marginBottom:8}}>Фото, PDF, DWG, DXF, AutoCAD и любые другие форматы</div>
         <Btn variant="teal" onClick={()=>{const fi=document.createElement("input");fi.type="file";fi.multiple=true;fi.accept="image/*,.pdf,.dwg,.dxf,.rvt,.skp,.ifc";fi.onchange=pickFiles;fi.click();}}><Paperclip size={13}/> Прикрепить файлы</Btn>
       </div>
-      {form.files.length>0&&(<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
-        {form.files.map(f=>(<div key={f.id} style={{position:"relative",background:D.surface,border:`1px solid ${D.border}`,borderRadius:10,overflow:"hidden",width:f.isImage?100:180}}>
+      {(form.files||[]).length>0&&(<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
+        {(form.files||[]).map(f=>(<div key={f.id} style={{position:"relative",background:D.surface,border:`1px solid ${D.border}`,borderRadius:10,overflow:"hidden",width:f.isImage?100:180}}>
           {f.isImage?<img src={f.data} alt={f.name} style={{width:100,height:75,objectFit:"cover",display:"block"}}/>
             :<div style={{padding:"8px 10px",display:"flex",gap:8,alignItems:"center"}}>
               <span style={{fontSize:20}}>{fileIcon(f.type)}</span>
@@ -1641,7 +1641,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
   useEffect(()=>{
     if(!preload)return;
     setClient(preload.client||"");
-    const newItems=preload.openings.filter(o=>o.width&&o.height).map(o=>{
+    const newItems=(preload.openings||[]).filter(o=>o.width&&o.height).map(o=>{
       const op=OT2OP[o.type]||"sliding_2_track";
       const profile=OP2PROF[op]||"klil_7000";
       return newItem(o.room||o.type,op,profile,parseFloat(o.width)||120,parseFloat(o.height)||140,parseInt(o.qty)||1);
@@ -4614,7 +4614,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
                 padding:"8px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
                   <div style={{fontSize:12,fontWeight:700,color:D.text}}>📅 {m.date} · {m.address||"—"}</div>
-                  <div style={{fontSize:10,color:D.muted}}>{m.openings.length} проёмов · {m.mode==="По чертежу"?"📄 По чертежу":"🚗 Выезд"}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{(m.openings||[]).length} проёмов · {m.mode==="По чертежу"?"📄 По чертежу":"🚗 Выезд"}</div>
                 </div>
                 <div style={{display:"flex",gap:5,alignItems:"center"}}>
                   <Badge status={m.status}/>
