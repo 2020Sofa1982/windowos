@@ -676,34 +676,34 @@ const LST=["new_lead","measurement_set","quote_sent","followup","won","lost"];
 const OST=["wait_materials","in_production","installing","completed"];
 const MST=["planned","inst_completed","approved"];
 const MOP_T=[
-  bi("Хаза 2-трек",         "הזזה 2 מסלולים"),
-  bi("Хаза 3-трек",         "הזזה 3 מסלולים"),
-  bi("Поворотно-откидное",  "כיפ-כיפ"),
-  bi("Откидное",             "כיפ"),
-  bi("Глухое",               "פיקס"),
-  bi("Карман (кис)",         "הזזה לכיס"),
-  bi("Бельгийское",          "בלגי"),
-  bi("Дверь хаза",           "דלת הזזה"),
-  bi("Дверь поворот",        "דלת ציר"),
+  {v:"sliding_2",    label:bi("Хаза 2-трек",        "הזזה 2 מסלולים",       "Sliding 2-track")},
+  {v:"sliding_3",    label:bi("Хаза 3-трек",        "הזזה 3 מסלולים",       "Sliding 3-track")},
+  {v:"tilt_turn",    label:bi("Поворотно-откидное", "כיפ-כיפ",              "Tilt-turn")},
+  {v:"tilt",         label:bi("Откидное",            "כיפ",                  "Tilt-only")},
+  {v:"fixed",        label:bi("Глухое",              "פיקס",                 "Fixed")},
+  {v:"pocket",       label:bi("Карман",              "הזזה לכיס",            "Pocket slide")},
+  {v:"belgian",      label:bi("Бельгийское",         "בלגי",                 "Belgian")},
+  {v:"door_slide",   label:bi("Дверь хаза",          "דלת הזזה",             "Sliding door")},
+  {v:"door_swing",   label:bi("Дверь поворот",       "דלת ציר",              "Swing door")},
 ];
 const WT=[
-  bi("Железобетон","בטון מזוין"),
-  bi("Кирпич","לבנים"),
-  bi("Газобетон","בלוק מקציף"),
-  bi("Блоки","בלוקים"),
-  bi("Дерево","עץ"),
-  bi("Другое","אחר"),
+  {v:"concrete",  label:bi("Железобетон","בטון מזוין",    "Reinforced concrete")},
+  {v:"brick",     label:bi("Кирпич",     "לבנים",          "Brick")},
+  {v:"aerated",   label:bi("Газобетон",  "בלוק מקציף",     "Aerated block")},
+  {v:"block",     label:bi("Блоки",      "בלוקים",         "Block")},
+  {v:"wood",      label:bi("Дерево",     "עץ",             "Wood")},
+  {v:"other",     label:bi("Другое",     "אחר",            "Other")},
 ];
 const PM={"wait_materials":10,"in_production":50,"installing":85,"completed":100};
 const fmt=n=>"₪"+Math.round(n).toLocaleString("ru-RU");
 const fmtSize=b=>b<1024?b+"B":b<1048576?(b/1024).toFixed(1)+"KB":(b/1048576).toFixed(1)+"MB";
-const fileIcon=t=>{if(!t)return"📎";if(t.startsWith("image/"))return"🖼️";if(t==="application/pdf")return"📄";if(t.includes("dwg")||t.includes("dxf"))return"📐";return"📎";};
+const fileIcon=ft=>{if(!ft)return"📎";if(ft.startsWith("image/"))return"🖼️";if(ft==="application/pdf")return"📄";if(ft.includes("dwg")||ft.includes("dxf"))return"📐";return"📎";};;
 const dlFile=f=>{const a=document.createElement("a");a.href=f.data;a.download=f.name;a.click();};
 const exportCSV=(headers,rows,fn)=>{const csv=[headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,\uFEFF"+encodeURIComponent(csv);a.download=fn;a.click();};
 
 // ── UI ATOMS ─────────────────────────────────────────────────
 const Badge=({status})=>(<span style={{background:(SC[status]||D.muted)+"22",color:SC[status]||D.muted,
-  border:`1px solid ${(SC[status]||D.muted)}44`,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{status}</span>);
+  border:`1px solid ${(SC[status]||D.muted)}44`,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{ds(status)}</span>);
 
 const Btn=({children,onClick,variant="primary",small,disabled,style:s})=>{
   const v={primary:{background:"linear-gradient(135deg,#2563EB,#1D4ED8)",color:"#fff",border:"none"},
@@ -727,8 +727,16 @@ const Sel=({label,options,...p})=>(<div style={{marginBottom:12}}>
   {label&&<div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>{label}</div>}
   <select {...p} style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,
     padding:"8px 12px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}>
-    {options.map(o=>typeof o==="string"?<option key={o} value={o} style={{background:D.card}}>{o}</option>
-      :<option key={o.value} value={o.value} style={{background:D.card}}>{o.label}</option>)}
+    {options.map(o=>{
+      if(typeof o==="object"&&o!==null&&(o.ru||o.he||o.en)){
+        const v=t(o); return <option key={v} value={v} style={{background:D.card}}>{v}</option>;
+      }
+      if(typeof o==="object"&&o!==null&&o.value!==undefined){
+        return <option key={o.value} value={o.value} style={{background:D.card}}>{ds(o.label)||o.label}</option>;
+      }
+      const sv=typeof o==="string"?o:String(o);
+      return <option key={sv} value={sv} style={{background:D.card}}>{ds(sv)||sv}</option>;
+    })}
   </select>
 </div>);
 const Txa=({label,...p})=>(<div style={{marginBottom:12}}>
@@ -825,7 +833,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   orders.forEach(o=>{
     const m=o.created?.slice(0,7)||"";
     if(!m)return;
-    const MONTHS=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+    const MONTHS=[ui("m1"),ui("m2"),ui("m3"),ui("m4"),ui("m5"),ui("m6"),ui("m7"),ui("m8"),ui("m9"),ui("m10"),ui("m11"),ui("m12")];
     const mNum=parseInt(m.slice(5))-1;
     const label=`${MONTHS[mNum]||m.slice(5)} ${m.slice(2,4)}`;
     if(!monthMap[m])monthMap[m]={month:label,key:m,revenue:0,paid:0,profit:0,count:0};
@@ -869,7 +877,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
             <div key={l.id} onClick={()=>onClientClick&&onClientClick(l.name)}
               style={{fontSize:11,color:D.text,cursor:"pointer",padding:"2px 0",
                 display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontWeight:600}}>{l.name}</span>
+              <span style={{fontWeight:600}}>{t(l.name)}</span>
               <a href={l.phone?`tel:${l.phone}`:undefined}
                 onClick={e=>e.stopPropagation()}
                 style={{color:D.green,fontSize:10,textDecoration:"none",
@@ -887,7 +895,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
             <div key={l.id} onClick={()=>onClientClick&&onClientClick(l.name)}
               style={{fontSize:11,color:D.text,cursor:"pointer",padding:"2px 0",
                 display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontWeight:600}}>{l.name}</span>
+              <span style={{fontWeight:600}}>{t(l.name)}</span>
               <a href={l.phone?`tel:${l.phone}`:undefined}
                 onClick={e=>e.stopPropagation()}
                 style={{color:D.green,fontSize:10,textDecoration:"none",
@@ -1134,7 +1142,7 @@ function Leads({leads,setLeads,onClientClick}){
       onClick={()=>openEdit(l)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
         <div onClick={()=>onClientClick&&onClientClick(l.name)} style={{fontSize:13,fontWeight:800,color:D.text,lineHeight:1.3,flex:1,paddingRight:4,cursor:"pointer"}}
-          title="Открыть карточку клиента">{l.name}</div>
+          title="Открыть карточку клиента">{t(l.name)}</div>
         <span style={{fontSize:9,color:pColor(l.priority),fontWeight:800,whiteSpace:"nowrap"}}>{pLabel(l.priority)}</span>
       </div>
       {l.jobType&&<div style={{display:"inline-block",background:D.surface,border:`1px solid ${D.border}`,
@@ -1228,7 +1236,7 @@ function Leads({leads,setLeads,onClientClick}){
             background:overdueFollowUp(l)?D.red+"08":i%2===0?D.card:D.surface,
             borderTop:`1px solid ${D.border}`,borderLeft:`3px solid ${SC[l.status]||D.muted}`}}>
             <div>
-              <div onClick={()=>onClientClick&&onClientClick(l.name)} style={{fontSize:13,fontWeight:700,color:D.text,cursor:"pointer"}}>{l.name}</div>
+              <div onClick={()=>onClientClick&&onClientClick(l.name)} style={{fontSize:13,fontWeight:700,color:D.text,cursor:"pointer"}}>{t(l.name)}</div>
               <div style={{fontSize:10,color:D.muted}}>{l.jobType||l.type} · {l.source} · {l.date}</div>
             </div>
             <a href={`tel:${l.phone}`} style={{fontSize:12,color:D.green,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:3}}>
@@ -1239,7 +1247,7 @@ function Leads({leads,setLeads,onClientClick}){
             <select value={l.status} onChange={e=>setLeads(p=>p.map(x=>x.id===l.id?{...x,status:e.target.value}:x))}
               style={{background:(SC[l.status]||D.muted)+"18",color:SC[l.status]||D.muted,
                 border:`1px solid ${(SC[l.status]||D.muted)}40`,borderRadius:6,padding:"3px 6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-              {LST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+              {LST.map(s=><option key={s} value={s} style={{background:D.card}}>{ds(s)}</option>)}
             </select>
             <div style={{fontSize:13,fontWeight:700,color:D.green}}>{l.value>0?fmt(l.value):"—"}</div>
             <div style={{fontSize:10,fontWeight:700,color:overdueFollowUp(l)?D.red:D.teal}}>
@@ -1257,7 +1265,7 @@ function Leads({leads,setLeads,onClientClick}){
     {/* ── MODAL ── */}
     {modal&&(<Modal title={edit?"✏️ Редактировать лид":"➕ Новый лид"} onClose={()=>setModal(false)} wide>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Inp label="Имя *" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
+        <Inp label="Имя *" value={t(form.name)} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
         <Inp label="Телефон *" value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
@@ -1384,7 +1392,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
               <select value={m.status} onChange={e=>changeMStatus(m,e.target.value)}
                 style={{background:(SC[m.status]||D.muted)+"18",color:SC[m.status]||D.muted,
                   border:`1px solid ${(SC[m.status]||D.muted)}40`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                {MST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+                {MST.map(s=><option key={s} value={s} style={{background:D.card}}>{ds(s)}</option>)}
               </select>
               <Btn onClick={()=>onOpenCalc(m)} variant="yellow" small><Calculator size={12}/> В калькулятор</Btn>
               <Btn onClick={()=>setViewM(m)} variant="ghost" small><Eye size={12}/></Btn>
@@ -1401,7 +1409,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
               <div style={{fontSize:12,fontWeight:600,color:D.text}}>{o.room||"—"}</div>
               <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{o.width}</div>
               <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{o.height}</div>
-              <div style={{fontSize:11,color:D.muted}}>{o.type}</div>
+              <div style={{fontSize:11,color:D.muted}}>{ds(o.type)}</div>
               <div style={{fontSize:12,fontWeight:700,color:D.text,textAlign:"center"}}>{o.qty}</div>
               <div style={{fontSize:11,color:D.muted}}>{o.notes||"—"}</div>
             </div>))}
@@ -1417,7 +1425,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           <div style={{fontSize:12,color:D.muted}}>{viewM.address}</div></div>
         <div><div style={{fontSize:12,color:D.muted}}>Дата: <b style={{color:D.text}}>{viewM.date}</b></div>
           <div style={{fontSize:12,color:D.muted}}>Специалист: <b style={{color:D.text}}>{viewM.specialist||"—"}</b></div>
-          <div style={{fontSize:12,color:D.muted}}>Стена: <b style={{color:D.text}}>{viewM.wallType}</b> · Этаж: <b style={{color:D.text}}>{viewM.floor}</b></div>
+          <div style={{fontSize:12,color:D.muted}}>Стена: <b style={{color:D.text}}>{ds(viewM.wallType)}</b> · Этаж: <b style={{color:D.text}}>{viewM.floor}</b></div>
           <div style={{marginTop:6,display:"flex",gap:8}}>
             {viewM.crane&&<span style={{background:D.yellow+"20",color:D.yellow,fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6}}>🏗️ Кран</span>}
             {viewM.demolition&&<span style={{background:D.red+"20",color:D.red,fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6}}>🔨 Демонтаж</span>}
@@ -1437,7 +1445,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
             <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{o.width}</div>
             <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{o.height}</div>
             <div style={{fontSize:12,color:D.green,fontWeight:700}}>{a.toFixed(2)}</div>
-            <div style={{fontSize:11,color:D.muted}}>{o.type}</div>
+            <div style={{fontSize:11,color:D.muted}}>{ds(o.type)}</div>
             <div style={{fontSize:13,fontWeight:700,color:D.text,textAlign:"center"}}>{o.qty}</div>
           </div>);})}
         <div style={{padding:"8px 12px",borderTop:`1px solid ${D.border}`,display:"flex",justifyContent:"flex-end",gap:20}}>
@@ -1449,10 +1457,10 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
         <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Файлы и чертежи</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
           {viewM.files.map(f=>(<div key={f.id} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:10,overflow:"hidden",width:f.isImage?120:190}}>
-            {f.isImage?<img src={f.data} alt={f.name} style={{width:120,height:90,objectFit:"cover",display:"block"}}/>
+            {f.isImage?<img src={f.data} alt={t(f.name)} style={{width:120,height:90,objectFit:"cover",display:"block"}}/>
               :<div style={{padding:"10px 12px",display:"flex",gap:8,alignItems:"center"}}>
                 <span style={{fontSize:22}}>{fileIcon(f.type)}</span>
-                <div><div style={{fontSize:11,fontWeight:700,color:D.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:120}}>{f.name}</div>
+                <div><div style={{fontSize:11,fontWeight:700,color:D.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:120}}>{t(f.name)}</div>
                   <div style={{fontSize:10,color:D.muted}}>{fmtSize(f.size)}</div></div>
               </div>}
             <div style={{padding:"4px 8px",borderTop:`1px solid ${D.border}`}}>
@@ -1518,7 +1526,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           <input type="number" value={o.width} onChange={e=>updRow(o.id,"width",e.target.value)} placeholder="120" style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.accentLight,fontSize:12,fontWeight:700,outline:"none",width:"100%",textAlign:"center"}}/>
           <input type="number" value={o.height} onChange={e=>updRow(o.id,"height",e.target.value)} placeholder="140" style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.accentLight,fontSize:12,fontWeight:700,outline:"none",width:"100%",textAlign:"center"}}/>
           <select value={o.type} onChange={e=>updRow(o.id,"type",e.target.value)} style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none",width:"100%"}}>
-            {MOP_T.map(t=><option key={t} value={t} style={{background:D.card}}>{t}</option>)}
+            {MOP_T.map(ty=><option key={ty.v} value={ty.v} style={{background:D.card}}>{t(ty.label)}</option>)}
           </select>
           <input type="number" value={o.qty} min={1} onChange={e=>updRow(o.id,"qty",+e.target.value||1)} style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:12,outline:"none",width:"100%",textAlign:"center"}}/>
           <input value={o.notes} onChange={e=>updRow(o.id,"notes",e.target.value)} placeholder="Заметка..." style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.muted,fontSize:11,outline:"none",width:"100%"}}/>
@@ -1555,10 +1563,10 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       </div>
       {form.files.length>0&&(<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
         {form.files.map(f=>(<div key={f.id} style={{position:"relative",background:D.surface,border:`1px solid ${D.border}`,borderRadius:10,overflow:"hidden",width:f.isImage?100:180}}>
-          {f.isImage?<img src={f.data} alt={f.name} style={{width:100,height:75,objectFit:"cover",display:"block"}}/>
+          {f.isImage?<img src={f.data} alt={t(f.name)} style={{width:100,height:75,objectFit:"cover",display:"block"}}/>
             :<div style={{padding:"8px 10px",display:"flex",gap:8,alignItems:"center"}}>
               <span style={{fontSize:20}}>{fileIcon(f.type)}</span>
-              <div style={{overflow:"hidden"}}><div style={{fontSize:11,color:D.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
+              <div style={{overflow:"hidden"}}><div style={{fontSize:11,color:D.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t(f.name)}</div>
                 <div style={{fontSize:10,color:D.muted}}>{fmtSize(f.size)}</div></div>
             </div>}
           <button onClick={()=>setForm(f2=>({...f2,files:f2.files.filter(x=>x.id!==f.id)}))} style={{position:"absolute",top:4,right:4,background:"#00000088",border:"none",borderRadius:"50%",width:18,height:18,cursor:"pointer",color:"#fff",fontSize:10}}>✕</button>
@@ -1928,8 +1936,8 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
     const dims=PDIMS[it.profile];
     if(!dims)return null;
     const wCm=it.w, hCm=it.h;
-    if(dims.maxW&&wCm*10>dims.maxW)return`⚠️ Ширина ${wCm*10}мм > макс. ${dims.maxW}мм для ${PNAMES[it.profile]}`;
-    if(dims.maxH&&hCm*10>dims.maxH)return`⚠️ Высота ${hCm*10}мм > макс. ${dims.maxH}мм для ${PNAMES[it.profile]}`;
+    if(dims.maxW&&wCm*10>dims.maxW)return`⚠️ Ширина ${wCm*10}мм > макс. ${dims.maxW}мм для ${t(PNAMES[it.profile])}`;
+    if(dims.maxH&&hCm*10>dims.maxH)return`⚠️ Высота ${hCm*10}мм > макс. ${dims.maxH}мм для ${t(PNAMES[it.profile])}`;
     return null;
   };
   // Auto-suggest 2600 config by width
@@ -1960,7 +1968,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
           :""}}
           style={{display:"inline-flex",width:22,height:18,flexShrink:0}}/>
         <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
-          color:is2600?D.yellow:D.text}}>{PNAMES[it.profile]||it.profile}</span>
+          color:is2600?D.yellow:D.text}}>{t(PNAMES[it.profile])||it.profile}</span>
         <span style={{color:D.muted,fontSize:9}}>▾</span>
       </button>
       {dims&&<div style={{fontSize:9,color:is2600?D.yellow:D.muted,marginTop:2}}>
@@ -1987,7 +1995,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                 style={{width:56,height:48,display:"flex",alignItems:"center",justifyContent:"center"}}/>
               <div style={{fontSize:9,fontWeight:700,color:sel?(is2k?D.yellow:D.accentLight):D.text,
                 textAlign:"center",lineHeight:1.3,wordBreak:"break-word"}}>
-                {PNAMES[p]||p}
+                {t(PNAMES[p])||p}
               </div>
               {pd&&<div style={{fontSize:8,color:D.muted,textAlign:"center"}}>
                 {pd.frame}мм{pd.maxKg?` · ${pd.maxKg}кг`:""}
@@ -2077,7 +2085,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
               <div style={{background:D.surface,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div style={{display:"flex",gap:10,alignItems:"center"}}>
                   <div style={{background:D.accent+"30",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:800,color:D.accentLight}}>#{idx+1}</div>
-                  <input value={it.name} onChange={e=>upd(it.id,"name",e.target.value)}
+                  <input value={t(it.name)} onChange={e=>upd(it.id,"name",e.target.value)}
                     style={{background:"transparent",border:"none",color:D.text,fontSize:13,fontWeight:700,outline:"none",width:140}}/>
                 </div>
                 <div style={{display:"flex",gap:10,alignItems:"center"}}>
@@ -2537,17 +2545,17 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
           </div>
           {(!templates||templates.length===0)&&<div style={{fontSize:11,color:D.muted}}>Нет шаблонов. Нажми «Шаблон» чтобы сохранить текущий набор окон.</div>}
           <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:300,overflowY:"auto"}}>
-            {(templates||[]).map(t=>(
-              <div key={t.id} style={{display:"flex",gap:6,alignItems:"center"}}>
-                <button onClick={()=>loadFromTemplate(t)}
+            {(templates||[]).map(tpl=>(
+              <div key={tpl.id} style={{display:"flex",gap:6,alignItems:"center"}}>
+                <button onClick={()=>loadFromTemplate(tpl)}
                   style={{flex:1,background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,
                     padding:"10px 12px",textAlign:"left",cursor:"pointer"}}
                   onMouseEnter={e=>e.currentTarget.style.borderColor=D.yellow}
                   onMouseLeave={e=>e.currentTarget.style.borderColor=D.border}>
-                  <div style={{fontSize:12,fontWeight:700,color:D.text}}>{t.name}</div>
-                  <div style={{fontSize:10,color:D.muted}}>{t.date} · {t.items?.length||0} окон · маржа {t.margin}%</div>
+                  <div style={{fontSize:12,fontWeight:700,color:D.text}}>{tpl.name}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{tpl.date} · {tpl.items?.length||0} окон · маржа {tpl.margin}%</div>
                 </button>
-                <button onClick={()=>setTemplates(p=>p.filter(x=>x.id!==t.id))}
+                <button onClick={()=>setTemplates(p=>p.filter(x=>x.id!==tpl.id))}
                   style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4,flexShrink:0}}>
                   <Trash2 size={13}/>
                 </button>
@@ -2710,7 +2718,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
               <select value={inst.status} onChange={e=>setInstallations(p=>p.map(x=>x.id===inst.id?{...x,status:e.target.value}:x))}
                 style={{background:(SC[inst.status]||D.muted)+"18",color:SC[inst.status]||D.muted,
                   border:`1px solid ${(SC[inst.status]||D.muted)}40`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                {["planned","in_progress","completed"].map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+                {["planned","in_progress","completed"].map(s=><option key={s} value={s} style={{background:D.card}}>{ds(s)}</option>)}
               </select>
               <Btn onClick={()=>setViewId(inst.id)} variant="teal" small><Eye size={12}/> Чек-лист</Btn>
               <Btn onClick={()=>printAct(inst,ord)} variant="success" small><Download size={12}/> Акт PDF</Btn>
@@ -2748,12 +2756,12 @@ function Installation({installations,setInstallations,orders,onClientClick}){
         <div>
           <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото до установки ({viewInst.photosBefore.length})</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
-            {viewInst.photosBefore.map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
+            {viewInst.photosBefore.map(p=>(<img key={p.id} src={p.data} alt={t(p.name)} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
             {viewInst.photosBefore.length===0&&<div style={{fontSize:11,color:D.muted}}>Нет фото</div>}
           </div>
           <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото после установки ({viewInst.photosAfter.length})</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-            {viewInst.photosAfter.map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
+            {viewInst.photosAfter.map(p=>(<img key={p.id} src={p.data} alt={t(p.name)} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
             {viewInst.photosAfter.length===0&&<div style={{fontSize:11,color:D.muted}}>Нет фото</div>}
           </div>
           {viewInst.notes&&<div style={{marginTop:14,background:D.surface,borderRadius:8,padding:12,fontSize:12,color:D.muted}}><b style={{color:D.text}}>Заметки:</b> {viewInst.notes}</div>}
@@ -2972,7 +2980,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
                 style={{background:(SC[o.status]||D.muted)+"18",color:SC[o.status]||D.muted,
                   border:`1px solid ${(SC[o.status]||D.muted)}40`,borderRadius:8,
                   padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
-                {OST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+                {OST.map(s=><option key={s} value={s} style={{background:D.card}}>{ds(s)}</option>)}
               </select>
               <button onClick={()=>deleteOrder(o.id)}
                 style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4,opacity:0.5}}
@@ -3266,7 +3274,7 @@ function Inventory({inventory,setInventory}){
     {modal&&(<Modal title={editItem?"✏️ Редактировать позицию":"➕ Новая позиция"} onClose={()=>setModal(false)}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
         <div style={{gridColumn:"1/-1"}}>
-          <Inp label="Наименование *" value={form.name}
+          <Inp label="Наименование *" value={t(form.name)}
             onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Профиль Klil 7000..."/>
         </div>
         <div>
@@ -3623,7 +3631,7 @@ function Payments({payments,setPayments,onClientClick,company}){
           <div style={{fontSize:11,fontWeight:800,color:D.accentLight}}>{p.order||"—"}</div>
           <div onClick={()=>onClientClick&&onClientClick(p.client)}
             style={{fontSize:13,color:D.text,cursor:"pointer",fontWeight:600}}>{p.client}</div>
-          <div style={{fontSize:10,color:D.muted}}>{p.type}</div>
+          <div style={{fontSize:10,color:D.muted}}>{ds(p.type)}</div>
           <div style={{fontSize:14,fontWeight:800,color:p.status==="received"?D.green:D.yellow}}>{fmt(p.amount)}</div>
           <div style={{fontSize:11,color:D.muted}}>{p.date}</div>
           <Badge status={p.status}/>
@@ -3720,13 +3728,13 @@ function Payments({payments,setPayments,onClientClick,company}){
         <div>
           <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>סוג מסמך</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-            {DOC_TYPES.map(t=>(
-              <button key={t} onClick={()=>setDf(p=>({...p,docType:t}))}
-                style={{padding:"5px 10px",borderRadius:6,border:`1px solid ${df.docType===t?(DOC_COLORS[t]||D.accent):D.border}`,
-                  background:df.docType===t?(DOC_COLORS[t]||D.accent)+"20":"transparent",
-                  color:df.docType===t?(DOC_COLORS[t]||D.accentLight):D.muted,
-                  fontSize:11,fontWeight:df.docType===t?700:400,cursor:"pointer"}}>
-                {t}
+            {DOC_TYPES.map(dt=>(
+              <button key={dt} onClick={()=>setDf(p=>({...p,docType:dt}))}
+                style={{padding:"5px 10px",borderRadius:6,border:`1px solid ${df.docType===dt?(DOC_COLORS[dt]||D.accent):D.border}`,
+                  background:df.docType===dt?(DOC_COLORS[dt]||D.accent)+"20":"transparent",
+                  color:df.docType===dt?(DOC_COLORS[dt]||D.accentLight):D.muted,
+                  fontSize:11,fontWeight:df.docType===dt?700:400,cursor:"pointer"}}>
+                {dt}
               </button>
             ))}
           </div>
@@ -3868,7 +3876,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
   useEffect(()=>{save("wb:goals",goals);},[goals]);
 
   // ── Auto financials from real data ──
-  const MONTHS_RU=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+  const MONTHS_RU=[ui("m1"),ui("m2"),ui("m3"),ui("m4"),ui("m5"),ui("m6"),ui("m7"),ui("m8"),ui("m9"),ui("m10"),ui("m11"),ui("m12")];
 
   // Build monthly data from orders and payments
   const monthMap={};
@@ -3936,7 +3944,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
       </div>
       {items.map(c=>(
         <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,padding:"5px 8px",background:D.surface,borderRadius:8}}>
-          <input value={c.name} onChange={e=>setItems(p=>p.map(x=>x.id===c.id?{...x,name:e.target.value}:x))}
+          <input value={t(c.name)} onChange={e=>setItems(p=>p.map(x=>x.id===c.id?{...x,name:e.target.value}:x))}
             style={{flex:1,background:"transparent",border:"none",color:D.text,fontSize:12,outline:"none"}}/>
           {showDate&&<input type="date" value={c.date||""} onChange={e=>setItems(p=>p.map(x=>x.id===c.id?{...x,date:e.target.value}:x))}
             style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"2px 5px",color:D.muted,fontSize:10,outline:"none"}}/>}
@@ -3954,7 +3962,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
         </div>
       ))}
       <div style={{display:"flex",gap:6,marginTop:8}}>
-        <input value={newItem.name} onChange={e=>setNewItem(p=>({...p,name:e.target.value}))}
+        <input value={t(newItem.name)} onChange={e=>setNewItem(p=>({...p,name:e.target.value}))}
           placeholder="Название..." onKeyDown={e=>e.key==="Enter"&&newItem.name&&newItem.amount&&(setItems(p=>[...p,{id:Date.now(),name:newItem.name,amount:+newItem.amount,date:newItem.date}]),setNewItem({name:"",amount:"",date:new Date().toISOString().split("T")[0]}))}
           style={{flex:1,background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,padding:"5px 8px",color:D.text,fontSize:12,outline:"none"}}/>
         {showDate&&<input type="date" value={newItem.date||""} onChange={e=>setNewItem(p=>({...p,date:e.target.value}))}
@@ -4138,7 +4146,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
             padding:"8px 12px",background:(l._over?D.red:D.yellow)+"10",
             border:`1px solid ${(l._over?D.red:D.yellow)}30`,borderRadius:8,marginBottom:6}}>
             <div>
-              <div style={{fontSize:12,fontWeight:700,color:D.text}}>{l.name}</div>
+              <div style={{fontSize:12,fontWeight:700,color:D.text}}>{t(l.name)}</div>
               <div style={{fontSize:10,color:D.muted}}>{l._over?"🔴 Просрочено: "+l.followUp:"🟡 Сегодня"} · {ds(l.status)}</div>
             </div>
             <div style={{display:"flex",gap:6}}>
@@ -4158,7 +4166,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
 
 function KPI({leads,measurements,orders,payments}){
   // ── All auto-calculated from real data ──
-  const MONTHS_RU=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+  const MONTHS_RU=[ui("m1"),ui("m2"),ui("m3"),ui("m4"),ui("m5"),ui("m6"),ui("m7"),ui("m8"),ui("m9"),ui("m10"),ui("m11"),ui("m12")];
 
   const fLeads=leads.length;
   const fMeasured=measurements.length;
@@ -4535,7 +4543,7 @@ function Quotes({quotes,setQuotes,onClientClick}){
                 style={{background:(QSC[q.status]||D.muted)+"18",color:QSC[q.status]||D.muted,
                   border:`1px solid ${(QSC[q.status]||D.muted)}40`,borderRadius:6,
                   padding:"4px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                {QSTATUS.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+                {QSTATUS.map(s=><option key={s} value={s} style={{background:D.card}}>{ds(s)}</option>)}
               </select>
               <button onClick={()=>deleteQuote(q.id)}
                 style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:3}}>
@@ -4551,7 +4559,7 @@ function Quotes({quotes,setQuotes,onClientClick}){
                 <div key={i} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",
                   padding:"5px 10px",gap:8,borderBottom:i<Math.min(q.items.length,3)-1?`1px solid ${D.border}`:"none",
                   background:i%2===0?D.card+"60":D.surface}}>
-                  <div style={{fontSize:11,color:D.text,fontWeight:600}}>{it.name}</div>
+                  <div style={{fontSize:11,color:D.text,fontWeight:600}}>{t(it.name)}</div>
                   <div style={{fontSize:10,color:D.muted}}>{it.w}×{it.h} см</div>
                   <div style={{fontSize:10,color:D.muted}}>×{it.qty}</div>
                   <div style={{fontSize:11,fontWeight:700,color:D.green,textAlign:"right"}}>
@@ -4828,7 +4836,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
                 padding:"6px 0",borderBottom:`1px solid ${D.border}`}}>
                 <div>
                   <div style={{fontSize:11,color:D.text}}>{p.type} · {p.date}</div>
-                  <div style={{fontSize:10,color:D.muted}}>{p.method}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{ds(p.method)}</div>
                 </div>
                 <div style={{textAlign:"right"}}>
                   <div style={{fontSize:13,fontWeight:800,color:p.status==="received"?D.green:D.yellow}}>{fmt(p.amount)}</div>
@@ -4924,8 +4932,8 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
   const [quickForm,setQuickForm]=useState({client:"",phone:"",address:"",time:"09:00",notes:""});
 
   const today=new Date().toISOString().split("T")[0];
-  const DAYS_RU=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
-  const MONTHS_RU=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+  const DAYS_RU=[ui("d1"),ui("d2"),ui("d3"),ui("d4"),ui("d5"),ui("d6"),ui("d7")];
+  const MONTHS_FULL=[ui("mf1"),ui("mf2"),ui("mf3"),ui("mf4"),ui("mf5"),ui("mf6"),ui("mf7"),ui("mf8"),ui("mf9"),ui("mf10"),ui("mf11"),ui("mf12")];
 
   // Build events map: date → [{type,label,color,client,id}]
   const eventsMap={};
