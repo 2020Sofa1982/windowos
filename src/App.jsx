@@ -1933,7 +1933,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
         background:D.card,border:`1px solid ${D.border}`,borderRadius:10,
         padding:10,width:320,boxShadow:"0 8px 32px #00000060",marginTop:4}}>
         <div style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:8}}>
-          Выбор профиля — сечение
+          {t(bi("Выбор профиля — сечение","בחירת פרופיל — חתך","Profile selection — section"))}
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
           {op.profiles.map(p=>{
@@ -1959,23 +1959,23 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
         </div>
         <button onClick={()=>setProfModal(null)}
           style={{width:"100%",marginTop:8,padding:"5px",background:"none",border:`1px solid ${D.border}`,
-            borderRadius:6,color:D.muted,fontSize:10,cursor:"pointer"}}>Закрыть</button>
+            borderRadius:6,color:D.muted,fontSize:10,cursor:"pointer"}}>{t(bi("Закрыть","סגור","Close"))}</button>
       </div>)}
     </div>);
   };
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Калькулятор КП</div>
-        <div style={{fontSize:13,color:D.muted}}>Dekel 2022 × 1.13 (цены 2026)</div></div>
+      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>{t(bi("Калькулятор КП","מחשבון הצעות","Quote Calculator"))}</div>
+        <div style={{fontSize:13,color:D.muted}}>Dekel 2022 × 1.13 ({t(bi("цены 2026","מחירים 2026","prices 2026"))})</div></div>
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={()=>printKP(client,calced,saleTotal,margin,split,extras,company)} variant="success"><Download size={13}/> PDF КП</Btn>
-        <Btn onClick={saveQuote} variant="teal"><FileText size={13}/> Сохранить КП</Btn>
-        <Btn onClick={()=>setTplModal(true)} variant="ghost"><Plus size={13}/> Шаблон</Btn>
-        <Btn onClick={()=>setLoadModal("pick")} variant="ghost"><History size={13}/> Загрузить</Btn>
-        <Btn onClick={()=>exportCSV(["Позиция","Ш","В","м²","Тип","Профиль","Стекло","Кол","Код","Себест.","Цена"],
+        <Btn onClick={()=>printKP(client,calced,saleTotal,margin,split,extras,company)} variant="success"><Download size={13}/> PDF {t(bi("КП","הצעה","Quote"))}</Btn>
+        <Btn onClick={saveQuote} variant="teal"><FileText size={13}/> {t(bi("Сохранить КП","שמור הצעה","Save Quote"))}</Btn>
+        <Btn onClick={()=>setTplModal(true)} variant="ghost"><Plus size={13}/> {t(bi("Шаблон","תבנית","Template"))}</Btn>
+        <Btn onClick={()=>setLoadModal("pick")} variant="ghost"><History size={13}/> {t(bi("Загрузить","טען","Load"))}</Btn>
+        <Btn onClick={()=>exportCSV([t(bi("Позиция","פריט","Item")),t(bi("Ш","ר","W")),t(bi("В","ג","H")),"м²",t(bi("Тип","סוג","Type")),t(bi("Профиль","פרופיל","Profile")),t(bi("Стекло","זכוכית","Glass")),t(bi("Кол","כמות","Qty")),"Код","Себест.","Цена"],
           calced.map(c=>[c.name,c.w,c.h,c.area.toFixed(2),c.op,c.profile,c.glass,c.qty,c.code,Math.round(c.totalCost),Math.round(c.totalCost*(1+margin/100))]),"кп.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
-        <Btn onClick={addItem}><Plus size={13}/> Добавить окно</Btn>
+        <Btn onClick={addItem}><Plus size={13}/> {t(bi("Добавить окно","הוסף חלון","Add window"))}</Btn>
         <label style={{display:"inline-flex",alignItems:"center",gap:5,
           background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,
           padding:"5px 10px",color:D.muted,fontSize:11,fontWeight:600,cursor:"pointer"}}>
@@ -2000,9 +2000,9 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                 });
                 if(imported.length){
                   setItems(p=>[...p,...imported]);
-                  alert(`Импортировано ${imported.length} позиций!`);
+                  alert(`${t(bi("Импортировано","יובא","Imported"))} ${imported.length} ${t(bi("позиций","פריטים","items"))}!`);
                 } else {
-                  alert("Не удалось распознать формат.\nОжидается: Название,Ш,В,Кол или Ш,В,Кол");
+                  alert(t(bi("Не удалось распознать формат.\nОжидается: Название,Ш,В,Кол или Ш,В,Кол","לא ניתן לזהות את הפורמט.\nצפוי: שם,W,H,כמות","Cannot parse format.\nExpected: Name,W,H,Qty")));
                 }
               };
               reader.readAsText(file);
@@ -2014,7 +2014,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
 
     {/* Tabs */}
     <div style={{display:"flex",gap:2,marginBottom:20,background:D.surface,borderRadius:10,padding:4,width:"fit-content"}}>
-      {[["quick","⚡ Быстрый",""],["detailed","📋 Детальный (Dekel)",""]].map(([id,label])=>(
+      {[["quick",`⚡ ${t(bi("Быстрый","מהיר","Quick"))}`,""],["detailed",`📋 ${t(bi("Детальный (Dekel)","מפורט (Dekel)","Detailed (Dekel)"))}`,""]]  .map(([id,label])=>(
         <button key={id} onClick={()=>setTab(id)} style={{padding:"8px 20px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,
           background:tab===id?"linear-gradient(135deg,#2563EB,#1D4ED8)":"transparent",color:tab===id?"#fff":D.muted}}>{label}</button>
       ))}
@@ -2023,7 +2023,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
     {/* Client + source info */}
     {preload===null&&client&&(
       <div style={{background:D.teal+"15",border:`1px solid ${D.teal}40`,borderRadius:10,padding:"10px 16px",marginBottom:16,fontSize:12,color:D.teal,display:"flex",alignItems:"center",gap:8}}>
-        <ArrowRight size={13}/> Загружено из замера: <b>{client}</b> · {items.length} проёмов
+        <ArrowRight size={13}/> {t(bi("Загружено из замера","נטען ממדידה","Loaded from measurement"))}: <b>{client}</b> · {items.length} {t(bi("проёмов","פתחים","openings"))}
       </div>
     )}
 
@@ -2031,7 +2031,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
       {/* LEFT: items */}
       <div>
         <div style={{marginBottom:12}}>
-          <Inp label="Клиент / объект" value={client} onChange={e=>setClient(e.target.value)} placeholder="Имя клиента или адрес объекта" style={{marginBottom:0}}/>
+          <Inp label={t(bi("Клиент / объект","לקוח / אובייקט","Client / object"))} value={client} onChange={e=>setClient(e.target.value)} placeholder={t(bi("Имя клиента или адрес объекта","שם לקוח או כתובת האובייקט","Client name or site address"))} style={{marginBottom:0}}/>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {calced.map((it,idx)=>(
@@ -2050,7 +2050,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
               <div style={{padding:14,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
                 {/* Col 1: Size + qty */}
                 <div>
-                  <div style={{fontSize:10,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Размеры (см)</div>
+                  <div style={{fontSize:10,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>{t(bi("Размеры (см)","מידות (ס'מ)","Dimensions (cm)"))}</div>
                   <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8}}>
                     <input type="number" value={it.w} onChange={e=>upd(it.id,"w",+e.target.value||1)}
                       style={{width:55,background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"5px",color:D.text,fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
@@ -2058,12 +2058,12 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                     <input type="number" value={it.h} onChange={e=>upd(it.id,"h",+e.target.value||1)}
                       style={{width:55,background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"5px",color:D.text,fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                   </div>
-                  <div style={{fontSize:11,color:D.muted}}>Площадь: <b style={{color:D.text}}>{it.area.toFixed(2)} м²</b></div>
+                  <div style={{fontSize:11,color:D.muted}}>{t(bi("Площадь","שטח","Area"))}: <b style={{color:D.text}}>{it.area.toFixed(2)} м²</b></div>
                   <div style={{fontSize:11,color:it.area<0.6?D.yellow:D.muted,marginTop:2}}>
-                    {it.area<0.6?"⚠️ мин. 0.6 м² (биллинг)":"Биллинг: "+Math.max(it.area,0.6).toFixed(2)+" м²"}
+                    {it.area<0.6?`⚠️ ${t(bi("мин. 0.6 м² (биллинг)","מינ. 0.6 מ'ר (חיוב)","min 0.6 m² (billing"))}`:t(bi("Биллинг","חיוב","Billing"))+": "+Math.max(it.area,0.6).toFixed(2)+" м²"}
                   </div>
                   <div style={{marginTop:8,display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:11,color:D.muted}}>Кол:</span>
+                    <span style={{fontSize:11,color:D.muted}}>{t(bi("Кол","כמות","Qty"))}:</span>
                     <button onClick={()=>upd(it.id,"qty",Math.max(1,it.qty-1))} style={{background:D.border,border:"none",borderRadius:5,width:22,height:22,color:D.text,cursor:"pointer",fontWeight:800}}>−</button>
                     <span style={{fontSize:14,fontWeight:800,color:D.text,minWidth:22,textAlign:"center"}}>{it.qty}</span>
                     <button onClick={()=>upd(it.id,"qty",it.qty+1)} style={{background:D.border,border:"none",borderRadius:5,width:22,height:22,color:D.text,cursor:"pointer",fontWeight:800}}>+</button>
@@ -2071,9 +2071,9 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                 </div>
                 {/* Col 2: Config */}
                 <div>
-                  <div style={{fontSize:10,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Конфигурация</div>
+                  <div style={{fontSize:10,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>{t(bi("Конфигурация","תצורה","Configuration"))}</div>
                   <div style={{marginBottom:5}}>
-                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Тип окна</div>
+                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>{t(bi("Тип окна","סוג חלון","Window type"))}</div>
                     <select value={it.op} onChange={e=>{
                       const op=OPS.find(o=>o.id===e.target.value)||OPS[0];
                       const newProf=e.target.value==="lift_slide_2600"?suggest2600Config(it.w):op.profiles[0];
@@ -2085,7 +2085,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                     </select>
                   </div>
                   <div style={{marginBottom:5}}>
-                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Профиль (сечение)</div>
+                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>{t(bi("Профиль (сечение)","פרופיל (חתך)","Profile (section)"))}</div>
                     <ProfileSel it={it}/>
                     {sizeWarning(it)&&<div style={{fontSize:9,color:D.red,marginTop:3,background:D.red+"12",borderRadius:4,padding:"2px 5px"}}>
                       {sizeWarning(it)}
@@ -2095,7 +2095,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                     </div>}
                   </div>
                   <div style={{marginBottom:5}}>
-                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Стекло (доплата)</div>
+                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>{t(bi("Стекло (доплата)","זכוכית (תוספת)","Glass (surcharge)"))}</div>
                     <select value={it.glass} onChange={e=>upd(it.id,"glass",e.target.value)}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none"}}>
                       {DG.map(g=><option key={g.id} value={g.id} style={{background:D.card}}>{t(g.name)}</option>)}
@@ -2123,7 +2123,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                     })()}
                   </div>
                   <div>
-                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Москитная сетка</div>
+                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>{t(bi("Москитная сетка","רשת חרקים","Fly screen"))}</div>
                     <select value={it.screen} onChange={e=>upd(it.id,"screen",e.target.value)}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none"}}>
                       {DS.map(s=><option key={s.id} value={s.id} style={{background:D.card}}>{t(s.name)}</option>)}
@@ -2141,17 +2141,17 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                 {/* Col 3: Breakdown */}
                 <div>
                   <div style={{fontSize:10,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>
-                    {tab==="detailed"?"Детальный расчёт":"Итог по позиции"}
+                    {tab==="detailed"?t(bi("Детальный расчёт","חישוב מפורט","Detailed calc")):t(bi("Итог по позиции","סיכום לפריט","Item total"))}
                   </div>
                   {tab==="detailed"&&it.valid&&(
                     <>
-                      {[["База Dekel",fmt(Math.round(it.baseDekel)),"code",it.code],
-                        it.glassAddon>0&&["Стекло",fmt(Math.round(it.glassAddon)),"",""],
-                        it.screenAddon>0&&["Сетка",fmt(Math.round(it.screenAddon)),"",""],
-                        it.shutterAddon>0&&["Роллет",fmt(Math.round(it.shutterAddon)),"",""],
-                        it.accCost>0&&["Аксессуары",fmt(Math.round(it.accCost)),"",""],
+                      {[[t(bi("База Dekel","בסיס Dekel","Dekel base")),fmt(Math.round(it.baseDekel)),"code",it.code],
+                        it.glassAddon>0&&[t(bi("Стекло","זכוכית","Glass")),fmt(Math.round(it.glassAddon)),"",""],
+                        it.screenAddon>0&&[t(bi("Сетка","רשת","Screen")),fmt(Math.round(it.screenAddon)),"",""],
+                        it.shutterAddon>0&&[t(bi("Роллет","תריס","Shutter")),fmt(Math.round(it.shutterAddon)),"",""],
+                        it.accCost>0&&[t(bi("Аксессуары","אביזרים","Accessories")),fmt(Math.round(it.accCost)),"",""],
                         it.colorCost>0&&[t(bi("Цвет","צבע","Color")),fmt(Math.round(it.colorCost)),"",""],
-                        ["× монтаж",`×${it.install.toFixed(2)}`,"",''],
+                        [`× ${t(bi("монтаж","התקנה","install"))}`,`×${it.install.toFixed(2)}`,"",''],
                       ].filter(Boolean).map((r,i)=>(
                         <div key={i} style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                           <span style={{fontSize:11,color:D.muted}}>{r[0]}</span>
@@ -2161,12 +2161,12 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                       {it.code!=="—"&&<div style={{background:D.accent+"15",borderRadius:5,padding:"3px 6px",fontSize:9,color:D.accentLight,marginTop:4,fontFamily:"monospace"}}>{it.code}</div>}
                     </>
                   )}
-                  {!it.valid&&<div style={{fontSize:11,color:D.red}}>⚠️ Нет данных Dekel для этого профиля и площади</div>}
+                  {!it.valid&&<div style={{fontSize:11,color:D.red}}>⚠️ {t(bi("Нет данных Dekel для этого профиля и площади","אין נתוני Dekel לפרופיל וגודל זה","No Dekel data for this profile and area"))}</div>}
                   {it.valid&&(
                     <div style={{marginTop:6,padding:"8px",background:D.surface,borderRadius:8}}>
-                      <div style={{fontSize:10,color:D.muted}}>Себест. за 1 шт</div>
+                      <div style={{fontSize:10,color:D.muted}}>{t(bi("Себест. за 1 шт","עלות ל-1 יח'","Cost per unit"))}</div>
                       <div style={{fontSize:13,fontWeight:800,color:D.text}}>{fmt(Math.round(it.totalCost/it.qty))}</div>
-                      <div style={{fontSize:10,color:D.muted,marginTop:4}}>Монтаж</div>
+                      <div style={{fontSize:10,color:D.muted,marginTop:4}}>{t(bi("Монтаж","התקנה","Install"))}</div>
                       <input type="range" min={1.0} max={1.3} step={0.01} value={it.install}
                         onChange={e=>upd(it.id,"install",+e.target.value)}
                         style={{width:"100%",accentColor:D.accent,margin:"3px 0"}}/>
@@ -2262,14 +2262,14 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
         {/* Extras / Surcharges */}
         <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
           <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>
-            Доплаты
+            {t(bi("Доплаты","תוספות","Surcharges"))}
             {extrasCost>0&&<span style={{marginLeft:8,color:D.yellow,fontWeight:900}}>{fmt(Math.round(extrasCost))}</span>}
           </div>
           {/* Demolition */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:extras.demolition?D.text:D.muted}}>
               <input type="checkbox" checked={extras.demolition} onChange={e=>setExtras(p=>({...p,demolition:e.target.checked}))} style={{accentColor:D.accent}}/>
-              🔨 Демонтаж
+              🔨 {t(bi("Демонтаж","פירוק","Demolition"))}
             </label>
             {extras.demolition&&<input type="number" value={extras.demolitionPrice}
               onChange={e=>setExtras(p=>({...p,demolitionPrice:+e.target.value||0}))}
@@ -2279,7 +2279,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:extras.crane?D.text:D.muted}}>
               <input type="checkbox" checked={extras.crane} onChange={e=>setExtras(p=>({...p,crane:e.target.checked}))} style={{accentColor:D.accent}}/>
-              🏗️ Кран
+              🏗️ {t(bi("Кран","מנוף","Crane"))}
             </label>
             {extras.crane&&<input type="number" value={extras.cranePrice}
               onChange={e=>setExtras(p=>({...p,cranePrice:+e.target.value||0}))}
@@ -2288,7 +2288,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
           {/* Floor surcharge */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:D.muted}}>
-              🏢 Этаж
+              🏢 {t(bi("Этаж","קומה","Floor"))}
             </label>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <input type="number" value={extras.floor} min={1} max={50}
@@ -2307,7 +2307,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
         {calced.some(c=>c.shutter!=="none")&&(
           <div style={{background:D.card,border:`1px solid ${D.yellow}40`,borderRadius:14,padding:16}}>
             <div style={{fontSize:10,fontWeight:800,color:D.yellow,textTransform:"uppercase",marginBottom:8}}>
-              Коэфф. роллет (рынок vs Dekel)
+              {t(bi("Коэфф. роллет (рынок vs Dekel)","מקדם תריסים (שוק vs Dekel)","Shutter factor (market vs Dekel)"))}
             </div>
             <input type="range" min={1.0} max={2.0} step={0.01} value={shutterFactor}
               onChange={e=>setShutterFactor(+e.target.value)}
@@ -2316,7 +2316,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
               <span>×1.00</span>
               <div style={{textAlign:"center"}}>
                 <b style={{color:D.yellow,fontSize:15}}>×{shutterFactor.toFixed(2)}</b>
-                <div style={{fontSize:9,color:D.muted}}>Рекомендовано ×1.38</div>
+                <div style={{fontSize:9,color:D.muted}}>{t(bi("Рекомендовано ×1.38","מומלץ ×1.38","Recommended ×1.38"))}</div>
               </div>
               <span>×2.00</span>
             </div>
@@ -2325,7 +2325,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
 
         {/* Margin */}
         <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
-          <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Маржа %</div>
+          <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>{t(bi("Маржа %","מרווח %","Margin %"))}</div>
           <input type="range" min={15} max={80} value={margin} onChange={e=>setMargin(+e.target.value)} style={{width:"100%",accentColor:D.accent,marginBottom:4}}/>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:D.muted}}>
             <span>15%</span><b style={{color:D.accentLight,fontSize:14}}>{margin}%</b><span>80%</span>
@@ -2333,12 +2333,12 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
         </div>
         {/* Totals */}
         <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
-          {[["Окна (себест.)",fmt(Math.round(itemsCost)),D.muted],
-            extrasCost>0&&["Доплаты",fmt(Math.round(extrasCost)),D.yellow],
-            ["Итого себест.",fmt(Math.round(totalCost)),D.muted],
-            ["Цена продажи",fmt(saleTotal),D.text],
-            ["Прибыль",fmt(Math.round(profit)),D.green],
-            ["Маржа",saleTotal>0?Math.round(profit/saleTotal*100)+"%":"—",D.green],
+          {[[t(bi("Окна (себест.)","חלונות (עלות)","Windows (cost)")),fmt(Math.round(itemsCost)),D.muted],
+            extrasCost>0&&[t(bi("Доплаты","תוספות","Surcharges")),fmt(Math.round(extrasCost)),D.yellow],
+            [t(bi("Итого себест.","עלות כוללת","Total cost")),fmt(Math.round(totalCost)),D.muted],
+            [t(bi("Цена продажи","מחיר מכירה","Sale price")),fmt(saleTotal),D.text],
+            [t(bi("Прибыль","רווח","Profit")),fmt(Math.round(profit)),D.green],
+            [t(bi("Маржа","מרווח","Margin")),saleTotal>0?Math.round(profit/saleTotal*100)+"%":"—",D.green],
           ].filter(Boolean).map(([l,v,c])=>(
             <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
               <span style={{fontSize:11,color:D.muted}}>{l}</span>
@@ -2348,12 +2348,12 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
         </div>
         {/* Payment split */}
         <div style={{background:"linear-gradient(135deg,#1D4ED8,#1E3A8A)",borderRadius:14,padding:16}}>
-          <div style={{fontSize:11,fontWeight:800,color:"#93C5FD",marginBottom:8}}>ИТОГО КП</div>
+          <div style={{fontSize:11,fontWeight:800,color:"#93C5FD",marginBottom:8}}>{t(bi("ИТОГО КП","סה'כ הצעה","QUOTE TOTAL"))}</div>
           <div style={{fontSize:28,fontWeight:900,color:"#fff",letterSpacing:"-0.04em"}}>{fmt(saleTotal)}</div>
-          <div style={{fontSize:11,color:"#93C5FD",marginTop:2}}>{items.reduce((s,i)=>s+i.qty,0)} позиций</div>
+          <div style={{fontSize:11,color:"#93C5FD",marginTop:2}}>{items.reduce((s,i)=>s+i.qty,0)} {t(bi("позиций","פריטים","items"))}</div>
           {/* Split slider */}
           <div style={{marginTop:12,marginBottom:4}}>
-            <div style={{fontSize:10,color:"#93C5FD",marginBottom:4}}>Разбивка оплаты: {split}% / {100-split}%</div>
+            <div style={{fontSize:10,color:"#93C5FD",marginBottom:4}}>{t(bi("Разбивка оплаты","פיצול תשלום","Payment split"))}: {split}% / {100-split}%</div>
             <input type="range" min={10} max={90} step={5} value={split} onChange={e=>setSplit(+e.target.value)}
               style={{width:"100%",accentColor:"#93C5FD"}}/>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#93C5FD44",marginTop:2}}>
@@ -2363,24 +2363,24 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
           <div style={{display:"flex",gap:8,marginTop:8}}>
             <div style={{flex:1,background:"#ffffff18",borderRadius:8,padding:"8px",textAlign:"center"}}>
               <div style={{fontSize:14,fontWeight:800,color:"#fff"}}>{fmt(pay1)}</div>
-              <div style={{fontSize:9,color:"#93C5FD"}}>Предоплата {split}%</div>
+              <div style={{fontSize:9,color:"#93C5FD"}}>{t(bi("Предоплата","מקדמה","Deposit"))} {split}%</div>
             </div>
             <div style={{flex:1,background:"#ffffff18",borderRadius:8,padding:"8px",textAlign:"center"}}>
               <div style={{fontSize:14,fontWeight:800,color:"#fff"}}>{fmt(pay2)}</div>
-              <div style={{fontSize:9,color:"#93C5FD"}}>При монтаже {100-split}%</div>
+              <div style={{fontSize:9,color:"#93C5FD"}}>{t(bi("При монтаже","בהתקנה","On installation"))} {100-split}%</div>
             </div>
           </div>
         </div>
         {/* Create order */}
         <Btn onClick={createOrder} variant="success" style={{width:"100%",justifyContent:"center"}}>
-          <ShoppingCart size={14}/> Создать заказ
+          <ShoppingCart size={14}/> {t(bi("Создать заказ","צור הזמנה","Create Order"))}
         </Btn>
         {tab==="detailed"&&(
           <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:10,padding:12}}>
-            <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:8}}>3 сценария</div>
-            {[["Пессимизм ×1.10",Math.round(totalCost/1.13*1.10*(1+margin/100))],
-              ["База ×1.13",saleTotal],
-              ["Оптимизм ×1.17",Math.round(totalCost/1.13*1.17*(1+margin/100))],
+            <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:8}}>{t(bi("3 сценария","3 תרחישים","3 scenarios"))}</div>
+            {[[t(bi("Пессимизм ×1.10","פסימיזם ×1.10","Pessimism ×1.10")),Math.round(totalCost/1.13*1.10*(1+margin/100))],
+              [t(bi("База ×1.13","בסיס ×1.13","Base ×1.13")),saleTotal],
+              [t(bi("Оптимизм ×1.17","אופטימיזם ×1.17","Optimism ×1.17")),Math.round(totalCost/1.13*1.17*(1+margin/100))],
             ].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
                 <span style={{fontSize:11,color:D.muted}}>{l}</span>
@@ -2394,7 +2394,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
     {/* BOM — Bill of Materials */}
     {calced.some(c=>c.valid)&&(<div style={{marginTop:24}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-        <div style={{fontSize:14,fontWeight:800,color:D.text}}>📦 BOM — Список материалов</div>
+        <div style={{fontSize:14,fontWeight:800,color:D.text}}>📦 BOM — {t(bi("Список материалов","רשימת חומרים","Bill of Materials"))}</div>
         <Btn onClick={()=>{
           const rows=[];
           let totalProf=0,totalGlass=0,totalSeals=0;
@@ -2406,13 +2406,13 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
             rows.push([c.name,PNAMES[c.profile]||c.profile,profM+" м.п.",glassM2+" м²",sealM+" м.п.",
               c.screen!=="none"?c.qty+"шт":"—",c.shutter!=="none"?glassM2+" м²":"—"]);
           });
-          rows.push(["ИТОГО","","","","","",""]);
-          exportCSV(["Позиция","Профиль","Профиль (м.п.)","Стекло (м²)","Уплотнитель (м.п.)","Сетка (шт)","Роллет (м²)"],rows,"BOM.csv");
+          rows.push([t(bi("ИТОГО","סה'כ","TOTAL")),"","","","","",""]);
+          exportCSV([t(bi("Позиция","פריט","Item")),t(bi("Профиль","פרופיל","Profile")),t(bi("Профиль (м.п.)","פרופיל (מ'א)","Profile (m.l.)")),t(bi("Стекло (м²)","זכוכית (מ'ר)","Glass (m²)")),t(bi("Уплотнитель (м.п.)","אטם (מ'א)","Seal (m.l.)")),t(bi("Сетка (шт)","רשת (יח')","Screen (pcs)")),t(bi("Роллет (м²)","תריס (מ'ר)","Shutter (m²)"))],rows,"BOM.csv");
         }} variant="ghost"><Download size={13}/> CSV</Btn>
       </div>
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
         <div style={{display:"grid",gridTemplateColumns:"1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr",padding:"7px 14px",background:D.surface,gap:10}}>
-          {["Позиция","Профиль","Профиль м.п.","Вес кг","Стекло м²","Сетки","Роллеты"].map((h,i)=>(
+          {[t(bi("Позиция","פריט","Item")),t(bi("Профиль","פרופיל","Profile")),t(bi("Профиль м.п.","פרופיל מ'א","Profile m.l.")),t(bi("Вес кг","משקל ק'ג","Weight kg")),t(bi("Стекло м²","זכוכית מ'ר","Glass m²")),t(bi("Сетки","רשתות","Screens")),t(bi("Роллеты","תריסים","Shutters"))].map((h,i)=>(
             <div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>
           ))}
         </div>
@@ -2428,12 +2428,12 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
             padding:"9px 14px",gap:10,borderTop:`1px solid ${D.border}`,
             background:is2600?D.yellow+"08":i%2===0?D.card:D.surface,alignItems:"center"}}>
             <div style={{fontSize:12,fontWeight:700,color:D.text}}>{c.name}
-              <div style={{fontSize:10,color:D.muted}}>{c.qty} шт {is2600?"🏆":""}</div></div>
+              <div style={{fontSize:10,color:D.muted}}>{c.qty} {t(bi("шт","יח'","pcs"))} {is2600?"🏆":""}</div></div>
             <div style={{fontSize:10,color:is2600?D.yellow:D.muted}}>{PNAMES[c.profile]||c.profile}</div>
-            <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{profM} м.п.</div>
-            <div style={{fontSize:12,fontWeight:700,color:is2600?D.yellow:D.teal}}>{profKg} кг</div>
+            <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{profM} {t(bi("м.п.","מ'א","m.l."))}</div>
+            <div style={{fontSize:12,fontWeight:700,color:is2600?D.yellow:D.teal}}>{profKg} {t(bi("кг","ק'ג","kg"))}</div>
             <div style={{fontSize:12,fontWeight:700,color:D.teal}}>{glassM2} м²</div>
-            <div style={{fontSize:11,color:c.screen!=="none"?D.green:D.muted}}>{c.screen!=="none"?`${c.qty} шт (${t(screenOpt.name)})`:"—"}</div>
+            <div style={{fontSize:11,color:c.screen!=="none"?D.green:D.muted}}>{c.screen!=="none"?`${c.qty} ${t(bi("шт","יח'","pcs"))} (${t(screenOpt.name)})`:"—"}</div>
             <div style={{fontSize:11,color:c.shutter!=="none"?D.yellow:D.muted}}>{c.shutter!=="none"?`${glassM2} м²`:"—"}</div>
           </div>);
         })}
@@ -2446,9 +2446,9 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
           const tsh=calced.filter(c=>c.valid&&c.shutter!=="none").reduce((s,c)=>s+c.area*c.qty,0);
           return(<div style={{display:"grid",gridTemplateColumns:"1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr",
             padding:"9px 14px",gap:10,borderTop:`2px solid ${D.border}`,background:D.surface}}>
-            <div style={{fontSize:11,fontWeight:800,color:D.text,gridColumn:"span 2"}}>ИТОГО</div>
-            <div style={{fontSize:13,fontWeight:800,color:D.accentLight}}>{tp.toFixed(1)} м.п.</div>
-            <div style={{fontSize:13,fontWeight:800,color:D.teal}}>{totalKg.toFixed(1)} кг</div>
+            <div style={{fontSize:11,fontWeight:800,color:D.text,gridColumn:"span 2"}}>{t(bi("ИТОГО","סה'כ","TOTAL"))}</div>
+            <div style={{fontSize:13,fontWeight:800,color:D.accentLight}}>{tp.toFixed(1)} {t(bi("м.п.","מ'א","m.l."))}</div>
+            <div style={{fontSize:13,fontWeight:800,color:D.teal}}>{totalKg.toFixed(1)} {t(bi("кг","ק'ג","kg"))}</div>
             <div style={{fontSize:13,fontWeight:800,color:D.teal}}>{tg.toFixed(2)} м²</div>
             <div style={{fontSize:12,fontWeight:700,color:D.green}}>{tsc>0?`${tsc} шт`:"—"}</div>
             <div style={{fontSize:12,fontWeight:700,color:D.yellow}}>{tsh>0?`${tsh.toFixed(2)} м²`:"—"}</div>
@@ -2458,27 +2458,27 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
     </div>)}
 
     {/* SAVE TEMPLATE MODAL */}
-    {tplModal&&(<Modal title="💾 Сохранить как шаблон" onClose={()=>setTplModal(false)}>
+    {tplModal&&(<Modal title={`💾 ${t(bi("Сохранить как шаблон","שמור כתבנית","Save as Template"))}`} onClose={()=>setTplModal(false)}>
       <div style={{fontSize:12,color:D.muted,marginBottom:12}}>
-        Текущие {items.length} позиций будут сохранены как шаблон для быстрой загрузки.
+        {t(bi("Текущие","הנוכחיים","Current"))} {items.length} {t(bi("позиций будут сохранены как шаблон для быстрой загрузки.","פריטים יישמרו כתבנית לטעינה מהירה.","items will be saved as a template for quick loading."))}
       </div>
-      <Inp label="Название шаблона" value={tplName} onChange={e=>setTplName(e.target.value)}
-        placeholder="Напр: Стандартная квартира, Балкон 3 окна..."/>
+      <Inp label={t(bi("Название шаблона","שם התבנית","Template name"))} value={tplName} onChange={e=>setTplName(e.target.value)}
+        placeholder={t(bi("Напр: Стандартная квартира, Балкон 3 окна...","למשל: דירה סטנדרטית, מרפסת 3 חלונות...","E.g: Standard apartment, Balcony 3 windows..."))}/>
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={saveTemplate}><Check size={13}/> Сохранить</Btn>
-        <Btn onClick={()=>setTplModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={saveTemplate}><Check size={13}/> {t(bi("Сохранить","שמור","Save"))}</Btn>
+        <Btn onClick={()=>setTplModal(false)} variant="ghost">{t(bi("Отмена","ביטול","Cancel"))}</Btn>
       </div>
     </Modal>)}
 
     {/* LOAD MODAL — choose from quotes or templates */}
-    {loadModal&&(<Modal title="📂 Загрузить КП или шаблон" onClose={()=>setLoadModal(false)} wide>
+    {loadModal&&(<Modal title={`📂 ${t(bi("Загрузить КП или шаблон","טען הצעה או תבנית","Load Quote or Template"))}`} onClose={()=>setLoadModal(false)} wide>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         {/* Saved quotes */}
         <div>
           <div style={{fontSize:11,fontWeight:800,color:D.accentLight,textTransform:"uppercase",marginBottom:10}}>
-            📋 Сохранённые КП ({quotes?.length||0})
+            📋 {t(bi("Сохранённые КП","הצעות שמורות","Saved Quotes"))} ({quotes?.length||0})
           </div>
-          {(!quotes||quotes.length===0)&&<div style={{fontSize:11,color:D.muted}}>Нет сохранённых КП</div>}
+          {(!quotes||quotes.length===0)&&<div style={{fontSize:11,color:D.muted}}>{t(bi("Нет сохранённых КП","אין הצעות שמורות","No saved quotes"))}</div>}
           <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:300,overflowY:"auto"}}>
             {(quotes||[]).map(q=>(
               <button key={q.id} onClick={()=>loadFromQuote(q)}
@@ -2487,7 +2487,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                 onMouseEnter={e=>e.currentTarget.style.borderColor=D.accent}
                 onMouseLeave={e=>e.currentTarget.style.borderColor=D.border}>
                 <div style={{fontSize:12,fontWeight:700,color:D.text}}>{q.client}</div>
-                <div style={{fontSize:10,color:D.muted}}>{q.id} · {q.date} · {fmt(q.total)} · {q.items?.length||0} поз.</div>
+                <div style={{fontSize:10,color:D.muted}}>{q.id} · {q.date} · {fmt(q.total)} · {q.items?.length||0} {t(bi("поз.","פריט.","items"))}</div>
               </button>
             ))}
           </div>
@@ -2495,9 +2495,9 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
         {/* Templates */}
         <div>
           <div style={{fontSize:11,fontWeight:800,color:D.yellow,textTransform:"uppercase",marginBottom:10}}>
-            ⚡ Шаблоны ({templates?.length||0})
+            ⚡ {t(bi("Шаблоны","תבניות","Templates"))} ({templates?.length||0})
           </div>
-          {(!templates||templates.length===0)&&<div style={{fontSize:11,color:D.muted}}>Нет шаблонов. Нажми «Шаблон» чтобы сохранить текущий набор окон.</div>}
+          {(!templates||templates.length===0)&&<div style={{fontSize:11,color:D.muted}}>{t(bi("Нет шаблонов. Нажми «Шаблон» чтобы сохранить текущий набор окон.","אין תבניות. לחץ «תבנית» כדי לשמור את הסט הנוכחי של חלונות.","No templates. Click «Template» to save the current set of windows."))}</div>}
           <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:300,overflowY:"auto"}}>
             {(templates||[]).map(t=>(
               <div key={t.id} style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -2507,7 +2507,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                   onMouseEnter={e=>e.currentTarget.style.borderColor=D.yellow}
                   onMouseLeave={e=>e.currentTarget.style.borderColor=D.border}>
                   <div style={{fontSize:12,fontWeight:700,color:D.text}}>{t.name}</div>
-                  <div style={{fontSize:10,color:D.muted}}>{t.date} · {t.items?.length||0} окон · маржа {t.margin}%</div>
+                  <div style={{fontSize:10,color:D.muted}}>{t.date} · {t.items?.length||0} {_LANG==="he"?"חלונות":_LANG==="en"?"windows":"окон"} · {_LANG==="he"?"מרווח":_LANG==="en"?"margin":"маржа"} {t.margin}%</div>
                 </button>
                 <button onClick={()=>setTemplates(p=>p.filter(x=>x.id!==t.id))}
                   style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4,flexShrink:0}}>
@@ -2682,10 +2682,10 @@ function Installation({installations,setInstallations,orders,onClientClick}){
           </div>
           <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:12,alignItems:"center"}}>
             <div>
-              <div style={{fontSize:9,fontWeight:700,color:D.muted,marginBottom:5,textTransform:"uppercase"}}>Чек-лист {done}/{total}</div>
+              <div style={{fontSize:9,fontWeight:700,color:D.muted,marginBottom:5,textTransform:"uppercase"}}>{t(bi("Чек-лист","רשימת תיוג","Checklist"))} {done}/{total}</div>
               <PBar value={pct} color={pct===100?D.green:D.purple}/>
             </div>
-            <div style={{fontSize:11,color:D.muted}}>📸 до: {(inst.photosBefore||[]).length} · после: {(inst.photosAfter||[]).length}</div>
+            <div style={{fontSize:11,color:D.muted}}>📸 {t(bi("до","לפני","before"))}: {(inst.photosBefore||[]).length} · {t(bi("после","אחרי","after"))}: {(inst.photosAfter||[]).length}</div>
             <div style={{fontSize:11,color:D.muted}}>{inst.completedDate?`✅ ${inst.completedDate}`:t(bi("Не завершён","לא הושלם","Not completed"))}</div>
           </div>
         </div>);
@@ -2693,10 +2693,10 @@ function Installation({installations,setInstallations,orders,onClientClick}){
     </div>
 
     {/* VIEW / CHECKLIST MODAL */}
-    {viewInst&&(<Modal title={`📋 ${viewInst.client} — Чек-лист`} onClose={()=>setViewId(null)} wide>
+    {viewInst&&(<Modal title={`📋 ${viewInst.client} — ${t(bi("Чек-лист","רשימת תיוג","Checklist"))}`} onClose={()=>setViewId(null)} wide>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
         <div>
-          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Шаги установки ({doneCount(viewInst)}/{CHECKLIST_STEPS.length})</div>
+          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>{t(bi("Шаги установки","שלבי התקנה","Installation steps"))} ({doneCount(viewInst)}/{CHECKLIST_STEPS.length})</div>
           {CHECKLIST_STEPS.map((s,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:`1px solid ${D.border}`}}>
               <div style={{width:18,height:18,borderRadius:4,background:(viewInst.checklist||[])[i]?D.green:D.surface,
@@ -2708,26 +2708,26 @@ function Installation({installations,setInstallations,orders,onClientClick}){
           ))}
         </div>
         <div>
-          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото до установки ({(viewInst.photosBefore||[]).length})</div>
+          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>{t(bi("Фото до установки","תמונות לפני ההתקנה","Photos before installation"))} ({(viewInst.photosBefore||[]).length})</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
             {(viewInst.photosBefore||[]).map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
             {(viewInst.photosBefore||[]).length===0&&<div style={{fontSize:11,color:D.muted}}>{t(bi("Нет фото","אין תמונות","No photos"))}</div>}
           </div>
-          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото после установки ({(viewInst.photosAfter||[]).length})</div>
+          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>{t(bi("Фото после установки","תמונות אחרי ההתקנה","Photos after installation"))} ({(viewInst.photosAfter||[]).length})</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
             {(viewInst.photosAfter||[]).map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
             {(viewInst.photosAfter||[]).length===0&&<div style={{fontSize:11,color:D.muted}}>{t(bi("Нет фото","אין תמונות","No photos"))}</div>}
           </div>
           {viewInst.notes&&<div style={{marginTop:14,background:D.surface,borderRadius:8,padding:12,fontSize:12,color:D.muted}}><b style={{color:D.text}}>{t(bi("Заметки","הערות","Notes"))}:</b> {viewInst.notes}</div>}
           <div style={{marginTop:16,display:"flex",gap:8}}>
-            <Btn onClick={()=>printAct(viewInst,linked(viewInst))} variant="success"><Download size={13}/> Акт PDF</Btn>
+            <Btn onClick={()=>printAct(viewInst,linked(viewInst))} variant="success"><Download size={13}/> {t(bi("Акт PDF","מסמך PDF","Act PDF"))}</Btn>
           </div>
         </div>
       </div>
     </Modal>)}
 
     {/* ADD/EDIT MODAL */}
-    {modal&&(<Modal title={editId?"✏️ Редактировать монтаж":"🔧 Новый монтаж"} onClose={()=>setModal(false)} wide>
+    {modal&&(<Modal title={editId?`✏️ ${t(bi("Редактировать монтаж","עריכת התקנה","Edit Installation"))}`:` 🔧 ${t(bi("Новый монтаж","התקנה חדשה","New Installation"))}`} onClose={()=>setModal(false)} wide>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Inp label={t(bi("Клиент *","לקוח *","Client *"))} value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
         <Inp label={t(bi("Телефон","טלפון","Phone"))} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
@@ -2740,7 +2740,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
             const ord=orders.find(o=>o.id===e.target.value);
             setForm(p=>({...p,orderId:e.target.value,client:ord?ord.client:p.client}));
           }} style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 12px",color:D.text,fontSize:13,outline:"none"}}>
-            <option value="" style={{background:D.card}}>— без привязки —</option>
+            <option value="" style={{background:D.card}}>— {t(bi("без привязки","ללא קישור","no link"))} —</option>
             {orders.map(o=><option key={o.id} value={o.id} style={{background:D.card}}>{o.id} · {o.client}</option>)}
           </select>
         </div>
@@ -2749,7 +2749,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
       </div>
       {/* Checklist */}
       <div style={{marginBottom:12}}>
-        <div style={{fontSize:10,fontWeight:700,color:D.muted,textTransform:"uppercase",marginBottom:8}}>Чек-лист ({form.checklist.filter(Boolean).length}/{CHECKLIST_STEPS.length})</div>
+        <div style={{fontSize:10,fontWeight:700,color:D.muted,textTransform:"uppercase",marginBottom:8}}>{t(bi("Чек-лист","רשימת תיוג","Checklist"))} ({form.checklist.filter(Boolean).length}/{CHECKLIST_STEPS.length})</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
           {CHECKLIST_STEPS.map((s,i)=>(
             <label key={i} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 8px",borderRadius:6,
@@ -3071,7 +3071,7 @@ function Inventory({inventory,setInventory}){
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
       <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>{t(bi("Склад","מלאי","Inventory"))}</div>
         <div style={{fontSize:13,color:D.muted}}>{inventory.length} {t(bi("позиций","פריטים","items"))} {low.length>0&&<span style={{color:D.yellow}}>· ⚠️ {low.length} {t(bi("нужно закупить","צריך להזמין","need to order"))}</span>}</div></div>
-      <Btn onClick={()=>exportCSV(["Наименование","Ед.","Кол","Мин","Цена"],inventory.map(i=>[i.name,i.unit,i.qty,i.minQty,i.price]),"склад.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
+      <Btn onClick={()=>exportCSV([t(bi("Наименование","שם","Name")),t(bi("Ед.","יח'","Unit")),t(bi("Кол","כמות","Qty")),t(bi("Мин","מינימום","Min")),t(bi("Цена","מחיר","Price"))],inventory.map(i=>[i.name,i.unit,i.qty,i.minQty,i.price]),"склад.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
     </div>
     {low.length>0&&(<div style={{background:D.yellow+"15",border:`1px solid ${D.yellow}40`,borderRadius:12,padding:"12px 16px",marginBottom:16}}>
       <div style={{fontSize:11,fontWeight:800,color:D.yellow,marginBottom:6}}>⚠️ {t(bi("ТРЕБУЕТСЯ ЗАКУПКА","נדרשת הזמנה","REORDER REQUIRED"))}</div>
@@ -3356,7 +3356,7 @@ function Payments({payments,setPayments,onClientClick,company}){
     {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
       <div>
-        <div style={{fontSize:22,fontWeight:900,color:D.text}}>קופה · כספים</div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>{t(bi("Касса · Финансы","קופה · כספים","Cash · Finance"))}</div>
         <div style={{fontSize:12,color:D.muted,marginTop:2,display:"flex",gap:12,alignItems:"center"}}>
           <span>{bizType}</span>
           {isVat&&<span style={{background:D.teal+"20",color:D.teal,borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>מע"מ 18%</span>}
@@ -3794,7 +3794,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
           </div>
         ))}
         <div style={{fontSize:10,color:D.muted,marginTop:8,padding:"6px 10px",background:D.surface,borderRadius:6}}>
-          *Расчёт: постоянные ₪{totalFixed.toLocaleString()} / маржа {avgMargin}% = точка безубыточности
+          *{t(bi("Расчёт","חישוב","Calc"))}: {t(bi("постоянные","קבועות","fixed"))} ₪{totalFixed.toLocaleString()} / {t(bi("маржа","מרווח","margin"))} {avgMargin}% = {t(bi("точка безубыточности","נקודת איזון","breakeven"))}
         </div>
       </div>
     </div>
@@ -4184,27 +4184,27 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
     {kpi.length>0&&(<>
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}}>
         <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>💹 ИСТОРИЯ: ВЫРУЧКА / EBITDA</div>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>💹 {t(bi("ИСТОРИЯ: ВЫРУЧКА / EBITDA","היסטוריה: הכנסות / EBITDA","HISTORY: REVENUE / EBITDA"))}</div>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={kpi.map(d=>({month:d.month,"Выручка":d.revenue,"EBITDA":d.revenue-d.cogs-d.opex}))} barGap={3}>
+            <BarChart data={kpi.map(d=>({month:d.month,[t(bi("Выручка","הכנסות","Revenue"))]:d.revenue,"EBITDA":d.revenue-d.cogs-d.opex}))} barGap={3}>
               <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
               <YAxis stroke={D.muted} tick={{fontSize:10,fill:D.muted}} tickFormatter={v=>"₪"+v/1000+"k"}/>
               <Tooltip content={<TT/>}/>
               <ReferenceLine y={0} stroke={D.red} strokeDasharray="4 4"/>
-              <Bar dataKey="Выручка" fill={D.accentLight+"80"} radius={[3,3,0,0]}/>
+              <Bar dataKey={t(bi("Выручка","הכנסות","Revenue"))} fill={D.accentLight+"80"} radius={[3,3,0,0]}/>
               <Bar dataKey="EBITDA" fill={D.green} radius={[3,3,0,0]}/>
             </BarChart>
           </ResponsiveContainer>
         </div>
         <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>📈 ИСТОРИЯ: ЛИДЫ / ЗАКАЗЫ</div>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:14}}>📈 {t(bi("ИСТОРИЯ: ЛИДЫ / ЗАКАЗЫ","היסטוריה: לידים / הזמנות","HISTORY: LEADS / ORDERS"))}</div>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={kpi}>
               <XAxis dataKey="month" stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
               <YAxis stroke={D.muted} tick={{fontSize:11,fill:D.muted}}/>
               <Tooltip content={<TT/>}/>
-              <Line dataKey="leads" name="Лиды" stroke={D.accentLight} strokeWidth={2} dot={{r:3}}/>
-              <Line dataKey="orders" name="Заказы" stroke={D.green} strokeWidth={2} dot={{r:3}}/>
+              <Line dataKey="leads" name={t(bi("Лиды","לידים","Leads"))} stroke={D.accentLight} strokeWidth={2} dot={{r:3}}/>
+              <Line dataKey="orders" name={t(bi("Заказы","הזמנות","Orders"))} stroke={D.green} strokeWidth={2} dot={{r:3}}/>
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -4225,8 +4225,8 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
       </div>
     </>)}
 
-    {modal&&(<Modal title="📅 Добавить месяц" onClose={()=>setModal(false)}>
-      <Sel label="Месяц" value={form.month} onChange={e=>setForm(p=>({...p,month:e.target.value}))} options={["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"]}/>
+    {modal&&(<Modal title={`📅 ${t(bi("Добавить месяц","הוסף חודש","Add month"))}`} onClose={()=>setModal(false)}>
+      <Sel label={t(bi("Месяц","חודש","Month"))} value={form.month} onChange={e=>setForm(p=>({...p,month:e.target.value}))} options={[t(bi("Янв","ינו","Jan")),t(bi("Фев","פבר","Feb")),t(bi("Мар","מרץ","Mar")),t(bi("Апр","אפר","Apr")),t(bi("Май","מאי","May")),t(bi("Июн","יוני","Jun")),t(bi("Июл","יולי","Jul")),t(bi("Авг","אוג","Aug")),t(bi("Сен","ספט","Sep")),t(bi("Окт","אוק","Oct")),t(bi("Ноя","נוב","Nov")),t(bi("Дек","דצמ","Dec"))]}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <Inp label={t(bi("Лидов","לידים","Leads"))} value={form.leads} onChange={e=>setForm(p=>({...p,leads:e.target.value}))} type="number"/>
         <Inp label={t(bi("Замеров","מדידות","Measurements"))} value={form.measures} onChange={e=>setForm(p=>({...p,measures:e.target.value}))} type="number"/>
@@ -4261,7 +4261,7 @@ function GlobalSearch({q,leads,measurements,orders,payments,installations,onClie
   });
   measurements.forEach(m=>{
     if(m.client.toLowerCase().includes(inp)||m.address?.toLowerCase().includes(inp)||m.phone?.includes(inp))
-      results.push({type:"measure",icon:"📐",title:m.client,sub:`Замер · ${m.date} · ${m.address||""}`,
+      results.push({type:"measure",icon:"📐",title:m.client,sub:`${t(bi("Замер","מדידה","Measurement"))} · ${m.date} · ${m.address||""}`,
         action:()=>{onClientClick(m.client);onClose();}});
   });
   orders.forEach(o=>{
@@ -4276,7 +4276,7 @@ function GlobalSearch({q,leads,measurements,orders,payments,installations,onClie
   });
   installations.forEach(i=>{
     if(i.client.toLowerCase().includes(inp)||i.address?.toLowerCase().includes(inp))
-      results.push({type:"install",icon:"🔧",title:i.client,sub:`Монтаж · ${i.status} · ${i.scheduledDate||""}`,
+      results.push({type:"install",icon:"🔧",title:i.client,sub:`${t(bi("Монтаж","התקנה","Installation"))} · ${i.status} · ${i.scheduledDate||""}`,
         action:()=>{onClientClick(i.client);onClose();}});
   });
 
@@ -4289,11 +4289,11 @@ function GlobalSearch({q,leads,measurements,orders,payments,installations,onClie
       border:`1px solid ${D.border}`,borderRadius:12,marginTop:4,zIndex:500,
       boxShadow:"0 8px 32px #00000060",maxHeight:400,overflowY:"auto"}}>
       {unique.length===0?(
-        <div style={{padding:"20px",textAlign:"center",color:D.muted,fontSize:12}}>Ничего не найдено</div>
+        <div style={{padding:"20px",textAlign:"center",color:D.muted,fontSize:12}}>{t(bi("Ничего не найдено","לא נמצאו תוצאות","Nothing found"))}</div>
       ):(
         <>
           <div style={{padding:"8px 14px 4px",fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>
-            {unique.length} результатов
+            {unique.length} {t(bi("результатов","תוצאות","results"))}
           </div>
           {unique.map((r,i)=>(
             <button key={i} onClick={r.action}
@@ -4389,7 +4389,7 @@ function Quotes({quotes,setQuotes,onClientClick}){
               <div>
                 <div onClick={()=>onClientClick&&onClientClick(q.client)}
                   style={{fontSize:15,fontWeight:800,color:D.text,cursor:"pointer"}}>{q.client}</div>
-                <div style={{fontSize:11,color:D.muted}}>📅 {q.date} · {q.items?.length||0} позиций</div>
+                <div style={{fontSize:11,color:D.muted}}>📅 {q.date} · {q.items?.length||0} {t(bi("позиций","פריטים","items"))}</div>
               </div>
             </div>
             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
@@ -4477,7 +4477,7 @@ function ActivityLog({activities}){
           </div>
         </div>
       ))}
-      {filtered.length===0&&<div style={{fontSize:11,color:D.muted,padding:"8px 0"}}>Ничего не найдено</div>}
+      {filtered.length===0&&<div style={{fontSize:11,color:D.muted,padding:"8px 0"}}>{t(bi("Ничего не найдено","לא נמצאו תוצאות","Nothing found"))}</div>}
     </div>
   </div>);
 }
@@ -4525,7 +4525,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
   const latestQuote=cQuotes[0];
 
   const logAndCall=()=>{
-    if(setActivity)addActivity(setActivity,clientName,"call",`📞 Звонок: ${phone}`);
+    if(setActivity)addActivity(setActivity,clientName,"call",`📞 ${t(bi("Звонок","שיחה","Call"))}: ${phone}`);
   };
   const sendWA=(tpl)=>{
     const date=new Date().toLocaleDateString("he-IL");
@@ -4533,7 +4533,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
     const ordId=latestOrder?.id;
     const text=tpl.text(clientName,tpl.id==="measure"?date:tpl.id==="order_confirm"?ordId:total);
     window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(text)}`,"_blank");
-    if(setActivity)addActivity(setActivity,clientName,"whatsapp",`💬 WhatsApp: ${tpl.label}`);
+    if(setActivity)addActivity(setActivity,clientName,"whatsapp",`💬 WhatsApp: ${t(tpl.label)}`);
     setWaModal(false);
   };
   const addNote=()=>{
@@ -4593,7 +4593,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
           {waModal&&phone&&(
             <div style={{marginTop:12,background:D.surface,border:`1px solid ${"#25D366"}30`,borderRadius:10,padding:12}}>
               <div style={{fontSize:10,fontWeight:800,color:"#25D366",textTransform:"uppercase",marginBottom:8}}>
-                💬 WhatsApp — выбери шаблон
+                💬 WhatsApp — {t(bi("выбери шаблон","בחר תבנית","choose template"))}
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:5}}>
                 {WA_TEMPLATES.map(tpl=>(
@@ -4603,13 +4603,13 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
                       display:"flex",alignItems:"center",gap:6}}
                     onMouseEnter={e=>e.currentTarget.style.background="#25D36610"}
                     onMouseLeave={e=>e.currentTarget.style.background=D.card}>
-                    {tpl.label}
+                    {t(tpl.label)}
                   </button>
                 ))}
               </div>
               <button onClick={()=>setWaModal(false)}
                 style={{marginTop:6,background:"none",border:"none",cursor:"pointer",color:D.muted,fontSize:10,padding:0}}>
-                Закрыть
+                {t(bi("Закрыть","סגור","Close"))}
               </button>
             </div>
           )}
@@ -4619,9 +4619,9 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
           {/* Financial summary */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
             {[
-              ["КП сумма",fmt(cOrders.reduce((s,o)=>s+o.total,0)),D.text],
-              ["Оплачено",fmt(paid),D.green],
-              ["Ожидается",fmt(pending),D.yellow],
+              [t(bi("КП сумма","סה'כ הצעה","Quote total")),fmt(cOrders.reduce((s,o)=>s+o.total,0)),D.text],
+              [t(bi("Оплачено","שולם","Paid")),fmt(paid),D.green],
+              [t(bi("Ожидается","ממתין","Pending")),fmt(pending),D.yellow],
             ].map(([l,v,c])=>(
               <div key={l} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
                 <div style={{fontSize:8,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{l}</div>
@@ -4631,14 +4631,14 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
           </div>
 
           {/* Measurements */}
-          <Section icon={Ruler} title={`Замеры (${cMeasures.length})`} color={D.purple}>
-            {cMeasures.length===0&&<div style={{fontSize:11,color:D.muted}}>Нет замеров</div>}
+          <Section icon={Ruler} title={`${t(bi("Замеры","מדידות","Measurements"))} (${cMeasures.length})`} color={D.purple}>
+            {cMeasures.length===0&&<div style={{fontSize:11,color:D.muted}}>{t(bi("Нет замеров","אין מדידות","No measurements"))}</div>}
             {cMeasures.map(m=>(
               <div key={m.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
                 padding:"8px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
                   <div style={{fontSize:12,fontWeight:700,color:D.text}}>📅 {m.date} · {m.address||"—"}</div>
-                  <div style={{fontSize:10,color:D.muted}}>{(m.openings||[]).length} проёмов · {m.mode==="По чертежу"?"📄 По чертежу":"🚗 Выезд"}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{(m.openings||[]).length} {t(bi("проёмов","פתחים","openings"))} · {m.mode==="По чертежу"?`📄 ${t(bi("По чертежу","לפי שרטוט","By drawing"))}`:t(bi("🚗 Выезд","🚗 נסיעה","🚗 Visit"))}</div>
                 </div>
                 <div style={{display:"flex",gap:5,alignItems:"center"}}>
                   <Badge status={m.status}/>
@@ -4652,8 +4652,8 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
           </Section>
 
           {/* Orders */}
-          <Section icon={ShoppingCart} title={`Заказы (${cOrders.length})`} color={D.accentLight}>
-            {cOrders.length===0&&<div style={{fontSize:11,color:D.muted}}>Нет заказов</div>}
+          <Section icon={ShoppingCart} title={`${t(bi("Заказы","הזמנות","Orders"))} (${cOrders.length})`} color={D.accentLight}>
+            {cOrders.length===0&&<div style={{fontSize:11,color:D.muted}}>{t(bi("Нет заказов","אין הזמנות","No orders"))}</div>}
             {cOrders.map(o=>(
               <div key={o.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 10px",marginBottom:6}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
@@ -4661,7 +4661,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
                   <Badge status={o.status}/>
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between"}}>
-                  <span style={{fontSize:11,color:D.muted}}>{o.windows} окон · {o.created}</span>
+                  <span style={{fontSize:11,color:D.muted}}>{o.windows} {t(bi("окон","חלונות","windows"))} · {o.created}</span>
                   <span style={{fontSize:12,fontWeight:700,color:D.green}}>{fmt(o.paid)} / {fmt(o.total)}</span>
                 </div>
                 <PBar value={o.progress} color={o.progress===100?D.green:D.accent}/>
@@ -4670,13 +4670,13 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
           </Section>
 
           {/* Installation */}
-          {cInst.length>0&&(<Section icon={Wrench} title={`Монтаж (${cInst.length})`} color={D.teal}>
+          {cInst.length>0&&(<Section icon={Wrench} title={`${t(bi("Монтаж","התקנה","Installation"))} (${cInst.length})`} color={D.teal}>
             {cInst.map(i=>(
               <div key={i.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 10px",marginBottom:6,
                 display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:D.text}}>📅 {i.scheduledDate}</div>
-                  <div style={{fontSize:10,color:D.muted}}>{i.specialist||"—"} · {(i.checklist||[]).filter(Boolean).length}/{(i.checklist||CHECKLIST_STEPS).length} шагов</div>
+                  <div style={{fontSize:10,color:D.muted}}>{i.specialist||"—"} · {(i.checklist||[]).filter(Boolean).length}/{(i.checklist||CHECKLIST_STEPS).length} {t(bi("шагов","שלבים","steps"))}</div>
                 </div>
                 <Badge status={i.status}/>
               </div>
@@ -4684,7 +4684,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
           </Section>)}
 
           {/* Payments */}
-          {cPay.length>0&&(<Section icon={Wallet} title={`Платежи (${cPay.length})`} color={D.green}>
+          {cPay.length>0&&(<Section icon={Wallet} title={`${t(bi("Платежи","תשלומים","Payments"))} (${cPay.length})`} color={D.green}>
             {cPay.map(p=>(
               <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
                 padding:"6px 0",borderBottom:`1px solid ${D.border}`}}>
@@ -4701,18 +4701,18 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
           </Section>)}
 
           {/* Notes */}
-          {lead?.notes&&(<Section icon={FileText} title="Заметки" color={D.muted}>
+          {lead?.notes&&(<Section icon={FileText} title={t(bi("Заметки","הערות","Notes"))} color={D.muted}>
             <div style={{fontSize:12,color:D.text,background:D.card,borderRadius:8,padding:10}}>{lead.notes}</div>
           </Section>)}
 
           {/* Saved Quotes cross-link */}
-          {cQuotes.length>0&&(<Section icon={FileText} title={`КП История (${cQuotes.length})`} color={D.yellow}>
+          {cQuotes.length>0&&(<Section icon={FileText} title={`${t(bi("КП История","היסטוריית הצעות","Quote History"))} (${cQuotes.length})`} color={D.yellow}>
             {cQuotes.slice(0,3).map(q=>(
               <div key={q.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
                 padding:"6px 0",borderBottom:`1px solid ${D.border}`}}>
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:D.text}}>{q.id} · {q.date}</div>
-                  <div style={{fontSize:10,color:D.muted}}>{q.items?.length||0} позиций · {q.status}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{q.items?.length||0} {t(bi("позиций","פריטים","items"))} · {q.status}</div>
                 </div>
                 <span style={{fontSize:12,fontWeight:800,color:D.yellow}}>{fmt(q.total)}</span>
               </div>
@@ -4727,11 +4727,11 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
 
           {/* Quick note */}
           <div style={{marginBottom:12}}>
-            <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:6}}>📝 Заметка</div>
+            <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:6}}>📝 {t(bi("Заметка","הערה","Note"))}</div>
             <div style={{display:"flex",gap:6}}>
               <input value={noteText} onChange={e=>setNoteText(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&addNote()}
-                placeholder="Добавить заметку..."
+                placeholder={t(bi("Добавить заметку...","הוסף הערה...","Add note..."))}
                 style={{flex:1,background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
                   padding:"7px 10px",color:D.text,fontSize:12,outline:"none"}}/>
               <Btn onClick={addNote} small><Plus size={12}/></Btn>
@@ -4739,7 +4739,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
           </div>
 
           {/* Activity log with search */}
-          {cActivity.length>0&&(<Section icon={History} title={`История (${cActivity.length})`} color={D.muted}>
+          {cActivity.length>0&&(<Section icon={History} title={`${t(bi("История","היסטוריה","History"))} (${cActivity.length})`} color={D.muted}>
             <ActivityLog activities={cActivity}/>
           </Section>)}
         </div>
@@ -4750,19 +4750,19 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
 
 // ── WHATSAPP TEMPLATES ───────────────────────────────────────
 const WA_TEMPLATES=[
-  {id:"new_lead",  label:"👋 Первый контакт",
+  {id:"new_lead",  label:bi("👋 Первый контакт","👋 יצירת קשר ראשונית","👋 First contact"),
     text:(name)=>`שלום ${name}!\nאני מתקין חלונות ודלתות אלומיניום.\nקיבלתי את פנייתך ואשמח לעזור.\nמתי נוח לך שנדבר? 🏭`},
-  {id:"measure",   label:"📐 Подтверждение замера",
+  {id:"measure",   label:bi("📐 Подтверждение замера","📐 אישור מדידה","📐 Measurement confirmation"),
     text:(name,date)=>`שלום ${name}!\nאישור הגעה למדידה בתאריך ${date}.\nאם יש שינוי — אנא עדכן אותי מראש.\nתודה! 🙏`},
-  {id:"send_kp",   label:"📋 Отправка КП",
+  {id:"send_kp",   label:bi("📋 Отправка КП","📋 שליחת הצעת מחיר","📋 Sending quote"),
     text:(name,total)=>`שלום ${name}!\nמצורפת הצעת המחיר שלנו.\nסה"כ: ₪${total?.toLocaleString()||"—"}\nהצעה בתוקף ל-30 יום.\nשאלות? אשמח לעזור! 😊`},
-  {id:"followup",  label:"🔔 Follow-up",
+  {id:"followup",  label:bi("🔔 Follow-up","🔔 מעקב","🔔 Follow-up"),
     text:(name)=>`שלום ${name}!\nרציתי לבדוק אם יש שאלות לגבי הצעת המחיר?\nאשמח לפגוש אתכם ולהסביר פרטים נוספים. 🏭`},
-  {id:"order_confirm",label:"✅ Подтверждение заказа",
+  {id:"order_confirm",label:bi("✅ Подтверждение заказа","✅ אישור הזמנה","✅ Order confirmation"),
     text:(name,id)=>`שלום ${name}!\nתודה על ההזמנה! מספר הזמנה: ${id||"—"}\nנחזור אליך בקרוב לתיאום מועד ההתקנה. 🙏`},
-  {id:"install",   label:"🔧 Дата монтажа",
+  {id:"install",   label:bi("🔧 Дата монтажа","🔧 תאריך התקנה","🔧 Installation date"),
     text:(name,date)=>`שלום ${name}!\nנקבע מועד התקנה לתאריך ${date}.\nנגיע בשעה שנסכם.\nאם יש שאלות — צרו קשר. 🏭`},
-  {id:"done",      label:"🎉 Работа завершена",
+  {id:"done",      label:bi("🎉 Работа завершена","🎉 העבודה הושלמה","🎉 Work completed"),
     text:(name)=>`שלום ${name}!\nשמחים שהעבודה הושלמה בהצלחה! 🎉\nנשמח לקבל ביקורת ו/או המלצה.\nתמיד כאן לשירותכם! 🏭`},
 ];
 
@@ -5306,12 +5306,12 @@ export default function App(){
     </nav>
     <div style={{padding:"8px",borderTop:`1px solid ${D.border}`}}>
       {[
-        leads.filter(l=>migrateStatus(l.status)==="new_lead").length>0&&[`👤 ${leads.filter(l=>migrateStatus(l.status)==="new_lead").length} новых лидов`,"leads"],
-        overdueFollowUps.length>0&&[`🔴 ${overdueFollowUps.length} просрочен follow-up`,"leads"],
-        pendM>0&&[`📐 ${pendM} замеров ждут`,"measurements"],
-        pendInst>0&&[`🔧 ${pendInst} монтажей активно`,"installation"],
-        inventory.filter(i=>i.qty<i.minQty).length>0&&[`📦 нужна закупка`,"inventory"],
-        payments.filter(p=>migrateStatus(p.status)==="pending"||p.status==="pending").length>0&&[`💰 ожидаются платежи`,"payments"],
+        leads.filter(l=>migrateStatus(l.status)==="new_lead").length>0&&[`👤 ${leads.filter(l=>migrateStatus(l.status)==="new_lead").length} ${t(bi("новых лидов","לידים חדשים","new leads"))}`,"leads"],
+        overdueFollowUps.length>0&&[`🔴 ${overdueFollowUps.length} ${t(bi("просрочен follow-up","follow-up באיחור","follow-up overdue"))}`,"leads"],
+        pendM>0&&[`📐 ${pendM} ${t(bi("замеров ждут","מדידות ממתינות","measurements pending"))}`,"measurements"],
+        pendInst>0&&[`🔧 ${pendInst} ${t(bi("монтажей активно","התקנות פעילות","installations active"))}`,"installation"],
+        inventory.filter(i=>i.qty<i.minQty).length>0&&[`📦 ${t(bi("нужна закупка","נדרשת הזמנה","reorder needed"))}`,"inventory"],
+        payments.filter(p=>migrateStatus(p.status)==="pending"||p.status==="pending").length>0&&[`💰 ${t(bi("ожидаются платежи","תשלומים ממתינים","payments pending"))}`,"payments"],
       ].filter(Boolean).map(([a,pg],i)=>(<button key={i} onClick={()=>navTo(pg)}
         style={{display:"block",width:"100%",textAlign:"left",background:D.yellow+"12",border:`1px solid ${D.yellow}25`,
           borderRadius:7,padding:"5px 8px",marginBottom:3,fontSize:9,fontWeight:700,color:D.yellow,cursor:"pointer"}}
@@ -5427,7 +5427,7 @@ export default function App(){
     />)}
 
     {/* COMPANY SETTINGS MODAL */}
-    {companyModal&&(<Modal title="⚙️ Реквизиты компании" onClose={()=>setCompanyModal(false)}>
+    {companyModal&&(<Modal title={`⚙️ ${t(bi("Реквизиты компании","פרטי חברה","Company Settings"))}`} onClose={()=>setCompanyModal(false)}>
       {/* Business type selector */}
       <div style={{marginBottom:14}}>
         <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>סוג עסק / Тип бизнеса</div>
