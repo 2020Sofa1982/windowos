@@ -1087,7 +1087,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
     wallType:"Железобетон",floor:"1",crane:false,demolition:false,installNotes:"",files:[]});
   const [form,setForm]=useState(ef());
   const openAdd=()=>{setEditId(null);setForm(ef());setModal(true);};
-  const openEdit=m=>{setEditId(m.id);setForm({...m,openings:m.openings.map(o=>({...o})),files:m.files.map(f=>({...f}))});setModal(true);};
+  const openEdit=m=>{setEditId(m.id);setForm({...m,openings:(m.openings||[{id:Date.now(),room:"",width:"",height:"",type:"Хаза 2-трек",qty:1,notes:""}]).map(o=>({...o})),files:(m.files||[]).map(f=>({...f}))});setModal(true);};
   const addRow=()=>setForm(f=>({...f,openings:[...f.openings,{id:Date.now(),room:"",width:"",height:"",type:"Хаза 2-трек",qty:1,notes:""}]}));
   const delRow=id=>setForm(f=>({...f,openings:f.openings.filter(o=>o.id!==id)}));
   const updRow=(id,k,v)=>setForm(f=>({...f,openings:f.openings.map(o=>o.id===id?{...o,[k]:v}:o)}));
@@ -1114,7 +1114,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
     setMeasurements(p=>p.map(x=>x.id===m.id?{...x,status:newStatus}:x));
     syncLeadStatus(m.leadId,newStatus);
   };
-  const totalArea=m=>m.openings.reduce((s,o)=>s+(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1),0);
+  const totalArea=m=>(m.openings||[]).reduce((s,o)=>s+(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1),0);
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
@@ -1148,9 +1148,9 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
                   <span style={{fontSize:11,color:D.muted}}>📅 {m.date}</span>
                   {m.mode==="По чертежу"&&<span style={{fontSize:10,fontWeight:700,color:D.teal,background:D.teal+"18",borderRadius:4,padding:"1px 5px"}}>📄 По чертежу</span>}
                   {m.specialist&&<span style={{fontSize:11,color:D.muted}}>👤 {m.specialist}</span>}
-                  <span style={{fontSize:11,color:D.muted}}>🪟 {m.openings.length} проёмов</span>
+                  <span style={{fontSize:11,color:D.muted}}>🪟 {(m.openings||[]).length} проёмов</span>
                   <span style={{fontSize:11,color:D.green,fontWeight:700}}>📐 {area.toFixed(2)} м²</span>
-                  {m.files.length>0&&<span style={{fontSize:11,color:D.muted}}>📎 {m.files.length} файлов</span>}
+                  {(m.files||[]).length>0&&<span style={{fontSize:11,color:D.muted}}>📎 {(m.files||[]).length} файлов</span>}
                 </div>
               </div>
             </div>
@@ -1166,11 +1166,11 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
               <button onClick={()=>setMeasurements(p=>p.filter(x=>x.id!==m.id))} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}><Trash2 size={13}/></button>
             </div>
           </div>
-          {m.openings.length>0&&(<div style={{marginTop:12,background:D.surface,borderRadius:8,overflow:"hidden"}}>
+          {(m.openings||[]).length>0&&(<div style={{marginTop:12,background:D.surface,borderRadius:8,overflow:"hidden"}}>
             <div style={{display:"grid",gridTemplateColumns:"1.5fr 80px 80px 1.5fr 50px 1fr",padding:"5px 10px",gap:8}}>
               {["Помещение","Ш (см)","В (см)","Тип","Кол","Заметки"].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
             </div>
-            {m.openings.map((o,i)=>(<div key={o.id} style={{display:"grid",gridTemplateColumns:"1.5fr 80px 80px 1.5fr 50px 1fr",
+            {(m.openings||[]).map((o,i)=>(<div key={o.id} style={{display:"grid",gridTemplateColumns:"1.5fr 80px 80px 1.5fr 50px 1fr",
               padding:"6px 10px",gap:8,borderTop:`1px solid ${D.border}`,background:i%2===0?D.card+"80":D.surface}}>
               <div style={{fontSize:12,fontWeight:600,color:D.text}}>{o.room||"—"}</div>
               <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{o.width}</div>
@@ -1204,7 +1204,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
         <div style={{display:"grid",gridTemplateColumns:"1.5fr 70px 70px 60px 1.5fr 50px",padding:"6px 12px",gap:8}}>
           {["Помещение","Ш","В","м²","Тип","Кол"].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
         </div>
-        {viewM.openings.map((o,i)=>{const a=(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1);return(
+        {(viewM.openings||[]).map((o,i)=>{const a=(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1);return(
           <div key={o.id} style={{display:"grid",gridTemplateColumns:"1.5fr 70px 70px 60px 1.5fr 50px",
             padding:"8px 12px",gap:8,borderTop:`1px solid ${D.border}`,background:i%2===0?D.card+"80":D.surface}}>
             <div style={{fontSize:12,fontWeight:600,color:D.text}}>{o.room||"—"}</div>
@@ -1219,10 +1219,10 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           <span style={{fontSize:13,fontWeight:800,color:D.green}}>{totalArea(viewM).toFixed(2)} м²</span>
         </div>
       </div>
-      {viewM.files.length>0&&(<>
+      {(viewM.files||[]).length>0&&(<>
         <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Файлы и чертежи</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
-          {viewM.files.map(f=>(<div key={f.id} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:10,overflow:"hidden",width:f.isImage?120:190}}>
+          {(viewM.files||[]).map(f=>(<div key={f.id} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:10,overflow:"hidden",width:f.isImage?120:190}}>
             {f.isImage?<img src={f.data} alt={f.name} style={{width:120,height:90,objectFit:"cover",display:"block"}}/>
               :<div style={{padding:"10px 12px",display:"flex",gap:8,alignItems:"center"}}>
                 <span style={{fontSize:22}}>{fileIcon(f.type)}</span>
@@ -1577,7 +1577,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
   useEffect(()=>{
     if(!preload)return;
     setClient(preload.client||"");
-    const newItems=preload.openings.filter(o=>o.width&&o.height).map(o=>{
+    const newItems=(preload.openings||[]).filter(o=>o.width&&o.height).map(o=>{
       const op=OT2OP[o.type]||"sliding_2_track";
       const profile=OP2PROF[op]||"klil_7000";
       return newItem(o.room||o.type,op,profile,parseFloat(o.width)||120,parseFloat(o.height)||140,parseInt(o.qty)||1);
@@ -2430,7 +2430,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
   const [editId,setEditId]=useState(null);
 
   const openAdd=()=>{setEditId(null);setForm(ef());setModal(true);};
-  const openEdit=i=>{setEditId(i.id);setForm({...i,checklist:[...i.checklist],photosBefore:[...i.photosBefore],photosAfter:[...i.photosAfter]});setModal(true);};
+  const openEdit=i=>{setEditId(i.id);setForm({...i,checklist:[...(i.checklist||CHECKLIST_STEPS.map(()=>false))],photosBefore:[...(i.photosBefore||[])],photosAfter:[...(i.photosAfter||[])]});setModal(true);};
   const submit=()=>{
     if(!form.client)return;
     const rec={...form,id:editId||Date.now()};
@@ -2446,7 +2446,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
       r.readAsDataURL(file);
     });e.target.value="";
   };
-  const doneCount=inst=>inst.checklist.filter(Boolean).length;
+  const doneCount=inst=>(inst.checklist||[]).filter(Boolean).length;
   const linked=inst=>{
     if(inst.orderId)return orders.find(o=>o.id===inst.orderId);
     return orders.find(o=>o.client===inst.client);
@@ -2497,7 +2497,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
               <div style={{fontSize:9,fontWeight:700,color:D.muted,marginBottom:5,textTransform:"uppercase"}}>Чек-лист {done}/{total}</div>
               <PBar value={pct} color={pct===100?D.green:D.purple}/>
             </div>
-            <div style={{fontSize:11,color:D.muted}}>📸 до: {inst.photosBefore.length} · после: {inst.photosAfter.length}</div>
+            <div style={{fontSize:11,color:D.muted}}>📸 до: {(inst.photosBefore||[]).length} · после: {(inst.photosAfter||[]).length}</div>
             <div style={{fontSize:11,color:D.muted}}>{inst.completedDate?`✅ ${inst.completedDate}`:"Не завершён"}</div>
           </div>
         </div>);
@@ -2511,24 +2511,24 @@ function Installation({installations,setInstallations,orders,onClientClick}){
           <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Шаги установки ({doneCount(viewInst)}/{CHECKLIST_STEPS.length})</div>
           {CHECKLIST_STEPS.map((s,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:`1px solid ${D.border}`}}>
-              <div style={{width:18,height:18,borderRadius:4,background:viewInst.checklist[i]?D.green:D.surface,
-                border:`2px solid ${viewInst.checklist[i]?D.green:D.border}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                {viewInst.checklist[i]&&<Check size={11} color="#fff"/>}
+              <div style={{width:18,height:18,borderRadius:4,background:(viewInst.checklist||[])[i]?D.green:D.surface,
+                border:`2px solid ${(viewInst.checklist||[])[i]?D.green:D.border}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                {(viewInst.checklist||[])[i]&&<Check size={11} color="#fff"/>}
               </div>
-              <span style={{fontSize:12,color:viewInst.checklist[i]?D.text:D.muted}}>{s}</span>
+              <span style={{fontSize:12,color:(viewInst.checklist||[])[i]?D.text:D.muted}}>{s}</span>
             </div>
           ))}
         </div>
         <div>
-          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото до установки ({viewInst.photosBefore.length})</div>
+          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото до установки ({(viewInst.photosBefore||[]).length})</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
-            {viewInst.photosBefore.map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
-            {viewInst.photosBefore.length===0&&<div style={{fontSize:11,color:D.muted}}>Нет фото</div>}
+            {(viewInst.photosBefore||[]).map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
+            {(viewInst.photosBefore||[]).length===0&&<div style={{fontSize:11,color:D.muted}}>Нет фото</div>}
           </div>
-          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото после установки ({viewInst.photosAfter.length})</div>
+          <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото после установки ({(viewInst.photosAfter||[]).length})</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-            {viewInst.photosAfter.map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
-            {viewInst.photosAfter.length===0&&<div style={{fontSize:11,color:D.muted}}>Нет фото</div>}
+            {(viewInst.photosAfter||[]).map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
+            {(viewInst.photosAfter||[]).length===0&&<div style={{fontSize:11,color:D.muted}}>Нет фото</div>}
           </div>
           {viewInst.notes&&<div style={{marginTop:14,background:D.surface,borderRadius:8,padding:12,fontSize:12,color:D.muted}}><b style={{color:D.text}}>Заметки:</b> {viewInst.notes}</div>}
           <div style={{marginTop:16,display:"flex",gap:8}}>
@@ -4449,7 +4449,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
                 padding:"8px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
                   <div style={{fontSize:12,fontWeight:700,color:D.text}}>📅 {m.date} · {m.address||"—"}</div>
-                  <div style={{fontSize:10,color:D.muted}}>{m.openings.length} проёмов · {m.mode==="По чертежу"?"📄 По чертежу":"🚗 Выезд"}</div>
+                  <div style={{fontSize:10,color:D.muted}}>{(m.openings||[]).length} проёмов · {m.mode==="По чертежу"?"📄 По чертежу":"🚗 Выезд"}</div>
                 </div>
                 <div style={{display:"flex",gap:5,alignItems:"center"}}>
                   <Badge status={m.status}/>
@@ -4487,7 +4487,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
                 display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:D.text}}>📅 {i.scheduledDate}</div>
-                  <div style={{fontSize:10,color:D.muted}}>{i.specialist||"—"} · {i.checklist.filter(Boolean).length}/{i.checklist.length} шагов</div>
+                  <div style={{fontSize:10,color:D.muted}}>{i.specialist||"—"} · {(i.checklist||[]).filter(Boolean).length}/{(i.checklist||CHECKLIST_STEPS).length} шагов</div>
                 </div>
                 <Badge status={i.status}/>
               </div>
