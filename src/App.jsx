@@ -80,8 +80,30 @@ const DB=[
 ];
 
 // Dekel glass addons (per m²)
-// ── BILINGUAL HELPER ─────────────────────────────────────────
-const bi=(ru,he)=>`${ru} | ${he}`;
+// ── TRILINGUAL HELPER ─────────────────────────────────────────
+const bi=(ru,he,en)=>({ru,he,en:en||ru});
+// _LANG is a global variable set from React state (updated in App component)
+let _LANG="ru";
+// t() renders current language from bi() object
+// When used outside App, falls back to _LANG global
+const t=(obj)=>{
+  if(!obj||typeof obj!=='object')return String(obj||'');
+  return obj[_LANG]||obj.en||obj.ru||'';
+};
+// Migration map: old Russian/Hebrew strings → new English keys
+const MIGRATE_STATUS={
+  "Новый лид":"new_lead","Замер назначен":"lead_measure","КП отправлено":"lead_quote",
+  "Follow-up":"lead_followup","Закрыт (выиграли)":"lead_won","Закрыт (проиграли)":"lead_lost",
+  "Ожидает материалов":"order_waiting","В производстве":"order_production",
+  "Монтаж":"order_installation","Завершён":"order_done",
+  "Запланирован":"measure_planned","Выполнен":"measure_done","Утверждён":"measure_approved",
+  "В процессе":"inst_progress",
+};
+const migrateStatus=(val)=>{
+  if(!val)return val;
+  const stripped=val.split("|")[0].trim();
+  return MIGRATE_STATUS[stripped]||MIGRATE_STATUS[val]||val;
+};
 
 const DG=[
   {id:"none",    name:bi("Стандарт (в базе)",       "סטנדרטי (בסיס)"),          price:0,    code:"-"},
@@ -322,8 +344,15 @@ const PSVG={
   </svg>`,
 };
 
-// Map measurement opening type → dekel op
+// Map measurement opening type → dekel op (supports both old Russian strings and new English keys)
 const OT2OP={
+  // New English keys
+  "sliding_2":"sliding_2_track","sliding_3":"sliding_multi_sash",
+  "tilt_turn":"casement_or_tilt_turn","tilt_only":"tilt_or_fixed",
+  "fixed":"tilt_or_fixed","pocket":"pocket_sliding",
+  "belgian":"sliding_multi_sash","door_sliding":"sliding_2_track",
+  "door_swing":"casement_or_tilt_turn",
+  // Legacy Russian strings (migration)
   "Хаза 2-трек":"sliding_2_track","Хаза 3-трек":"sliding_multi_sash",
   "Поворотно-откидное":"casement_or_tilt_turn","Откидное":"tilt_or_fixed",
   "Глухое":"tilt_or_fixed","Карман (кис)":"pocket_sliding",
@@ -383,14 +412,14 @@ const dekelLookup=(op,profile,areaSqm)=>{
 
 // ── INIT DATA ────────────────────────────────────────────────
 const IL=[
-  {id:1,name:"Давид Коэн",phone:"052-111-2233",city:"Тель-Авив",type:"Частный",windows:4,status:"Замер назначен",date:"2025-03-12",source:"Google Ads",value:12000,notes:""},
-  {id:2,name:"Строй-Проект ЛТД",phone:"054-222-3344",city:"Ришон",type:"Подрядчик",windows:24,status:"КП отправлено",date:"2025-03-10",source:"Рекомендация",value:85000,notes:""},
-  {id:3,name:"Ирина Леви",phone:"050-333-4455",city:"Хайфа",type:"Частный",windows:6,status:"Новый лид",date:"2025-03-14",source:"Google Maps",value:18000,notes:""},
+  {id:1,name:"Давид Коэн",phone:"052-111-2233",city:"Тель-Авив",type:"client_private",windows:4,status:"lead_measure",date:"2025-03-12",source:"src_google_ads",value:12000,notes:""},
+  {id:2,name:"Строй-Проект ЛТД",phone:"054-222-3344",city:"Ришон",type:"client_contractor",windows:24,status:"lead_quote",date:"2025-03-10",source:"src_referral",value:85000,notes:""},
+  {id:3,name:"Ирина Леви",phone:"050-333-4455",city:"Хайфа",type:"client_private",windows:6,status:"new_lead",date:"2025-03-14",source:"src_google_maps",value:18000,notes:""},
 ];
 const IO=[
-  {id:"WB-001",client:"АрхиМастер",windows:40,total:140000,paid:56000,status:"В производстве",created:"2025-03-06",delivery:"2025-03-25",city:"Иерусалим",progress:60},
-  {id:"WB-002",client:"Давид Коэн",windows:4,total:12000,paid:4800,status:"Ожидает материалов",created:"2025-03-12",delivery:"2025-03-28",city:"Тель-Авив",progress:10},
-  {id:"WB-003",client:"Ноам Шапиро",windows:8,total:28000,paid:28000,status:"Завершён",created:"2025-02-20",delivery:"2025-03-05",city:"Петах-Тиква",progress:100},
+  {id:"WB-001",client:"АрхиМастер",windows:40,total:140000,paid:56000,status:"order_production",created:"2025-03-06",delivery:"2025-03-25",city:"Иерусалим",progress:60},
+  {id:"WB-002",client:"Давид Коэн",windows:4,total:12000,paid:4800,status:"order_waiting",created:"2025-03-12",delivery:"2025-03-28",city:"Тель-Авив",progress:10},
+  {id:"WB-003",client:"Ноам Шапиро",windows:8,total:28000,paid:28000,status:"order_done",created:"2025-02-20",delivery:"2025-03-05",city:"Петах-Тиква",progress:100},
 ];
 const II=[
   {id:1,name:"Профиль Alumil S67",unit:"м.п.",qty:340,minQty:100,price:28,category:"Профиль"},
@@ -403,10 +432,10 @@ const II=[
   {id:8,name:"Пена монтажная Soudal",unit:"шт.",qty:6,minQty:10,price:38,category:"Материалы"},
 ];
 const IP=[
-  {id:1,order:"WB-001",client:"АрхиМастер",type:"Предоплата",amount:56000,date:"2025-03-07",method:"Банк",status:"Получен"},
-  {id:2,order:"WB-002",client:"Давид Коэн",type:"Предоплата",amount:4800,date:"2025-03-13",method:"Наличные",status:"Получен"},
-  {id:3,order:"WB-003",client:"Ноам Шапиро",type:"Финальный",amount:28000,date:"2025-03-05",method:"Банк",status:"Получен"},
-  {id:4,order:"WB-001",client:"АрхиМастер",type:"Финальный",amount:84000,date:"2025-03-25",method:"Банк",status:"Ожидается"},
+  {id:1,order:"WB-001",client:"АрхиМастер",type:"Предоплата",amount:56000,date:"2025-03-07",method:"Банк",status:"received"},
+  {id:2,order:"WB-002",client:"Давид Коэн",type:"Предоплата",amount:4800,date:"2025-03-13",method:"Наличные",status:"received"},
+  {id:3,order:"WB-003",client:"Ноам Шапиро",type:"Финальный",amount:28000,date:"2025-03-05",method:"Банк",status:"received"},
+  {id:4,order:"WB-001",client:"АрхиМастер",type:"Финальный",amount:84000,date:"2025-03-25",method:"Банк",status:"pending"},
 ];
 const IK=[
   {month:"Янв",leads:8,measures:4,orders:2,revenue:28000,cogs:17000,opex:19000,adSpend:4000},
@@ -415,12 +444,12 @@ const IK=[
 ];
 const IM=[
   {id:1,client:"Давид Коэн",phone:"052-111-2233",address:"ул. Дизенгоф 45, Тель-Авив",
-   date:"2025-03-15",specialist:"Алекс",status:"Выполнен",
+   date:"2025-03-15",specialist:"Алекс",status:"measure_done",
    openings:[
-     {id:101,room:"Гостиная",width:180,height:140,type:"Хаза 2-трек",qty:1,notes:""},
-     {id:102,room:"Кухня",width:90,height:90,type:"Поворотно-откидное",qty:1,notes:""},
+     {id:101,room:"Гостиная",width:180,height:140,type:"sliding_2",qty:1,notes:""},
+     {id:102,room:"Кухня",width:90,height:90,type:"tilt_turn",qty:1,notes:""},
    ],
-   wallType:"Железобетон",floor:"3",crane:false,demolition:true,installNotes:"Демонтаж включён.",files:[]}
+   wallType:"wall_concrete",floor:"3",crane:false,demolition:true,installNotes:"Демонтаж включён.",files:[]}
 ];
 
 const CHECKLIST_STEPS=[
@@ -442,33 +471,185 @@ const II_INST=[];
 const D={bg:"#090E1A",surface:"#0F1729",card:"#131D30",border:"#1E2D45",
   text:"#E8EDF5",muted:"#4A607A",accent:"#2563EB",accentLight:"#3B82F6",
   green:"#10B981",yellow:"#F59E0B",red:"#EF4444",purple:"#8B5CF6",teal:"#14B8A6"};
-const SC={"Новый лид":"#3B82F6","Замер назначен":"#8B5CF6","КП отправлено":"#F59E0B",
-  "Follow-up":"#EC4899","Закрыт (выиграли)":"#10B981","Закрыт (проиграли)":"#EF4444",
-  "Ожидает материалов":"#F59E0B","В производстве":"#3B82F6","Монтаж":"#8B5CF6","Завершён":"#10B981",
-  "Получен":"#10B981","Ожидается":"#F59E0B","Запланирован":"#8B5CF6","Выполнен":"#3B82F6","Утверждён":"#10B981"};
-const LST=["Новый лид","Замер назначен","КП отправлено","Follow-up","Закрыт (выиграли)","Закрыт (проиграли)"];
-const OST=["Ожидает материалов","В производстве","Монтаж","Завершён"];
-const MST=["Запланирован","Выполнен","Утверждён"];
+const SC={
+  "new_lead":"#3B82F6","lead_measure":"#8B5CF6","lead_quote":"#F59E0B",
+  "lead_followup":"#EC4899","lead_won":"#10B981","lead_lost":"#EF4444",
+  "order_waiting":"#F59E0B","order_production":"#3B82F6","order_installation":"#8B5CF6","order_done":"#10B981",
+  "measure_planned":"#8B5CF6","measure_done":"#3B82F6","measure_approved":"#10B981",
+  "inst_planned":"#8B5CF6","inst_progress":"#3B82F6","inst_done":"#10B981",
+  "received":"#10B981","pending":"#F59E0B","high":"#EF4444","medium":"#F59E0B","low":"#10B981",
+};
+const LST=["new_lead","lead_measure","lead_quote","lead_followup","lead_won","lead_lost"];
+const OST=["order_waiting","order_production","order_installation","order_done"];
+const MST=["measure_planned","measure_done","measure_approved"];
+const IST=["inst_planned","inst_progress","inst_done"];
+// T dictionary — defined here as bi() objects, rendered via t(T.key) in JSX
+// (needs to be defined before App component but we access it globally)
+const T_DICT={
+  // Navigation
+  dashboard:bi("Дашборд","לוח בקרה","Dashboard"),
+  leads:bi("Лиды / CRM","לידים / CRM","Leads / CRM"),
+  measurements:bi("Замеры","מדידות","Measurements"),
+  calc:bi("Калькулятор КП","מחשבון הצעות","Quote Calculator"),
+  orders:bi("Заказы","הזמנות","Orders"),
+  installation:bi("Монтаж","התקנה","Installation"),
+  inventory:bi("Склад","מלאי","Inventory"),
+  payments:bi("Платежи","תשלומים","Payments"),
+  finance:bi("Финансы П&У","רווח והפסד","Finance P&L"),
+  kpi:bi("KPI","KPI","KPI"),
+  quotes:bi("Сохранённые КП","הצעות שמורות","Saved Quotes"),
+  calendar:bi("Календарь","לוח שנה","Calendar"),
+  // Common actions
+  save:bi("Сохранить","שמור","Save"),
+  cancel:bi("Отмена","ביטול","Cancel"),
+  edit:bi("Редактировать","עריכה","Edit"),
+  delete:bi("Удалить","מחק","Delete"),
+  add:bi("Добавить","הוסף","Add"),
+  search:bi("Поиск","חיפוש","Search"),
+  filter:bi("Фильтр","סינון","Filter"),
+  close:bi("Закрыть","סגור","Close"),
+  confirm:bi("Подтвердить","אשר","Confirm"),
+  yes:bi("Да","כן","Yes"),
+  no:bi("Нет","לא","No"),
+  all:bi("Все","הכל","All"),
+  // Status labels
+  status:bi("Статус","סטטוס","Status"),
+  new_lead:bi("Новый лид","ליד חדש","New Lead"),
+  lead_measure:bi("Замер назначен","מדידה נקבעה","Measurement Scheduled"),
+  lead_quote:bi("КП отправлено","הצעה נשלחה","Quote Sent"),
+  lead_followup:bi("Follow-up","פולואפ","Follow-up"),
+  lead_won:bi("Закрыт (выиграли)","נסגר (זכינו)","Closed (Won)"),
+  lead_lost:bi("Закрыт (проиграли)","נסגר (הפסדנו)","Closed (Lost)"),
+  order_waiting:bi("Ожидает материалов","ממתין לחומרים","Waiting for Materials"),
+  order_production:bi("В производстве","בייצור","In Production"),
+  order_installation:bi("Монтаж","התקנה","Installation"),
+  order_done:bi("Завершён","הושלם","Completed"),
+  measure_planned:bi("Запланирован","מתוכנן","Planned"),
+  measure_done:bi("Выполнен","בוצע","Done"),
+  measure_approved:bi("Утверждён","מאושר","Approved"),
+  inst_planned:bi("Запланирован","מתוכנן","Planned"),
+  inst_progress:bi("В процессе","בתהליך","In Progress"),
+  inst_done:bi("Завершён","הושלם","Completed"),
+  // Priorities
+  high:bi("Высокий","גבוה","High"),
+  medium:bi("Средний","בינוני","Medium"),
+  low:bi("Низкий","נמוך","Low"),
+  urgent:bi("Срочно","דחוף","Urgent"),
+  normal:bi("Обычный","רגיל","Normal"),
+  // Client types
+  client_private:bi("Частный","פרטי","Private"),
+  client_contractor:bi("Подрядчик","קבלן","Contractor"),
+  client_architect:bi("Архитектор","אדריכל","Architect"),
+  client_developer:bi("Застройщик","יזם","Developer"),
+  // Sources
+  src_google_ads:bi("Google Ads","Google Ads","Google Ads"),
+  src_google_maps:bi("Google Maps","Google Maps","Google Maps"),
+  src_referral:bi("Рекомендация","המלצה","Referral"),
+  src_instagram:bi("Instagram","Instagram","Instagram"),
+  src_architect:bi("Архитектор","אדריכל","Architect"),
+  src_foreman:bi("Прораб","קבלן ביצוע","Foreman"),
+  src_repeat:bi("Повторный клиент","לקוח חוזר","Repeat Client"),
+  // Job types
+  job_new:bi("Новый проект","פרויקט חדש","New Project"),
+  job_renovation:bi("Ремонт","שיפוץ","Renovation"),
+  job_replacement:bi("Замена окна","החלפת חלון","Window Replacement"),
+  job_drawing:bi("По чертежу","לפי תכנית","By Drawing"),
+  // Opening types (for measurements)
+  sliding_2:bi("Хаза 2-трек","הזזה 2 מסלולים","Sliding 2-track"),
+  sliding_3:bi("Хаза 3-трек","הזזה 3 מסלולים","Sliding 3-track"),
+  tilt_turn:bi("Поворотно-откидное","כיפ-כיפ","Tilt & Turn"),
+  tilt_only:bi("Откидное","כיפ","Tilt"),
+  fixed:bi("Глухое","פיקס","Fixed"),
+  pocket:bi("Карман (кис)","הזזה לכיס","Pocket Sliding"),
+  belgian:bi("Бельгийское","בלגי","Belgian"),
+  door_sliding:bi("Дверь хаза","דלת הזזה","Door Sliding"),
+  door_swing:bi("Дверь поворот","דלת ציר","Door Swing"),
+  // Wall types
+  wall_concrete:bi("Железобетон","בטון מזוין","Reinforced Concrete"),
+  wall_brick:bi("Кирпич","לבנים","Brick"),
+  wall_aerated:bi("Газобетон","בלוק מקציף","Aerated Block"),
+  wall_blocks:bi("Блоки","בלוקים","Blocks"),
+  wall_wood:bi("Дерево","עץ","Wood"),
+  wall_other:bi("Другое","אחר","Other"),
+  // Form fields
+  name:bi("Имя","שם","Name"),
+  phone:bi("Телефон","טלפון","Phone"),
+  city:bi("Город","עיר","City"),
+  address:bi("Адрес","כתובת","Address"),
+  notes:bi("Заметки","הערות","Notes"),
+  date:bi("Дата","תאריך","Date"),
+  client:bi("Клиент","לקוח","Client"),
+  amount:bi("Сумма","סכום","Amount"),
+  total:bi("Итого","סהכ","Total"),
+  today:bi("Сегодня","היום","Today"),
+  overdue:bi("Просроченные","באיחור","Overdue"),
+  // Buttons
+  new_lead_btn:bi("Новый лид","ליד חדש","New Lead"),
+  new_measurement:bi("Новый замер","מדידה חדשה","New Measurement"),
+  new_order:bi("Новый заказ","הזמנה חדשה","New Order"),
+  new_installation:bi("Новый монтаж","התקנה חדשה","New Installation"),
+  // Payment statuses
+  pay_received:bi("Получен","התקבל","Received"),
+  pay_pending:bi("Ожидается","ממתין","Pending"),
+  // Language
+  language:bi("Язык","שפה","Language"),
+  settings:bi("Настройки","הגדרות","Settings"),
+};
+// ts() translates a status key using T_DICT
+const ts=(key)=>{
+  if(!key)return key;
+  const migrated=migrateStatus(key);
+  const obj=T_DICT[migrated];
+  if(obj)return obj[_LANG]||obj.en||obj.ru||migrated;
+  return migrated;
+};
 const MOP_T=[
-  bi("Хаза 2-трек",         "הזזה 2 מסלולים"),
-  bi("Хаза 3-трек",         "הזזה 3 מסלולים"),
-  bi("Поворотно-откидное",  "כיפ-כיפ"),
-  bi("Откидное",             "כיפ"),
-  bi("Глухое",               "פיקס"),
-  bi("Карман (кис)",         "הזזה לכיס"),
-  bi("Бельгийское",          "בלגי"),
-  bi("Дверь хаза",           "דלת הזזה"),
-  bi("Дверь поворот",        "דלת ציר"),
+  {value:"sliding_2",   label:bi("Хаза 2-трек","הזזה 2 מסלולים","Sliding 2-track")},
+  {value:"sliding_3",   label:bi("Хаза 3-трек","הזזה 3 מסלולים","Sliding 3-track")},
+  {value:"tilt_turn",   label:bi("Поворотно-откидное","כיפ-כיפ","Tilt & Turn")},
+  {value:"tilt_only",   label:bi("Откидное","כיפ","Tilt")},
+  {value:"fixed",       label:bi("Глухое","פיקס","Fixed")},
+  {value:"pocket",      label:bi("Карман (кис)","הזזה לכיס","Pocket Sliding")},
+  {value:"belgian",     label:bi("Бельгийское","בלגי","Belgian")},
+  {value:"door_sliding",label:bi("Дверь хаза","דלת הזזה","Door Sliding")},
+  {value:"door_swing",  label:bi("Дверь поворот","דלת ציר","Door Swing")},
 ];
 const WT=[
-  bi("Железобетон","בטון מזוין"),
-  bi("Кирпич","לבנים"),
-  bi("Газобетон","בלוק מקציף"),
-  bi("Блоки","בלוקים"),
-  bi("Дерево","עץ"),
-  bi("Другое","אחר"),
+  {value:"wall_concrete",label:bi("Железобетон","בטון מזוין","Reinforced Concrete")},
+  {value:"wall_brick",   label:bi("Кирпич","לבנים","Brick")},
+  {value:"wall_aerated", label:bi("Газобетон","בלוק מקציף","Aerated Block")},
+  {value:"wall_blocks",  label:bi("Блоки","בלוקים","Blocks")},
+  {value:"wall_wood",    label:bi("Дерево","עץ","Wood")},
+  {value:"wall_other",   label:bi("Другое","אחר","Other")},
 ];
-const PM={"Ожидает материалов":10,"В производстве":50,"Монтаж":85,"Завершён":100};
+// Helper to get display label for MOP_T value
+const getMopLabel=(val)=>{
+  if(!val)return val;
+  // Migrate old string values
+  const MIGRATE_MOP={
+    "Хаза 2-трек":"sliding_2","Хаза 3-трек":"sliding_3",
+    "Поворотно-откидное":"tilt_turn","Откидное":"tilt_only","Глухое":"fixed",
+    "Карман (кис)":"pocket","Бельгийское":"belgian",
+    "Дверь хаза":"door_sliding","Дверь поворот":"door_swing",
+  };
+  const key=MIGRATE_MOP[val]||val;
+  const opt=MOP_T.find(m=>m.value===key);
+  if(opt)return t(opt.label);
+  return val;
+};
+// Helper to get wall type label
+const getWtLabel=(val)=>{
+  if(!val)return val;
+  const MIGRATE_WT={
+    "Железобетон":"wall_concrete","Кирпич":"wall_brick","Газобетон":"wall_aerated",
+    "Блоки":"wall_blocks","Дерево":"wall_wood","Другое":"wall_other",
+  };
+  const key=MIGRATE_WT[val]||val;
+  const opt=WT.find(w=>w.value===key);
+  if(opt)return t(opt.label);
+  return val;
+};
+const PM={"order_waiting":10,"order_production":50,"order_installation":85,"order_done":100};
 const fmt=n=>"₪"+Math.round(n).toLocaleString("ru-RU");
 const fmtSize=b=>b<1024?b+"B":b<1048576?(b/1024).toFixed(1)+"KB":(b/1048576).toFixed(1)+"MB";
 const fileIcon=t=>{if(!t)return"📎";if(t.startsWith("image/"))return"🖼️";if(t==="application/pdf")return"📄";if(t.includes("dwg")||t.includes("dxf"))return"📐";return"📎";};
@@ -476,8 +657,12 @@ const dlFile=f=>{const a=document.createElement("a");a.href=f.data;a.download=f.
 const exportCSV=(headers,rows,fn)=>{const csv=[headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,\uFEFF"+encodeURIComponent(csv);a.download=fn;a.click();};
 
 // ── UI ATOMS ─────────────────────────────────────────────────
-const Badge=({status})=>(<span style={{background:(SC[status]||D.muted)+"22",color:SC[status]||D.muted,
-  border:`1px solid ${(SC[status]||D.muted)}44`,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{status}</span>);
+const Badge=({status})=>{
+  const migrated=migrateStatus(status)||status;
+  const color=SC[migrated]||D.muted;
+  return(<span style={{background:color+"22",color,
+    border:`1px solid ${color}44`,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{ts(migrated)}</span>);
+};
 
 const Btn=({children,onClick,variant="primary",small,disabled,style:s})=>{
   const v={primary:{background:"linear-gradient(135deg,#2563EB,#1D4ED8)",color:"#fff",border:"none"},
@@ -560,16 +745,16 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   // ── Today's agenda ──
   const todayMeasures=measurements.filter(m=>m.date===today);
   const todayInstalls=installations.filter(i=>i.scheduledDate===today);
-  const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
-  const todayFollowUps=leads.filter(l=>l.followUp===today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status));
-  const pendingPayments=payments.filter(p=>p.status==="Ожидается");
+  const overdueFollowUps=leads.filter(l=>l.followUp&&l.followUp<today&&!["lead_won","lead_lost"].includes(migrateStatus(l.status)));
+  const todayFollowUps=leads.filter(l=>l.followUp===today&&!["lead_won","lead_lost"].includes(migrateStatus(l.status)));
+  const pendingPayments=payments.filter(p=>migrateStatus(p.status)==="pending"||p.status==="pending");
 
   // ── Real financials ──
-  const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
-  const totalPending=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const totalPaid=payments.filter(p=>migrateStatus(p.status)==="received"||p.status==="received").reduce((s,p)=>s+p.amount,0);
+  const totalPending=payments.filter(p=>migrateStatus(p.status)==="pending"||p.status==="pending").reduce((s,p)=>s+p.amount,0);
   const totalContracted=orders.reduce((s,o)=>s+o.total,0);
-  const activeOrders=orders.filter(o=>o.status!=="Завершён");
-  const completedOrders=orders.filter(o=>o.status==="Завершён");
+  const activeOrders=orders.filter(o=>migrateStatus(o.status)!=="order_done");
+  const completedOrders=orders.filter(o=>migrateStatus(o.status)==="order_done");
   const avgDeal=orders.length>0?Math.round(totalContracted/orders.length):0;
 
   // ── Funnel ──
@@ -582,16 +767,16 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   const convLO=fLeads>0?Math.round(fOrders/fLeads*100):0;
 
   // ── Pipeline value ──
-  const pipeline=leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status))
+  const pipeline=leads.filter(l=>!["lead_won","lead_lost"].includes(migrateStatus(l.status)))
     .reduce((s,l)=>s+(l.value||0),0);
 
   // ── Status breakdown ──
   const pie=[
-    {name:"Новый",value:leads.filter(l=>l.status==="Новый лид").length,c:D.accentLight},
-    {name:"Замер",value:leads.filter(l=>l.status==="Замер назначен").length,c:D.purple},
-    {name:"КП",value:leads.filter(l=>l.status==="КП отправлено").length,c:D.yellow},
-    {name:"Follow-up",value:leads.filter(l=>l.status==="Follow-up").length,c:"#EC4899"},
-    {name:"Выиграли",value:leads.filter(l=>l.status==="Закрыт (выиграли)").length,c:D.green},
+    {name:ts("new_lead"),value:leads.filter(l=>migrateStatus(l.status)==="new_lead").length,c:D.accentLight},
+    {name:ts("lead_measure"),value:leads.filter(l=>migrateStatus(l.status)==="lead_measure").length,c:D.purple},
+    {name:ts("lead_quote"),value:leads.filter(l=>migrateStatus(l.status)==="lead_quote").length,c:D.yellow},
+    {name:ts("lead_followup"),value:leads.filter(l=>migrateStatus(l.status)==="lead_followup").length,c:"#EC4899"},
+    {name:ts("lead_won"),value:leads.filter(l=>migrateStatus(l.status)==="lead_won").length,c:D.green},
   ].filter(d=>d.value>0);
 
   // ── Monthly revenue ──
@@ -611,8 +796,8 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
   const revenueChart=Object.values(monthMap).sort((a,b)=>a.key.localeCompare(b.key)).slice(-8);
 
   const lowStock=inventory.filter(i=>i.qty<i.minQty).length;
-  const pending=payments.filter(p=>p.status==="Ожидается");
-  const pendInst=installations.filter(i=>i.status==="Запланирован"||i.status==="В процессе").length;
+  const pending=payments.filter(p=>migrateStatus(p.status)==="pending"||p.status==="pending");
+  const pendInst=installations.filter(i=>["inst_planned","inst_progress"].includes(migrateStatus(i.status))).length;
 
   const hasTodayItems=todayMeasures.length>0||todayInstalls.length>0||todayFollowUps.length>0||overdueFollowUps.length>0||pendingPayments.length>0;
 
@@ -838,8 +1023,8 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
             [lowStock>0,`📦 ${lowStock} позиций мало на складе`,D.yellow],
             [pendInst>0,`🔧 ${pendInst} монтажей в работе`,D.purple],
             [totalPending>0,`💰 ${fmt(totalPending)} ожидается`,D.green],
-            [leads.filter(l=>l.status==="Новый лид").length>0,
-              `👤 ${leads.filter(l=>l.status==="Новый лид").length} новых лидов`,D.accentLight],
+            [leads.filter(l=>migrateStatus(l.status)==="new_lead").length>0,
+              `👤 ${leads.filter(l=>migrateStatus(l.status)==="new_lead").length} новых лидов`,D.accentLight],
           ].filter(([cond])=>cond).map(([,text,color],i)=>(
             <div key={i} style={{fontSize:11,color,fontWeight:700,marginBottom:5}}>• {text}</div>
           ))}
@@ -855,22 +1040,24 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
 // LEADS
 // ═══════════════════════════════════════════════════════════════
 const PRIORITIES=[
-  {id:"urgent", label:"🔴 Срочно",  color:"#EF4444"},
-  {id:"high",   label:"🟡 Высокий", color:"#F59E0B"},
-  {id:"normal", label:"⚪ Обычный", color:"#4A607A"},
+  {id:"urgent", color:"#EF4444"},
+  {id:"high",   color:"#F59E0B"},
+  {id:"normal", color:"#4A607A"},
 ];
-const JOB_TYPES=["Новый проект","Ремонт","Замена окна","По чертежу"];
+const JOB_TYPES=["job_new","job_renovation","job_replacement","job_drawing"];
+const SOURCE_TYPES=["src_google_ads","src_google_maps","src_referral","src_instagram","src_architect","src_foreman","src_repeat"];
+const CLIENT_TYPES=["client_private","client_contractor","client_architect","client_developer"];
 const KANBAN_COLS=[
-  {id:"Новый лид",          label:"Новый лид",         color:"#3B82F6"},
-  {id:"Замер назначен",     label:"Замер назначен",     color:"#8B5CF6"},
-  {id:"КП отправлено",      label:"КП отправлено",      color:"#F59E0B"},
-  {id:"Follow-up",          label:"Follow-up",          color:"#EC4899"},
-  {id:"Закрыт (выиграли)",  label:"✅ Выиграли",        color:"#10B981"},
-  {id:"Закрыт (проиграли)", label:"❌ Проиграли",       color:"#EF4444"},
+  {id:"new_lead",      color:"#3B82F6"},
+  {id:"lead_measure",  color:"#8B5CF6"},
+  {id:"lead_quote",    color:"#F59E0B"},
+  {id:"lead_followup", color:"#EC4899"},
+  {id:"lead_won",      color:"#10B981"},
+  {id:"lead_lost",     color:"#EF4444"},
 ];
 
-const EMPTY_LEAD=()=>({name:"",phone:"",city:"",type:"Частный",jobType:"Новый проект",
-  windows:"1",source:"Google Ads",status:"Новый лид",priority:"normal",
+const EMPTY_LEAD=()=>({name:"",phone:"",city:"",type:"client_private",jobType:"job_new",
+  windows:"1",source:"src_google_ads",status:"new_lead",priority:"normal",
   value:"",followUp:"",notes:""});
 
 function Leads({leads,setLeads,onClientClick}){
@@ -884,7 +1071,7 @@ function Leads({leads,setLeads,onClientClick}){
     l.name.toLowerCase().includes(search.toLowerCase())||
     (l.phone||"").includes(search)||(l.city||"").toLowerCase().includes(search.toLowerCase()));
 
-  const openAdd=(status="Новый лид")=>{setEdit(null);setForm({...EMPTY_LEAD(),status});setModal(true);};
+  const openAdd=(status="new_lead")=>{setEdit(null);setForm({...EMPTY_LEAD(),status});setModal(true);};
   const openEdit=l=>{setEdit(l.id);setForm({...EMPTY_LEAD(),...l,windows:String(l.windows||1),value:String(l.value||0)});setModal(true);};
   const submit=()=>{
     if(!form.name||!form.phone)return;
@@ -895,16 +1082,16 @@ function Leads({leads,setLeads,onClientClick}){
   };
 
   const pColor=id=>PRIORITIES.find(p=>p.id===id)?.color||D.muted;
-  const pLabel=id=>PRIORITIES.find(p=>p.id===id)?.label||"";
+  const pLabel=id=>{const pr=PRIORITIES.find(p=>p.id===id);return pr?ts(pr.id):"";}
 
   const today=new Date().toISOString().split("T")[0];
-  const overdueFollowUp=l=>l.followUp&&l.followUp<today&&!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status);
+  const overdueFollowUp=l=>l.followUp&&l.followUp<today&&!["lead_won","lead_lost"].includes(migrateStatus(l.status));
 
   // ── KANBAN CARD ──
   const KanbanCard=({l})=>(
     <div style={{background:D.card,border:`1px solid ${overdueFollowUp(l)?D.red+"60":D.border}`,
       borderRadius:10,padding:12,marginBottom:8,cursor:"pointer",
-      borderLeft:`3px solid ${SC[l.status]||D.muted}`}}
+      borderLeft:`3px solid ${SC[migrateStatus(l.status)]||D.muted}`}}
       onClick={()=>openEdit(l)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
         <div onClick={()=>onClientClick&&onClientClick(l.name)} style={{fontSize:13,fontWeight:800,color:D.text,lineHeight:1.3,flex:1,paddingRight:4,cursor:"pointer"}}
@@ -965,13 +1152,13 @@ function Leads({leads,setLeads,onClientClick}){
     {view==="kanban"&&(
       <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10,overflowX:"auto",paddingBottom:8}}>
         {KANBAN_COLS.map(col=>{
-          const colLeads=filtered.filter(l=>l.status===col.id);
+          const colLeads=filtered.filter(l=>migrateStatus(l.status)===col.id);
           const colValue=colLeads.reduce((s,l)=>s+(l.value||0),0);
           return(
             <div key={col.id} style={{background:D.surface,borderRadius:12,padding:10,minWidth:200,borderTop:`3px solid ${col.color}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                 <div>
-                  <div style={{fontSize:11,fontWeight:800,color:col.color}}>{col.label}</div>
+                  <div style={{fontSize:11,fontWeight:800,color:col.color}}>{ts(col.id)}</div>
                   <div style={{fontSize:10,color:D.muted}}>{colLeads.length} · {colValue>0?fmt(colValue):""}</div>
                 </div>
                 <button onClick={()=>openAdd(col.id)} style={{background:D.border,border:"none",borderRadius:6,
@@ -1000,20 +1187,20 @@ function Leads({leads,setLeads,onClientClick}){
           <div key={l.id} style={{display:"grid",gridTemplateColumns:"2fr 1.1fr 0.8fr 0.8fr 1.2fr 1fr 1fr 56px",
             padding:"10px 14px",gap:8,alignItems:"center",
             background:overdueFollowUp(l)?D.red+"08":i%2===0?D.card:D.surface,
-            borderTop:`1px solid ${D.border}`,borderLeft:`3px solid ${SC[l.status]||D.muted}`}}>
+            borderTop:`1px solid ${D.border}`,borderLeft:`3px solid ${SC[migrateStatus(l.status)]||D.muted}`}}>
             <div>
               <div onClick={()=>onClientClick&&onClientClick(l.name)} style={{fontSize:13,fontWeight:700,color:D.text,cursor:"pointer"}}>{l.name}</div>
-              <div style={{fontSize:10,color:D.muted}}>{l.jobType||l.type} · {l.source} · {l.date}</div>
+              <div style={{fontSize:10,color:D.muted}}>{ts(l.jobType)||l.jobType} · {ts(l.source)||l.source} · {l.date}</div>
             </div>
             <a href={`tel:${l.phone}`} style={{fontSize:12,color:D.green,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:3}}>
               <Phone size={10}/>{l.phone}
             </a>
             <div style={{fontSize:12,color:D.muted}}>{l.city}</div>
             <div style={{fontSize:11,fontWeight:700,color:pColor(l.priority)}}>{pLabel(l.priority)}</div>
-            <select value={l.status} onChange={e=>setLeads(p=>p.map(x=>x.id===l.id?{...x,status:e.target.value}:x))}
-              style={{background:(SC[l.status]||D.muted)+"18",color:SC[l.status]||D.muted,
-                border:`1px solid ${(SC[l.status]||D.muted)}40`,borderRadius:6,padding:"3px 6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-              {LST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+            <select value={migrateStatus(l.status)||l.status} onChange={e=>setLeads(p=>p.map(x=>x.id===l.id?{...x,status:e.target.value}:x))}
+              style={{background:(SC[migrateStatus(l.status)]||D.muted)+"18",color:SC[migrateStatus(l.status)]||D.muted,
+                border:`1px solid ${(SC[migrateStatus(l.status)]||D.muted)}40`,borderRadius:6,padding:"3px 6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+              {LST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{ts(s)}</option>)}
             </select>
             <div style={{fontSize:13,fontWeight:700,color:D.green}}>{l.value>0?fmt(l.value):"—"}</div>
             <div style={{fontSize:10,fontWeight:700,color:overdueFollowUp(l)?D.red:D.teal}}>
@@ -1036,15 +1223,15 @@ function Leads({leads,setLeads,onClientClick}){
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
         <Inp label="Город" value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
-        <Sel label="Тип клиента" value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} options={["Частный","Подрядчик","Архитектор","Застройщик"]}/>
+        <Sel label="Тип клиента" value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} options={CLIENT_TYPES.map(k=>({value:k,label:ts(k)}))}/>
         <Inp label="Кол-во окон" value={form.windows} onChange={e=>setForm(p=>({...p,windows:e.target.value}))} type="number"/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Sel label="Тип работы" value={form.jobType} onChange={e=>setForm(p=>({...p,jobType:e.target.value}))} options={JOB_TYPES}/>
-        <Sel label="Источник" value={form.source} onChange={e=>setForm(p=>({...p,source:e.target.value}))} options={["Google Ads","Google Maps","Рекомендация","Instagram","Архитектор","Прораб","Повторный клиент"]}/>
+        <Sel label="Тип работы" value={form.jobType} onChange={e=>setForm(p=>({...p,jobType:e.target.value}))} options={JOB_TYPES.map(k=>({value:k,label:ts(k)}))}/>
+        <Sel label="Источник" value={form.source} onChange={e=>setForm(p=>({...p,source:e.target.value}))} options={SOURCE_TYPES.map(k=>({value:k,label:ts(k)}))}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
-        <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={LST}/>
+        <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={LST.map(k=>({value:k,label:ts(k)}))}/>
         <div style={{marginBottom:12}}>
           <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>Приоритет</div>
           <div style={{display:"flex",gap:5}}>
@@ -1054,7 +1241,7 @@ function Leads({leads,setLeads,onClientClick}){
                   border:`1px solid ${form.priority===pr.id?pr.color:D.border}`,
                   background:form.priority===pr.id?pr.color+"25":"transparent",
                   color:form.priority===pr.id?pr.color:D.muted}}>
-                {pr.label}
+                {ts(pr.id)}
               </button>
             ))}
           </div>
@@ -1074,21 +1261,21 @@ function Leads({leads,setLeads,onClientClick}){
 // ═══════════════════════════════════════════════════════════════
 // MEASUREMENTS
 // ═══════════════════════════════════════════════════════════════
-// Lead status pipeline helper
-const MSTATUS_TO_LSTATUS={"Запланирован":"Замер назначен","Выполнен":"КП отправлено","Утверждён":"Follow-up"};
+// Lead status pipeline helper (measurement status → lead status)
+const MSTATUS_TO_LSTATUS={"measure_planned":"lead_measure","measure_done":"lead_quote","measure_approved":"lead_followup"};
 
 function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,onClientClick}){
   const [modal,setModal]=useState(false);
   const [viewM,setViewM]=useState(null);
   const [editId,setEditId]=useState(null);
   const ef=()=>({client:"",phone:"",address:"",date:new Date().toISOString().split("T")[0],
-    specialist:"",status:"Запланирован",leadId:"",mode:"Выезд",
-    openings:[{id:Date.now(),room:"",width:"",height:"",type:"Хаза 2-трек",qty:1,notes:""}],
-    wallType:"Железобетон",floor:"1",crane:false,demolition:false,installNotes:"",files:[]});
+    specialist:"",status:"measure_planned",leadId:"",mode:"Выезд",
+    openings:[{id:Date.now(),room:"",width:"",height:"",type:"sliding_2",qty:1,notes:""}],
+    wallType:"wall_concrete",floor:"1",crane:false,demolition:false,installNotes:"",files:[]});
   const [form,setForm]=useState(ef());
   const openAdd=()=>{setEditId(null);setForm(ef());setModal(true);};
-  const openEdit=m=>{setEditId(m.id);setForm({...m,openings:(m.openings||[{id:Date.now(),room:"",width:"",height:"",type:"Хаза 2-трек",qty:1,notes:""}]).map(o=>({...o})),files:(m.files||[]).map(f=>({...f}))});setModal(true);};
-  const addRow=()=>setForm(f=>({...f,openings:[...f.openings,{id:Date.now(),room:"",width:"",height:"",type:"Хаза 2-трек",qty:1,notes:""}]}));
+  const openEdit=m=>{setEditId(m.id);setForm({...m,status:migrateStatus(m.status)||m.status,openings:(m.openings||[{id:Date.now(),room:"",width:"",height:"",type:"sliding_2",qty:1,notes:""}]).map(o=>({...o,type:o.type&&OT2OP[o.type]?OT2OP[o.type]:o.type})),files:(m.files||[]).map(f=>({...f}))});setModal(true);};
+  const addRow=()=>setForm(f=>({...f,openings:[...f.openings,{id:Date.now(),room:"",width:"",height:"",type:"sliding_2",qty:1,notes:""}]}));
   const delRow=id=>setForm(f=>({...f,openings:f.openings.filter(o=>o.id!==id)}));
   const updRow=(id,k,v)=>setForm(f=>({...f,openings:f.openings.map(o=>o.id===id?{...o,[k]:v}:o)}));
   const pickFiles=e=>{
@@ -1099,7 +1286,8 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
     });e.target.value="";
   };
   const syncLeadStatus=(leadId,mStatus)=>{
-    const ls=MSTATUS_TO_LSTATUS[mStatus];
+    const ms=migrateStatus(mStatus)||mStatus;
+    const ls=MSTATUS_TO_LSTATUS[ms];
     if(leadId&&ls)setLeads(p=>p.map(l=>l.id===leadId?{...l,status:ls}:l));
   };
   const submit=()=>{
@@ -1126,9 +1314,9 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       </div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
-      <KCard icon={Clock} label="Запланировано" value={measurements.filter(m=>m.status==="Запланирован").length} color={D.purple}/>
-      <KCard icon={Ruler} label="Выполнено" value={measurements.filter(m=>m.status==="Выполнен").length} color={D.accentLight}/>
-      <KCard icon={Check} label="Утверждено" value={measurements.filter(m=>m.status==="Утверждён").length} color={D.green}/>
+      <KCard icon={Clock} label={ts("measure_planned")} value={measurements.filter(m=>migrateStatus(m.status)==="measure_planned").length} color={D.purple}/>
+      <KCard icon={Ruler} label={ts("measure_done")} value={measurements.filter(m=>migrateStatus(m.status)==="measure_done").length} color={D.accentLight}/>
+      <KCard icon={Check} label={ts("measure_approved")} value={measurements.filter(m=>migrateStatus(m.status)==="measure_approved").length} color={D.green}/>
     </div>
     {measurements.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:40,textAlign:"center",color:D.muted}}>Нет замеров</div>}
     <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -1155,10 +1343,10 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
               </div>
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
-              <select value={m.status} onChange={e=>changeMStatus(m,e.target.value)}
-                style={{background:(SC[m.status]||D.muted)+"18",color:SC[m.status]||D.muted,
-                  border:`1px solid ${(SC[m.status]||D.muted)}40`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                {MST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+              <select value={migrateStatus(m.status)||m.status} onChange={e=>changeMStatus(m,e.target.value)}
+                style={{background:(SC[migrateStatus(m.status)]||D.muted)+"18",color:SC[migrateStatus(m.status)]||D.muted,
+                  border:`1px solid ${(SC[migrateStatus(m.status)]||D.muted)}40`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                {MST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{ts(s)}</option>)}
               </select>
               <Btn onClick={()=>onOpenCalc(m)} variant="yellow" small><Calculator size={12}/> В калькулятор</Btn>
               <Btn onClick={()=>setViewM(m)} variant="ghost" small><Eye size={12}/></Btn>
@@ -1175,7 +1363,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
               <div style={{fontSize:12,fontWeight:600,color:D.text}}>{o.room||"—"}</div>
               <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{o.width}</div>
               <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{o.height}</div>
-              <div style={{fontSize:11,color:D.muted}}>{o.type}</div>
+              <div style={{fontSize:11,color:D.muted}}>{getMopLabel(o.type)}</div>
               <div style={{fontSize:12,fontWeight:700,color:D.text,textAlign:"center"}}>{o.qty}</div>
               <div style={{fontSize:11,color:D.muted}}>{o.notes||"—"}</div>
             </div>))}
@@ -1211,7 +1399,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
             <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{o.width}</div>
             <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{o.height}</div>
             <div style={{fontSize:12,color:D.green,fontWeight:700}}>{a.toFixed(2)}</div>
-            <div style={{fontSize:11,color:D.muted}}>{o.type}</div>
+            <div style={{fontSize:11,color:D.muted}}>{getMopLabel(o.type)}</div>
             <div style={{fontSize:13,fontWeight:700,color:D.text,textAlign:"center"}}>{o.qty}</div>
           </div>);})}
         <div style={{padding:"8px 12px",borderTop:`1px solid ${D.border}`,display:"flex",justifyContent:"flex-end",gap:20}}>
@@ -1265,7 +1453,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
         <Inp label="Дата" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} type="date"/>
         <Inp label={form.mode==="По чертежу"?"Ответственный":"Специалист (выезд)"} value={form.specialist} onChange={e=>setForm(f=>({...f,specialist:e.target.value}))}/>
-        <Sel label="Статус" value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} options={MST}/>
+        <Sel label="Статус" value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} options={MST.map(k=>({value:k,label:ts(k)}))}/>
       </div>
       {leads.length>0&&(<div style={{marginBottom:12}}>
         <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>Привязать к лиду (авто-статус)</div>
@@ -1275,7 +1463,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
             client:lead?lead.name:f.client,phone:lead?lead.phone:f.phone}));
         }} style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 12px",color:D.text,fontSize:13,outline:"none"}}>
           <option value="" style={{background:D.card}}>— без привязки —</option>
-          {leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status)).map(l=>(
+          {leads.filter(l=>!["lead_won","lead_lost"].includes(migrateStatus(l.status))).map(l=>(
             <option key={l.id} value={l.id} style={{background:D.card}}>{l.name} · {l.phone} · {l.status}</option>
           ))}
         </select>
@@ -1292,7 +1480,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           <input type="number" value={o.width} onChange={e=>updRow(o.id,"width",e.target.value)} placeholder="120" style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.accentLight,fontSize:12,fontWeight:700,outline:"none",width:"100%",textAlign:"center"}}/>
           <input type="number" value={o.height} onChange={e=>updRow(o.id,"height",e.target.value)} placeholder="140" style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.accentLight,fontSize:12,fontWeight:700,outline:"none",width:"100%",textAlign:"center"}}/>
           <select value={o.type} onChange={e=>updRow(o.id,"type",e.target.value)} style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none",width:"100%"}}>
-            {MOP_T.map(t=><option key={t} value={t} style={{background:D.card}}>{t}</option>)}
+            {MOP_T.map(m=><option key={m.value} value={m.value} style={{background:D.card}}>{t(m.label)}</option>)}
           </select>
           <input type="number" value={o.qty} min={1} onChange={e=>updRow(o.id,"qty",+e.target.value||1)} style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:12,outline:"none",width:"100%",textAlign:"center"}}/>
           <input value={o.notes} onChange={e=>updRow(o.id,"notes",e.target.value)} placeholder="Заметка..." style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.muted,fontSize:11,outline:"none",width:"100%"}}/>
@@ -1307,7 +1495,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       </div>
       <SH title="🔧 Монтаж"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-        <Sel label="Тип стены" value={form.wallType} onChange={e=>setForm(f=>({...f,wallType:e.target.value}))} options={WT}/>
+        <Sel label="Тип стены" value={form.wallType} onChange={e=>setForm(f=>({...f,wallType:e.target.value}))} options={WT.map(w=>({value:w.value,label:t(w.label)}))}/>
         <Inp label="Этаж" value={form.floor} onChange={e=>setForm(f=>({...f,floor:e.target.value}))}/>
         <div style={{marginBottom:12}}>
           <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:8,textTransform:"uppercase"}}>Доп. работы</div>
@@ -1357,7 +1545,7 @@ function printKP(client,calced,saleTotal,margin,split,extras,company={}){
   const rows=validItems.map((c,i)=>{
     const linePrice=Math.round(c.totalCost/c.qty*(1+margin/100))*c.qty;
     const unitPrice=Math.round(c.totalCost/c.qty*(1+margin/100));
-    const glassName=c.glass!=="none"?(DG.find(g=>g.id===c.glass)?.name.split("|")[0].trim()||""):"";
+    const glassName=c.glass!=="none"?(DG.find(g=>g.id===c.glass)?.name?.he||DG.find(g=>g.id===c.glass)?.name?.ru||""):"";
     const screenOpt=DS.find(s=>s.id===c.screen)||DS[0];
     const shutterOpt=DSHT.find(s=>s.id===c.shutter)||DSHT[0];
     const colorOpt=PCOLORS.find(x=>x.id===(c.color||"white"))||PCOLORS[0];
@@ -1369,8 +1557,8 @@ function printKP(client,calced,saleTotal,margin,split,extras,company={}){
       <td style="text-align:center">${i+1}</td>
       <td><b>${c.name}</b>
         ${glassName?`<br/><span class="sub">זכוכית: ${glassName}</span>`:""}
-        <br/><span class="sub">${OPS.find(o=>o.id===c.op)?.name.split("|")[0].trim()||c.op} · ${PNAMES[c.profile]?.split("|")[0].trim()||c.profile}</span>
-        <br/><span class="sub">צבע: ${colorOpt.name.split("|")[1]?.trim()||colorOpt.name.split("|")[0].trim()} ${colorSwatch} ${colorOpt.ral}</span>
+        <br/><span class="sub">${OPS.find(o=>o.id===c.op)?.name?.he||OPS.find(o=>o.id===c.op)?.name?.ru||c.op} · ${PNAMES[c.profile]?.split("|")[0].trim()||c.profile}</span>
+        <br/><span class="sub">צבע: ${colorOpt.name?.he||colorOpt.name?.ru||""} ${colorSwatch} ${colorOpt.ral}</span>
       </td>
       <td style="text-align:center">${c.w}×${c.h} ס"מ</td>
       <td style="text-align:center">${c.area.toFixed(2)} מ"ר</td>
@@ -1383,7 +1571,7 @@ function printKP(client,calced,saleTotal,margin,split,extras,company={}){
       const sp=Math.round(screenOpt.price*(1+margin/100));
       html+=`<tr style="background:#f0fdf4">
         <td></td>
-        <td style="padding-right:24px"><span style="color:#16a34a">↳ ${screenOpt.name.split("|")[1]?.trim()||screenOpt.name.split("|")[0].trim()}</span></td>
+        <td style="padding-right:24px"><span style="color:#16a34a">↳ ${screenOpt.name?.he||screenOpt.name?.ru||""}</span></td>
         <td colspan="2"></td><td style="text-align:center">${c.qty}</td>
         <td style="color:#16a34a">₪${sp.toLocaleString("he-IL")}</td>
         <td style="color:#16a34a;font-weight:700">₪${(sp*c.qty).toLocaleString("he-IL")}</td>
@@ -1394,7 +1582,7 @@ function printKP(client,calced,saleTotal,margin,split,extras,company={}){
       const shp=Math.round((shutterOpt.dekelM2*(shutterOpt.marketFactor||1.38)*c.billArea+shutterOpt.motor*c.qty)*(1+margin/100));
       html+=`<tr style="background:#fffbeb">
         <td></td>
-        <td style="padding-right:24px"><span style="color:#d97706">↳ ${shutterOpt.name.split("|")[1]?.trim()||shutterOpt.name.split("|")[0].trim()}</span></td>
+        <td style="padding-right:24px"><span style="color:#d97706">↳ ${shutterOpt.name?.he||shutterOpt.name?.ru||""}</span></td>
         <td style="text-align:center">${c.w}×${c.h} ס"מ</td>
         <td style="text-align:center">${c.area.toFixed(2)} מ"ר</td>
         <td style="text-align:center">${c.qty}</td>
@@ -1410,7 +1598,7 @@ function printKP(client,calced,saleTotal,margin,split,extras,company={}){
         const ap=Math.round(acc.price*(a.qty||1)*c.qty*(1+margin/100));
         html+=`<tr style="background:#f0f9ff">
           <td></td>
-          <td style="padding-right:24px"><span style="color:#0369a1">↳ ${acc.name.split("|")[1]?.trim()||acc.name.split("|")[0].trim()} (${acc.code})</span></td>
+          <td style="padding-right:24px"><span style="color:#0369a1">↳ ${acc.name?.he||acc.name?.ru||""} (${acc.code})</span></td>
           <td colspan="2"></td>
           <td style="text-align:center">${(a.qty||1)*c.qty}</td>
           <td style="color:#0369a1">₪${Math.round(acc.price*(1+margin/100)).toLocaleString("he-IL")}</td>
@@ -1637,8 +1825,8 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
     if(!client)return alert("Укажи имя клиента");
     const id="WB-"+String(orders.length+1).padStart(3,"0");
     setOrders(p=>[...p,{id,client,city:"",windows:items.reduce((s,i)=>s+i.qty,0),total:saleTotal,paid:0,
-      status:"Ожидает материалов",progress:10,created:new Date().toISOString().split("T")[0],delivery:""}]);
-    setLeads(p=>p.map(l=>l.name===client?{...l,status:"Закрыт (выиграли)",value:saleTotal}:l));
+      status:"order_waiting",progress:10,created:new Date().toISOString().split("T")[0],delivery:""}]);
+    setLeads(p=>p.map(l=>l.name===client?{...l,status:"lead_won",value:saleTotal}:l));
     if(setActivity)addActivity(setActivity,client,"order",`📦 Создан заказ ${id} на ${fmt(saleTotal)}`);
     alert(`Заказ ${id} создан! Лид обновлён.`);
   };
@@ -1893,7 +2081,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                       upd(it.id,"profile",newProf);
                     }}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none"}}>
-                      {OPS.map(o=><option key={o.id} value={o.id} style={{background:D.card}}>{o.name}</option>)}
+                      {OPS.map(o=><option key={o.id} value={o.id} style={{background:D.card}}>{t(o.name)}</option>)}
                     </select>
                   </div>
                   <div style={{marginBottom:5}}>
@@ -1910,16 +2098,16 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                     <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Стекло (доплата)</div>
                     <select value={it.glass} onChange={e=>upd(it.id,"glass",e.target.value)}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none"}}>
-                      {DG.map(g=><option key={g.id} value={g.id} style={{background:D.card}}>{g.name}</option>)}
+                      {DG.map(g=><option key={g.id} value={g.id} style={{background:D.card}}>{t(g.name)}</option>)}
                     </select>
                   </div>
                   {/* Color selector */}
                   <div style={{marginBottom:5}}>
-                    <div style={{fontSize:9,color:D.muted,marginBottom:4}}>{bi("Цвет профиля","צבע פרופיל")}</div>
+                    <div style={{fontSize:9,color:D.muted,marginBottom:4}}>{t(bi("Цвет профиля","צבע פרופיל","Profile Color"))}</div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
                       {PCOLORS.map(c=>{
                         const sel=(it.color||"white")===c.id;
-                        return(<button key={c.id} title={`${c.name} · ${c.ral}${c.price?` · +₪${c.price}`:""}`}
+                        return(<button key={c.id} title={`${t(c.name)} · ${c.ral}${c.price?` · +₪${c.price}`:""}`}
                           onClick={()=>upd(it.id,"color",c.id)}
                           style={{width:20,height:20,borderRadius:4,background:c.hex,cursor:"pointer",
                             border:`2px solid ${sel?"#fff":c.hex}`,
@@ -1931,21 +2119,21 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                       const c=PCOLORS.find(x=>x.id===it.color);
                       return c?<div style={{fontSize:9,color:D.muted,marginTop:3}}>
                         <span style={{display:"inline-block",width:8,height:8,borderRadius:2,background:c.hex,marginRight:4}}/>
-                        {c.name} · {c.ral}{c.price?` · +₪${c.price}×${it.qty}`:""}</div>:null;
+                        {t(c.name)} · {c.ral}{c.price?` · +₪${c.price}×${it.qty}`:""}</div>:null;
                     })()}
                   </div>
                   <div>
                     <div style={{fontSize:9,color:D.muted,marginBottom:2}}>Москитная сетка</div>
                     <select value={it.screen} onChange={e=>upd(it.id,"screen",e.target.value)}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none"}}>
-                      {DS.map(s=><option key={s.id} value={s.id} style={{background:D.card}}>{s.name}</option>)}
+                      {DS.map(s=><option key={s.id} value={s.id} style={{background:D.card}}>{t(s.name)}</option>)}
                     </select>
                   </div>
                   <div style={{marginTop:5}}>
-                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>{bi("Роллет / тришс","תריס")}</div>
+                    <div style={{fontSize:9,color:D.muted,marginBottom:2}}>{t(bi("Роллет / тришс","תריס","Shutter"))}</div>
                     <select value={it.shutter} onChange={e=>upd(it.id,"shutter",e.target.value)}
                       style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:it.shutter!=="none"?D.yellow:D.muted,fontSize:11,outline:"none",fontWeight:it.shutter!=="none"?700:400}}>
-                      {DSHT.map(s=><option key={s.id} value={s.id} style={{background:D.card,color:D.text}}>{s.name}</option>)}
+                      {DSHT.map(s=><option key={s.id} value={s.id} style={{background:D.card,color:D.text}}>{t(s.name)}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1962,7 +2150,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                         it.screenAddon>0&&["Сетка",fmt(Math.round(it.screenAddon)),"",""],
                         it.shutterAddon>0&&["Роллет",fmt(Math.round(it.shutterAddon)),"",""],
                         it.accCost>0&&["Аксессуары",fmt(Math.round(it.accCost)),"",""],
-                        it.colorCost>0&&[bi("Цвет","צבע"),fmt(Math.round(it.colorCost)),"",""],
+                        it.colorCost>0&&[t(bi("Цвет","צבע","Color")),fmt(Math.round(it.colorCost)),"",""],
                         ["× монтаж",`×${it.install.toFixed(2)}`,"",''],
                       ].filter(Boolean).map((r,i)=>(
                         <div key={i} style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
@@ -1992,7 +2180,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
               {/* ACCESSORIES PANEL */}
               <div style={{borderTop:`1px solid ${D.border}`,padding:"8px 14px",background:D.surface+"80",borderBottomLeftRadius:14,borderBottomRightRadius:14}}>
                 <div style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:6}}>
-                  🔧 {bi("Аксессуары","אביזרים")}
+                  🔧 {t(bi("Аксессуары","אביזרים","Accessories"))}
                   {it.accessories?.length>0&&<span style={{marginLeft:6,color:D.teal}}>{it.accessories.length} выбрано · {fmt(Math.round((it.accessories||[]).reduce((s,a)=>{const ac=DACC.find(d=>d.id===a.id);return s+(ac?ac.price*(a.qty||1)*it.qty:0);},0)))}</span>}
                 </div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
@@ -2007,7 +2195,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                           style={{background:selected.length?D.teal+"20":D.card,border:`1px solid ${selected.length?D.teal:D.border}`,
                             borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:selected.length?700:400,
                             color:selected.length?D.teal:D.muted,cursor:"pointer"}}>
-                          {cat.label}{selected.length>0?` (${selected.length})`:""}
+                          {t(cat.label)}{selected.length>0?` (${selected.length})`:""}
                         </button>
                         {isOpen&&(<>
                           <div onClick={()=>setAccDropdown(null)} style={{position:"fixed",inset:0,zIndex:490}}/>
@@ -2017,7 +2205,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                             boxShadow:"0 8px 32px #00000070",
                             top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                              <div style={{fontSize:10,fontWeight:800,color:D.teal,textTransform:"uppercase"}}>{cat.label}</div>
+                              <div style={{fontSize:10,fontWeight:800,color:D.teal,textTransform:"uppercase"}}>{t(cat.label)}</div>
                               <button onClick={()=>setAccDropdown(null)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:2}}><X size={14}/></button>
                             </div>
                             {catAccs.map(acc=>{
@@ -2032,7 +2220,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                                       else upd(it.id,"accessories",cur.filter(x=>x.id!==acc.id));
                                     }}/>
                                   <div style={{flex:1,minWidth:0}}>
-                                    <div style={{fontSize:11,color:sel?D.text:D.muted,fontWeight:sel?700:400,lineHeight:1.3}}>{acc.name}</div>
+                                    <div style={{fontSize:11,color:sel?D.text:D.muted,fontWeight:sel?700:400,lineHeight:1.3}}>{t(acc.name)}</div>
                                     <div style={{fontSize:9,color:D.muted}}>{acc.code} · {fmt(acc.price)}/{acc.unit}</div>
                                   </div>
                                   {sel&&<input type="number" min={1} max={50} value={sel.qty||1}
@@ -2055,7 +2243,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                       return(<div key={a.id} style={{background:D.teal+"15",border:`1px solid ${D.teal}30`,
                         borderRadius:5,padding:"2px 7px",fontSize:9,color:D.teal,fontWeight:700,
                         display:"flex",alignItems:"center",gap:4}}>
-                        {acc.name.split("|")[0].trim()} ×{a.qty}
+                        {t(acc.name)} ×{a.qty}
                         <button onClick={()=>upd(it.id,"accessories",(it.accessories||[]).filter(x=>x.id!==a.id))}
                           style={{background:"none",border:"none",cursor:"pointer",color:D.teal,padding:0,fontSize:11,lineHeight:1}}>×</button>
                       </div>);
@@ -2245,7 +2433,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
             <div style={{fontSize:12,fontWeight:700,color:D.accentLight}}>{profM} м.п.</div>
             <div style={{fontSize:12,fontWeight:700,color:is2600?D.yellow:D.teal}}>{profKg} кг</div>
             <div style={{fontSize:12,fontWeight:700,color:D.teal}}>{glassM2} м²</div>
-            <div style={{fontSize:11,color:c.screen!=="none"?D.green:D.muted}}>{c.screen!=="none"?`${c.qty} шт (${screenOpt.name})`:"—"}</div>
+            <div style={{fontSize:11,color:c.screen!=="none"?D.green:D.muted}}>{c.screen!=="none"?`${c.qty} шт (${t(screenOpt.name)})`:"—"}</div>
             <div style={{fontSize:11,color:c.shutter!=="none"?D.yellow:D.muted}}>{c.shutter!=="none"?`${glassM2} м²`:"—"}</div>
           </div>);
         })}
@@ -2424,7 +2612,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
   const [viewId,setViewId]=useState(null);
   const ef=()=>({client:"",phone:"",address:"",orderId:"",specialist:"",
     scheduledDate:new Date().toISOString().split("T")[0],completedDate:"",
-    status:"Запланирован",checklist:CHECKLIST_STEPS.map(()=>false),
+    status:"inst_planned",checklist:CHECKLIST_STEPS.map(()=>false),
     notes:"",photosBefore:[],photosAfter:[]});
   const [form,setForm]=useState(ef());
   const [editId,setEditId]=useState(null);
@@ -2461,10 +2649,10 @@ function Installation({installations,setInstallations,orders,onClientClick}){
     </div>
     {/* Stats */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
-      <KCard icon={Clock} label="Запланировано" value={installations.filter(i=>i.status==="Запланирован").length} color={D.purple}/>
-      <KCard icon={Wrench} label="В процессе" value={installations.filter(i=>i.status==="В процессе").length} color={D.accentLight}/>
-      <KCard icon={Check} label="Завершено" value={installations.filter(i=>i.status==="Завершён").length} color={D.green}/>
-      <KCard icon={ClipboardCheck} label="Актов выдано" value={installations.filter(i=>i.status==="Завершён").length} color={D.teal}/>
+      <KCard icon={Clock} label={ts("inst_planned")} value={installations.filter(i=>migrateStatus(i.status)==="inst_planned").length} color={D.purple}/>
+      <KCard icon={Wrench} label={ts("inst_progress")} value={installations.filter(i=>migrateStatus(i.status)==="inst_progress").length} color={D.accentLight}/>
+      <KCard icon={Check} label={ts("inst_done")} value={installations.filter(i=>migrateStatus(i.status)==="inst_done").length} color={D.green}/>
+      <KCard icon={ClipboardCheck} label="Актов выдано" value={installations.filter(i=>migrateStatus(i.status)==="inst_done").length} color={D.teal}/>
     </div>
     {installations.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:40,textAlign:"center",color:D.muted}}>Нет монтажей. Нажми «Новый монтаж» чтобы начать.</div>}
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -2481,10 +2669,10 @@ function Installation({installations,setInstallations,orders,onClientClick}){
               {ord&&<div style={{fontSize:11,color:D.accentLight,marginTop:2}}>🔗 {ord.id} · {fmt(ord.total)}</div>}
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-              <select value={inst.status} onChange={e=>setInstallations(p=>p.map(x=>x.id===inst.id?{...x,status:e.target.value}:x))}
-                style={{background:(SC[inst.status]||D.muted)+"18",color:SC[inst.status]||D.muted,
-                  border:`1px solid ${(SC[inst.status]||D.muted)}40`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                {["Запланирован","В процессе","Завершён"].map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+              <select value={migrateStatus(inst.status)||inst.status} onChange={e=>setInstallations(p=>p.map(x=>x.id===inst.id?{...x,status:e.target.value}:x))}
+                style={{background:(SC[migrateStatus(inst.status)]||D.muted)+"18",color:SC[migrateStatus(inst.status)]||D.muted,
+                  border:`1px solid ${(SC[migrateStatus(inst.status)]||D.muted)}40`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                {IST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{ts(s)}</option>)}
               </select>
               <Btn onClick={()=>setViewId(inst.id)} variant="teal" small><Eye size={12}/> Чек-лист</Btn>
               <Btn onClick={()=>printAct(inst,ord)} variant="success" small><Download size={12}/> Акт PDF</Btn>
@@ -2597,7 +2785,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
         <Inp label="Дата завершения" value={form.completedDate} onChange={e=>setForm(p=>({...p,completedDate:e.target.value}))} type="date"/>
-        <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={["Запланирован","В процессе","Завершён"]}/>
+        <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={IST.map(k=>({value:k,label:ts(k)}))}/>
       </div>
       <Inp label="Заметки / Замечания" value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
       <div style={{display:"flex",gap:8}}>
@@ -2626,7 +2814,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
     if(!form.client||!form.total)return;
     const id="WB-"+String(orders.length+1).padStart(3,"0");
     setOrders(p=>[...p,{...form,id,windows:+form.windows||1,total:+form.total,paid:0,
-      status:"Ожидает материалов",progress:10,created:new Date().toISOString().split("T")[0]}]);
+      status:"order_waiting",progress:10,created:new Date().toISOString().split("T")[0]}]);
     setModal(false);setForm({client:"",city:"",windows:"1",total:"",delivery:""});
   };
 
@@ -2646,7 +2834,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
     const payId=Date.now();
     setPayments(p=>[...p,{id:payId,order:o.id,client:o.client,type,
       amount:Math.min(amount,debt),date:new Date().toISOString().split("T")[0],
-      method:"Банк",status:"Ожидается"}]);
+      method:"Банк",status:"pending"}]);
     setOrders(p=>p.map(x=>x.id===o.id?{...x,paid:Math.min(x.paid+amount,x.total)}:x));
   };
 
@@ -2665,15 +2853,16 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
 
   // Filter and search
   const filtered=orders.filter(o=>{
-    const matchFilter=filter==="all"||(filter==="active"&&o.status!=="Завершён")||(filter==="completed"&&o.status==="Завершён");
+    const st=migrateStatus(o.status);
+    const matchFilter=filter==="all"||(filter==="active"&&st!=="order_done")||(filter==="completed"&&st==="order_done");
     const matchSearch=!search.trim()||o.client.toLowerCase().includes(search.toLowerCase())||o.id.toLowerCase().includes(search.toLowerCase());
     return matchFilter&&matchSearch;
   });
   const totalPages=Math.ceil(filtered.length/PAGE_SIZE);
   const paged=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
 
-  const activeCount=orders.filter(o=>o.status!=="Завершён").length;
-  const completedCount=orders.filter(o=>o.status==="Завершён").length;
+  const activeCount=orders.filter(o=>migrateStatus(o.status)!=="order_done").length;
+  const completedCount=orders.filter(o=>migrateStatus(o.status)==="order_done").length;
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
@@ -2722,7 +2911,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
         const margin=o.paid>0?Math.round(profit/o.paid*100):0;
         const hasPl=matC>0||labC>0||extC>0;
         const orderPays=(payments||[]).filter(p=>p.order===o.id);
-        const isCompleted=o.status==="Завершён";
+        const isCompleted=migrateStatus(o.status)==="order_done";
 
         return(<div key={o.id} style={{background:D.card,border:`1px solid ${isCompleted?D.green+"40":D.border}`,
           borderRadius:14,padding:"18px 20px",opacity:isCompleted?0.9:1}}>
@@ -2742,11 +2931,11 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
               <Btn onClick={()=>setPlModal(plModal===o.id?null:o.id)} variant={hasPl?"teal":"ghost"} small>
                 <BarChart2 size={11}/> P&L
               </Btn>
-              <select value={o.status} onChange={e=>updStatus(o.id,e.target.value)}
-                style={{background:(SC[o.status]||D.muted)+"18",color:SC[o.status]||D.muted,
-                  border:`1px solid ${(SC[o.status]||D.muted)}40`,borderRadius:8,
+              <select value={migrateStatus(o.status)||o.status} onChange={e=>updStatus(o.id,e.target.value)}
+                style={{background:(SC[migrateStatus(o.status)]||D.muted)+"18",color:SC[migrateStatus(o.status)]||D.muted,
+                  border:`1px solid ${(SC[migrateStatus(o.status)]||D.muted)}40`,borderRadius:8,
                   padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
-                {OST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{s}</option>)}
+                {OST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{ts(s)}</option>)}
               </select>
               <button onClick={()=>deleteOrder(o.id)}
                 style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4,opacity:0.5}}
@@ -2780,13 +2969,13 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
                   <span style={{fontSize:10,color:D.muted}}>{pay.type} · {pay.date} · {pay.method}</span>
                 </div>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                  <select value={pay.status} onChange={e=>editPayStatus(pay.id,e.target.value)}
-                    style={{background:(pay.status==="Получен"?D.green:D.yellow)+"20",
-                      color:pay.status==="Получен"?D.green:D.yellow,
-                      border:`1px solid ${(pay.status==="Получен"?D.green:D.yellow)}40`,
+                  <select value={migrateStatus(pay.status)} onChange={e=>editPayStatus(pay.id,e.target.value)}
+                    style={{background:(migrateStatus(pay.status)==="received"?D.green:D.yellow)+"20",
+                      color:migrateStatus(pay.status)==="received"?D.green:D.yellow,
+                      border:`1px solid ${(migrateStatus(pay.status)==="received"?D.green:D.yellow)}40`,
                       borderRadius:6,padding:"3px 6px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
-                    <option value="Ожидается" style={{background:D.card,color:D.text}}>Ожидается</option>
-                    <option value="Получен" style={{background:D.card,color:D.text}}>Получен</option>
+                    <option value="pending" style={{background:D.card,color:D.text}}>{ts("pay_pending")}</option>
+                    <option value="received" style={{background:D.card,color:D.text}}>{ts("pay_received")}</option>
                   </select>
                   <button onClick={()=>deletePay(pay.id,o.id,pay.amount)}
                     title="Удалить платёж"
@@ -3109,8 +3298,8 @@ function Payments({payments,setPayments,onClientClick,company}){
   const isVat=["עוסק מורשה","חברה בעמ","שותפות"].includes(bizType);
   const VAT=0.18;
 
-  const rcv=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
-  const pnd=payments.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const rcv=payments.filter(p=>migrateStatus(p.status)==="received").reduce((s,p)=>s+p.amount,0);
+  const pnd=payments.filter(p=>migrateStatus(p.status)==="pending").reduce((s,p)=>s+p.amount,0);
   const totalDocs=docs.reduce((s,d)=>s+d.amount,0);
 
   // Doc type options per business type
@@ -3145,7 +3334,7 @@ function Payments({payments,setPayments,onClientClick,company}){
     if(df.docType==="קבלה"||df.docType==="חשבונית מס קבלה"){
       setPayments(p=>[...p,{id:Date.now()+1,order:df.orderId||"",client:df.client,
         type:df.docType,amount:amtNum,date:doc.date,method:df.method,
-        status:"Получен",docNum}]);
+        status:"received",docNum}]);
     }
     setNewDoc(false);
     setDf({docType:"חשבונית מס קבלה",client:"",clientTaxId:"",clientAddress:"",
@@ -3229,11 +3418,11 @@ function Payments({payments,setPayments,onClientClick,company}){
           <div onClick={()=>onClientClick&&onClientClick(p.client)}
             style={{fontSize:13,color:D.text,cursor:"pointer",fontWeight:600}}>{p.client}</div>
           <div style={{fontSize:10,color:D.muted}}>{p.type}</div>
-          <div style={{fontSize:14,fontWeight:800,color:p.status==="Получен"?D.green:D.yellow}}>{fmt(p.amount)}</div>
+          <div style={{fontSize:14,fontWeight:800,color:migrateStatus(p.status)==="received"?D.green:D.yellow}}>{fmt(p.amount)}</div>
           <div style={{fontSize:11,color:D.muted}}>{p.date}</div>
           <Badge status={p.status}/>
-          {p.status==="Ожидается"
-            ?<Btn onClick={()=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,status:"Получен"}:x))} variant="success" small>
+          {migrateStatus(p.status)==="pending"
+            ?<Btn onClick={()=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,status:"received"}:x))} variant="success" small>
                <Check size={11}/> התקבל
              </Btn>
             :<div style={{width:72}}/>}
@@ -3467,7 +3656,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
 
   // Financials
   const totalRevenue=orders.reduce((s,o)=>s+o.total,0);
-  const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
+  const totalPaid=payments.filter(p=>migrateStatus(p.status)==="received").reduce((s,p)=>s+p.amount,0);
   const totalFixed=fixedCosts.reduce((s,c)=>s+Number(c.amount||0),0);
   const avgMargin=orders.length>0?35:0; // estimated COGS ~60% of revenue
   const grossProfit=Math.round(totalPaid*avgMargin/100);
@@ -3731,7 +3920,7 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
   const winRate=fWon+fLost>0?(fWon/(fWon+fLost)*100).toFixed(0):0;
 
   // ── Real revenue ──
-  const totalPaid=payments.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
+  const totalPaid=payments.filter(p=>migrateStatus(p.status)==="received").reduce((s,p)=>s+p.amount,0);
   const totalContracted=orders.reduce((s,o)=>s+o.total,0);
   const avgDeal=orders.length>0?Math.round(totalContracted/orders.length):0;
 
@@ -4326,8 +4515,8 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
   const cPay=payments.filter(p=>p.client===clientName);
   const cQuotes=(quotes||[]).filter(q=>q.client===clientName);
   const cActivity=(activity||[]).filter(a=>a.client===clientName);
-  const paid=cPay.filter(p=>p.status==="Получен").reduce((s,p)=>s+p.amount,0);
-  const pending=cPay.filter(p=>p.status==="Ожидается").reduce((s,p)=>s+p.amount,0);
+  const paid=cPay.filter(p=>migrateStatus(p.status)==="received").reduce((s,p)=>s+p.amount,0);
+  const pending=cPay.filter(p=>migrateStatus(p.status)==="pending").reduce((s,p)=>s+p.amount,0);
   const phone=lead?.phone||cMeasures[0]?.phone||"";
   const waNum=phone.replace(/[^0-9]/g,"").replace(/^0/,"972");
   const [waModal,setWaModal]=useState(false);
@@ -4504,7 +4693,7 @@ function ClientCard({clientName,leads,measurements,orders,installations,payments
                   <div style={{fontSize:10,color:D.muted}}>{p.method}</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:13,fontWeight:800,color:p.status==="Получен"?D.green:D.yellow}}>{fmt(p.amount)}</div>
+                  <div style={{fontSize:13,fontWeight:800,color:migrateStatus(p.status)==="received"?D.green:D.yellow}}>{fmt(p.amount)}</div>
                   <Badge status={p.status}/>
                 </div>
               </div>
@@ -4612,7 +4801,7 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
     addEv(l.followUp,{type:"followup",label:l.name,sub:l.status,color:isPast?D.red:D.yellow,client:l.name,id:l.id,phone:l.phone,isPast});
   });
   payments.forEach(p=>{
-    if(p.status==="Ожидается"&&p.date)
+    if(migrateStatus(p.status)==="pending"&&p.date)
       addEv(p.date,{type:"payment",label:p.client,sub:`₪${p.amount?.toLocaleString()}`,color:D.green,client:p.client,id:p.id});
   });
 
@@ -4967,7 +5156,7 @@ export default function App(){
   const [quotes,setQuotes]=useState(()=>load(KEYS.quotes,[]));
   const [templates,setTemplates]=useState(()=>load(KEYS.templates,[]));
   const [activity,setActivity]=useState(()=>load(KEYS.activity,[]));
-  const [lang,setLang]=useState(()=>load(KEYS.lang,"ru"));
+  const [lang,setLang]=useState(()=>{const l=load(KEYS.lang,"ru");_LANG=l;return l;});
   const [company,setCompany]=useState(()=>load(KEYS.company,{
     name:"חלונות אלומיניום",nameRu:"Алюминиевые окна",
     phone:"050-000-0000",address:"",email:"",
@@ -4985,7 +5174,7 @@ export default function App(){
   useEffect(()=>{save(KEYS.templates,templates);},[templates]);
   useEffect(()=>{save(KEYS.activity,activity);},[activity]);
   useEffect(()=>{save(KEYS.company,company);},[company]);
-  useEffect(()=>{save(KEYS.lang,lang);},[lang]);
+  useEffect(()=>{save(KEYS.lang,lang);_LANG=lang;},[lang]);
 
   // ── FIREBASE SYNC ─────────────────────────────────────────
   const [fbSynced,setFbSynced]=useState(false);
@@ -5070,14 +5259,14 @@ export default function App(){
     ...leads.filter(l=>l.followUp===todayStr2),
   ].length;
   const alerts=[
-    leads.filter(l=>l.status==="Новый лид").length, // dashboard
-    leads.filter(l=>l.status==="Новый лид").length, // leads
+    leads.filter(l=>migrateStatus(l.status)==="new_lead").length, // dashboard
+    leads.filter(l=>migrateStatus(l.status)==="new_lead").length, // leads
     pendM,           // measurements
     null,            // calc
     null,            // quotes
     pendInst,        // orders
     inventory.filter(i=>i.qty<i.minQty).length, // installation
-    payments.filter(p=>p.status==="Ожидается").length, // payments
+    payments.filter(p=>migrateStatus(p.status)==="pending"||p.status==="pending").length, // payments
     todayCalEvents,  // calendar
     overdueFollowUps.length, // finance
     null,            // kpi
@@ -5117,12 +5306,12 @@ export default function App(){
     </nav>
     <div style={{padding:"8px",borderTop:`1px solid ${D.border}`}}>
       {[
-        leads.filter(l=>l.status==="Новый лид").length>0&&[`👤 ${leads.filter(l=>l.status==="Новый лид").length} новых лидов`,"leads"],
+        leads.filter(l=>migrateStatus(l.status)==="new_lead").length>0&&[`👤 ${leads.filter(l=>migrateStatus(l.status)==="new_lead").length} новых лидов`,"leads"],
         overdueFollowUps.length>0&&[`🔴 ${overdueFollowUps.length} просрочен follow-up`,"leads"],
         pendM>0&&[`📐 ${pendM} замеров ждут`,"measurements"],
         pendInst>0&&[`🔧 ${pendInst} монтажей активно`,"installation"],
         inventory.filter(i=>i.qty<i.minQty).length>0&&[`📦 нужна закупка`,"inventory"],
-        payments.filter(p=>p.status==="Ожидается").length>0&&[`💰 ожидаются платежи`,"payments"],
+        payments.filter(p=>migrateStatus(p.status)==="pending"||p.status==="pending").length>0&&[`💰 ожидаются платежи`,"payments"],
       ].filter(Boolean).map(([a,pg],i)=>(<button key={i} onClick={()=>navTo(pg)}
         style={{display:"block",width:"100%",textAlign:"left",background:D.yellow+"12",border:`1px solid ${D.yellow}25`,
           borderRadius:7,padding:"5px 8px",marginBottom:3,fontSize:9,fontWeight:700,color:D.yellow,cursor:"pointer"}}
@@ -5132,8 +5321,8 @@ export default function App(){
     <div style={{padding:"8px",borderTop:`1px solid ${D.border}`}}>
       {/* Language switcher */}
       <div style={{display:"flex",gap:4,marginBottom:6}}>
-        {[["ru","🇷🇺 RU"],["he","🇮🇱 HE"]].map(([l,lbl])=>(
-          <button key={l} onClick={()=>setLang(l)}
+        {[["ru","RU"],["he","HE"],["en","EN"]].map(([l,lbl])=>(
+          <button key={l} onClick={()=>{setLang(l);_LANG=l;save(KEYS.lang,l);}}
             style={{flex:1,padding:"4px",borderRadius:6,border:`1px solid ${lang===l?D.accent:D.border}`,
               background:lang===l?D.accent+"20":"transparent",color:lang===l?D.accentLight:D.muted,
               fontSize:10,fontWeight:700,cursor:"pointer"}}>
