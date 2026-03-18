@@ -1095,7 +1095,7 @@ function Leads({leads,setLeads,onClientClick}){
       onClick={()=>openEdit(l)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
         <div onClick={()=>onClientClick&&onClientClick(l.name)} style={{fontSize:13,fontWeight:800,color:D.text,lineHeight:1.3,flex:1,paddingRight:4,cursor:"pointer"}}
-          title="Открыть карточку клиента">{l.name}</div>
+          title={t(bi("Открыть карточку клиента","פתח כרטיס לקוח","Open client card"))}>{l.name}</div>
         <span style={{fontSize:9,color:pColor(l.priority),fontWeight:800,whiteSpace:"nowrap"}}>{pLabel(l.priority)}</span>
       </div>
       {l.jobType&&<div style={{display:"inline-block",background:D.surface,border:`1px solid ${D.border}`,
@@ -1107,7 +1107,7 @@ function Leads({leads,setLeads,onClientClick}){
         {l.followUp&&<span style={{fontSize:9,fontWeight:700,
           color:overdueFollowUp(l)?D.red:D.teal,background:(overdueFollowUp(l)?D.red:D.teal)+"18",
           borderRadius:4,padding:"2px 5px"}}>
-          📅 {overdueFollowUp(l)?"Просрочен!":l.followUp}
+          📅 {overdueFollowUp(l)?t(bi("Просрочен!","באיחור!","Overdue!")):l.followUp}
         </span>}
       </div>
     </div>
@@ -1124,7 +1124,7 @@ function Leads({leads,setLeads,onClientClick}){
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         {/* View toggle */}
         <div style={{display:"flex",background:D.surface,border:`1px solid ${D.border}`,borderRadius:8,padding:2}}>
-          {[["kanban","⬛ Kanban"],["list","☰ Список"]].map(([v,lbl])=>(
+          {[["kanban","⬛ Kanban"],["list","☰ "+t(bi("Список","רשימה","List"))]].map(([v,lbl])=>(
             <button key={v} onClick={()=>setView(v)} style={{padding:"4px 12px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",border:"none",
               background:view===v?"linear-gradient(135deg,#2563EB,#1D4ED8)":"transparent",
               color:view===v?"#fff":D.muted}}>
@@ -1132,8 +1132,8 @@ function Leads({leads,setLeads,onClientClick}){
             </button>
           ))}
         </div>
-        <Btn onClick={()=>exportCSV(["Имя","Телефон","Город","Тип","Работа","Статус","Приоритет","Сумма","Follow-up","Дата"],
-          leads.map(l=>[l.name,l.phone,l.city,l.type,l.jobType||"",l.status,l.priority||"",l.value,l.followUp||"",l.date]),"лиды.csv")} variant="ghost">
+        <Btn onClick={()=>exportCSV([t(bi("Имя","שם","Name")),t(bi("Телефон","טלפון","Phone")),t(bi("Город","עיר","City")),t(bi("Тип","סוג","Type")),t(bi("Работа","עבודה","Job")),t(bi("Статус","סטטוס","Status")),t(bi("Приоритет","עדיפות","Priority")),t(bi("Сумма","סכום","Amount")),"Follow-up",t(bi("Дата","תאריך","Date"))],
+          leads.map(l=>[l.name,l.phone,l.city,l.type,l.jobType||"",l.status,l.priority||"",l.value,l.followUp||"",l.date]),t(bi("лиды","לידים","leads"))+".csv")} variant="ghost">
           <Download size={13}/> CSV
         </Btn>
         <Btn onClick={()=>openAdd()}><Plus size={13}/> {t(bi("Новый лид","ליד חדש","New Lead"))}</Btn>
@@ -1204,7 +1204,7 @@ function Leads({leads,setLeads,onClientClick}){
             </select>
             <div style={{fontSize:13,fontWeight:700,color:D.green}}>{l.value>0?fmt(l.value):"—"}</div>
             <div style={{fontSize:10,fontWeight:700,color:overdueFollowUp(l)?D.red:D.teal}}>
-              {l.followUp||(overdueFollowUp(l)?"⚠️ Просрочен":"")||"—"}
+              {l.followUp||(overdueFollowUp(l)?"⚠️ "+t(bi("Просрочен","באיחור","Overdue")):"")||"—"}
             </div>
             <div style={{display:"flex",gap:3}}>
               <button onClick={()=>openEdit(l)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:3}}><Eye size={12}/></button>
@@ -1216,7 +1216,7 @@ function Leads({leads,setLeads,onClientClick}){
     )}
 
     {/* ── MODAL ── */}
-    {modal&&(<Modal title={edit?"✏️ Редактировать лид":"➕ Новый лид"} onClose={()=>setModal(false)} wide>
+    {modal&&(<Modal title={edit?"✏️ "+t(bi("Редактировать лид","עריכת ליד","Edit Lead")):"➕ "+t(bi("Новый лид","ליד חדש","New Lead"))} onClose={()=>setModal(false)} wide>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <Inp label={t(bi("Имя *","שם *","Name *"))} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
         <Inp label={t(bi("Телефон *","טלפון *","Phone *"))} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
@@ -1309,7 +1309,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>{t(bi("Замеры","מדידות","Measurements"))}</div>
         <div style={{fontSize:13,color:D.muted}}>{measurements.length} {t(bi("замеров","מדידות","measurements"))}</div></div>
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={()=>exportCSV(["Клиент","Адрес","Дата","Статус","м²"],measurements.map(m=>[m.client,m.address,m.date,m.status,totalArea(m).toFixed(2)]),"замеры.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
+        <Btn onClick={()=>exportCSV([t(bi("Клиент","לקוח","Client")),t(bi("Адрес","כתובת","Address")),t(bi("Дата","תאריך","Date")),t(bi("Статус","סטטוס","Status")),t(bi("м²","מ״ר","m²"))],measurements.map(m=>[m.client,m.address,m.date,m.status,totalArea(m).toFixed(2)]),t(bi("замеры","מדידות","measurements"))+".csv")} variant="ghost"><Download size={13}/> CSV</Btn>
         <Btn onClick={openAdd}><Plus size={13}/> {t(bi("Новый замер","מדידה חדשה","New Measurement"))}</Btn>
       </div>
     </div>
@@ -1334,11 +1334,11 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
                 <div style={{fontSize:11,color:D.muted,marginTop:2}}>{m.address}</div>
                 <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
                   <span style={{fontSize:11,color:D.muted}}>📅 {m.date}</span>
-                  {m.mode==="По чертежу"&&<span style={{fontSize:10,fontWeight:700,color:D.teal,background:D.teal+"18",borderRadius:4,padding:"1px 5px"}}>📄 По чертежу</span>}
+                  {m.mode==="По чертежу"&&<span style={{fontSize:10,fontWeight:700,color:D.teal,background:D.teal+"18",borderRadius:4,padding:"1px 5px"}}>📄 {t(bi("По чертежу","לפי תכנית","By Drawing"))}</span>}
                   {m.specialist&&<span style={{fontSize:11,color:D.muted}}>👤 {m.specialist}</span>}
-                  <span style={{fontSize:11,color:D.muted}}>🪟 {(m.openings||[]).length} проёмов</span>
-                  <span style={{fontSize:11,color:D.green,fontWeight:700}}>📐 {area.toFixed(2)} м²</span>
-                  {(m.files||[]).length>0&&<span style={{fontSize:11,color:D.muted}}>📎 {(m.files||[]).length} файлов</span>}
+                  <span style={{fontSize:11,color:D.muted}}>🪟 {(m.openings||[]).length} {t(bi("проёмов","פתחים","openings"))}</span>
+                  <span style={{fontSize:11,color:D.green,fontWeight:700}}>📐 {area.toFixed(2)} {t(bi("м²","מ״ר","m²"))}</span>
+                  {(m.files||[]).length>0&&<span style={{fontSize:11,color:D.muted}}>📎 {(m.files||[]).length} {t(bi("файлов","קבצים","files"))}</span>}
                 </div>
               </div>
             </div>
@@ -1381,8 +1381,8 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           <div style={{fontSize:12,color:D.muted}}>{t(bi("Специалист","מומחה","Specialist"))}: <b style={{color:D.text}}>{viewM.specialist||"—"}</b></div>
           <div style={{fontSize:12,color:D.muted}}>{t(bi("Стена","קיר","Wall"))}: <b style={{color:D.text}}>{viewM.wallType}</b> · {t(bi("Этаж","קומה","Floor"))}: <b style={{color:D.text}}>{viewM.floor}</b></div>
           <div style={{marginTop:6,display:"flex",gap:8}}>
-            {viewM.crane&&<span style={{background:D.yellow+"20",color:D.yellow,fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6}}>🏗️ Кран</span>}
-            {viewM.demolition&&<span style={{background:D.red+"20",color:D.red,fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6}}>🔨 Демонтаж</span>}
+            {viewM.crane&&<span style={{background:D.yellow+"20",color:D.yellow,fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6}}>🏗️ {t(bi("Кран","כנרת","Crane"))}</span>}
+            {viewM.demolition&&<span style={{background:D.red+"20",color:D.red,fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6}}>🔨 {t(bi("Демонтаж","פירוק","Demolition"))}</span>}
             <Badge status={viewM.status}/>
           </div>
         </div>
@@ -1404,7 +1404,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           </div>);})}
         <div style={{padding:"8px 12px",borderTop:`1px solid ${D.border}`,display:"flex",justifyContent:"flex-end",gap:20}}>
           <span style={{fontSize:12,color:D.muted}}>{t(bi("Итого","סה״כ","Total"))}:</span>
-          <span style={{fontSize:13,fontWeight:800,color:D.green}}>{totalArea(viewM).toFixed(2)} м²</span>
+          <span style={{fontSize:13,fontWeight:800,color:D.green}}>{totalArea(viewM).toFixed(2)} {t(bi("м²","מ״ר","m²"))}</span>
         </div>
       </div>
       {(viewM.files||[]).length>0&&(<>
@@ -1426,10 +1426,10 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       <div style={{marginTop:16}}><Btn onClick={()=>{onOpenCalc(viewM);setViewM(null);}} variant="yellow"><Calculator size={13}/> {t(bi("Открыть в калькуляторе","פתח במחשבון","Open in calculator"))}</Btn></div>
     </Modal>)}
     {/* EDIT/ADD */}
-    {modal&&(<Modal title={editId?"✏️ Редактировать":"📐 Новый замер / По чертежу"} onClose={()=>setModal(false)} wide>
+    {modal&&(<Modal title={editId?"✏️ "+t(bi("Редактировать замер","עריכת מדידה","Edit Measurement")):"📐 "+t(bi("Новый замер / По чертежу","מדידה חדשה / לפי תכנית","New Measurement / By Drawing"))} onClose={()=>setModal(false)} wide>
       {/* Mode toggle */}
       <div style={{display:"flex",gap:8,marginBottom:14}}>
-        {[["Выезд","🚗 Выезд на замер"],["По чертежу","📄 По чертежу / списку"]].map(([v,lbl])=>(
+        {[["Выезд","🚗 "+t(bi("Выезд на замер","ביקור מדידה","On-site Measurement"))],["По чертежу","📄 "+t(bi("По чертежу / списку","לפי תכנית / רשימה","By Drawing / List"))]].map(([v,lbl])=>(
           <button key={v} onClick={()=>setForm(f=>({...f,mode:v}))}
             style={{flex:1,padding:"9px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",
               border:`2px solid ${form.mode===v?D.accent:D.border}`,
@@ -1441,10 +1441,10 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       </div>
       {form.mode==="По чертежу"&&(
         <div style={{background:D.teal+"12",border:`1px solid ${D.teal}30`,borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:11,color:D.teal}}>
-          📄 Введи размеры окон из чертежа или списка клиента → сразу «В калькулятор» без выезда
+          📄 {t(bi("Введи размеры окон из чертежа или списка клиента → сразу «В калькулятор» без выезда","הזן מידות חלונות מתכנית או רשימת הלקוח ← ישירות למחשבון ללא ביקור","Enter window sizes from drawing or client list → directly to calculator without site visit"))}
         </div>
       )}
-      <SH title="👤 Клиент и объект"/>
+      <SH title={"👤 "+t(bi("Клиент и объект","לקוח ואובייקט","Client and site"))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <Inp label={t(bi("Имя клиента *","שם לקוח *","Client name *"))} value={form.client} onChange={e=>setForm(f=>({...f,client:e.target.value}))}/>
         <Inp label={t(bi("Телефон","טלפון","Phone"))} value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))}/>
@@ -1462,38 +1462,38 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           setForm(f=>({...f,leadId:e.target.value?+e.target.value:"",
             client:lead?lead.name:f.client,phone:lead?lead.phone:f.phone}));
         }} style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 12px",color:D.text,fontSize:13,outline:"none"}}>
-          <option value="" style={{background:D.card}}>— без привязки —</option>
+          <option value="" style={{background:D.card}}>— {t(bi("без привязки","ללא קישור","no link"))} —</option>
           {leads.filter(l=>!["lead_won","lead_lost"].includes(migrateStatus(l.status))).map(l=>(
             <option key={l.id} value={l.id} style={{background:D.card}}>{l.name} · {l.phone} · {l.status}</option>
           ))}
         </select>
-        {form.leadId&&<div style={{fontSize:10,color:D.teal,marginTop:4}}>✓ При сохранении статус лида обновится автоматически</div>}
+        {form.leadId&&<div style={{fontSize:10,color:D.teal,marginTop:4}}>✓ {t(bi("При сохранении статус лида обновится автоматически","בשמירה סטטוס הליד יתעדכן אוטומטית","On save, lead status will update automatically"))}</div>}
       </div>)}
-      <SH title="🪟 Проёмы"/>
+      <SH title={"🪟 "+t(bi("Проёмы","פתחים","Openings"))}/>
       <div style={{background:D.surface,borderRadius:10,overflow:"hidden",marginBottom:10}}>
         <div style={{display:"grid",gridTemplateColumns:"1.4fr 72px 72px 1.4fr 50px 1fr 28px",padding:"6px 10px",gap:8,background:D.bg}}>
-          {["Помещение","Ш (см)","В (см)","Тип","Кол","Заметки",""].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
+          {[t(bi("Помещение","חדר","Room")),t(bi("Ш (см)","ר' (ס'מ)","W (cm)")),t(bi("В (см)","ג' (ס'מ)","H (cm)")),t(bi("Тип","סוג","Type")),t(bi("Кол","כמות","Qty")),t(bi("Заметки","הערות","Notes")),""].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
         </div>
         {form.openings.map((o,i)=>(<div key={o.id} style={{display:"grid",gridTemplateColumns:"1.4fr 72px 72px 1.4fr 50px 1fr 28px",
           padding:"6px 10px",gap:8,borderTop:`1px solid ${D.border}`,background:i%2===0?D.card+"60":D.surface,alignItems:"center"}}>
-          <input value={o.room} onChange={e=>updRow(o.id,"room",e.target.value)} placeholder="Гостиная..." style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:12,outline:"none",width:"100%"}}/>
+          <input value={o.room} onChange={e=>updRow(o.id,"room",e.target.value)} placeholder={t(bi("Гостиная...","סלון...","Living room..."))} style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:12,outline:"none",width:"100%"}}/>
           <input type="number" value={o.width} onChange={e=>updRow(o.id,"width",e.target.value)} placeholder="120" style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.accentLight,fontSize:12,fontWeight:700,outline:"none",width:"100%",textAlign:"center"}}/>
           <input type="number" value={o.height} onChange={e=>updRow(o.id,"height",e.target.value)} placeholder="140" style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.accentLight,fontSize:12,fontWeight:700,outline:"none",width:"100%",textAlign:"center"}}/>
           <select value={o.type} onChange={e=>updRow(o.id,"type",e.target.value)} style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:11,outline:"none",width:"100%"}}>
             {MOP_T.map(m=><option key={m.value} value={m.value} style={{background:D.card}}>{t(m.label)}</option>)}
           </select>
           <input type="number" value={o.qty} min={1} onChange={e=>updRow(o.id,"qty",+e.target.value||1)} style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.text,fontSize:12,outline:"none",width:"100%",textAlign:"center"}}/>
-          <input value={o.notes} onChange={e=>updRow(o.id,"notes",e.target.value)} placeholder="Заметка..." style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.muted,fontSize:11,outline:"none",width:"100%"}}/>
+          <input value={o.notes} onChange={e=>updRow(o.id,"notes",e.target.value)} placeholder={t(bi("Заметка...","הערה...","Note..."))} style={{background:"transparent",border:`1px solid ${D.border}`,borderRadius:5,padding:"4px 6px",color:D.muted,fontSize:11,outline:"none",width:"100%"}}/>
           <button onClick={()=>delRow(o.id)} disabled={form.openings.length===1} style={{background:"none",border:"none",cursor:"pointer",color:D.red,padding:2,opacity:form.openings.length===1?0.3:1}}><X size={13}/></button>
         </div>))}
       </div>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
         <Btn onClick={addRow} variant="ghost" small><Plus size={12}/> {t(bi("Добавить проём","הוסף פתח","Add Opening"))}</Btn>
         <div style={{fontSize:12,color:D.muted}}>
-          {form.openings.some(o=>o.width&&o.height)&&<><b style={{color:D.green}}>{form.openings.reduce((s,o)=>s+(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1),0).toFixed(2)} м²</b></>}
+          {form.openings.some(o=>o.width&&o.height)&&<><b style={{color:D.green}}>{form.openings.reduce((s,o)=>s+(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1),0).toFixed(2)} {t(bi("м²","מ״ר","m²"))}</b></>}
         </div>
       </div>
-      <SH title="🔧 Монтаж"/>
+      <SH title={"🔧 "+t(bi("Монтаж","התקנה","Installation"))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
         <Sel label={t(bi("Тип стены","סוג קיר","Wall type"))} value={form.wallType} onChange={e=>setForm(f=>({...f,wallType:e.target.value}))} options={WT.map(w=>({value:w.value,label:t(w.label)}))}/>
         <Inp label={t(bi("Этаж","קומה","Floor"))} value={form.floor} onChange={e=>setForm(f=>({...f,floor:e.target.value}))}/>
@@ -1501,16 +1501,16 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:8,textTransform:"uppercase"}}>{t(bi("Доп. работы","עבודות נוספות","Additional work"))}</div>
           <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",marginBottom:6}}>
             <input type="checkbox" checked={form.demolition} onChange={e=>setForm(f=>({...f,demolition:e.target.checked}))} style={{accentColor:D.accent,width:15,height:15}}/>
-            <span style={{fontSize:12,color:D.text}}>🔨 Демонтаж</span>
+            <span style={{fontSize:12,color:D.text}}>🔨 {t(bi("Демонтаж","פירוק","Demolition"))}</span>
           </label>
           <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer"}}>
             <input type="checkbox" checked={form.crane} onChange={e=>setForm(f=>({...f,crane:e.target.checked}))} style={{accentColor:D.accent,width:15,height:15}}/>
-            <span style={{fontSize:12,color:D.text}}>🏗️ Кран</span>
+            <span style={{fontSize:12,color:D.text}}>🏗️ {t(bi("Кран","כנרת","Crane"))}</span>
           </label>
         </div>
       </div>
       <Txa label={t(bi("Заметки по монтажу","הערות להתקנה","Installation notes"))} value={form.installNotes} onChange={e=>setForm(f=>({...f,installNotes:e.target.value}))}/>
-      <SH title="📎 Фото и файлы"/>
+      <SH title={"📎 "+t(bi("Фото и файлы","תמונות וקבצים","Photos and files"))}/>
       <div style={{background:D.surface,border:`2px dashed ${D.border}`,borderRadius:12,padding:"12px 18px",marginBottom:10,textAlign:"center"}}>
         <div style={{fontSize:12,color:D.muted,marginBottom:8}}>{t(bi("Фото, PDF, DWG, DXF, AutoCAD и любые другие форматы","תמונות, PDF, DWG, DXF, AutoCAD וכל פורמט אחר","Photos, PDF, DWG, DXF, AutoCAD and any other format"))}</div>
         <Btn variant="teal" onClick={()=>{const fi=document.createElement("input");fi.type="file";fi.multiple=true;fi.accept="image/*,.pdf,.dwg,.dxf,.rvt,.skp,.ifc";fi.onchange=pickFiles;fi.click();}}><Paperclip size={13}/> {t(bi("Прикрепить файлы","צרף קבצים","Attach files"))}</Btn>
@@ -2821,16 +2821,16 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
   const updStatus=(id,status)=>setOrders(p=>p.map(o=>o.id===id?{...o,status,progress:PM[status]||o.progress}:o));
 
   const deleteOrder=(id)=>{
-    if(!confirm("Удалить заказ?"))return;
+    if(!confirm(t(bi("Удалить заказ?","למחוק הזמנה?","Delete order?"))))return;
     setOrders(p=>p.filter(o=>o.id!==id));
     setPayments(p=>p.filter(pay=>pay.order!==id));
   };
 
   const addPay=o=>{
     const debt=o.total-o.paid; if(debt<=0)return;
-    const amount=+prompt(`Сумма платежа (остаток: ₪${debt.toLocaleString()}):`,debt);
+    const amount=+prompt(t(bi("Сумма платежа (остаток: ₪","סכום התשלום (יתרה: ₪","Payment amount (balance: ₪"))+debt.toLocaleString()+"):",debt);
     if(!amount||amount<=0)return;
-    const type=prompt("Тип платежа:","Финальный")||"Финальный";
+    const type=prompt(t(bi("Тип платежа:","סוג תשלום:","Payment type:")),t(bi("Финальный","סופי","Final")))||t(bi("Финальный","סופי","Final"));
     const payId=Date.now();
     setPayments(p=>[...p,{id:payId,order:o.id,client:o.client,type,
       amount:Math.min(amount,debt),date:new Date().toISOString().split("T")[0],
@@ -2839,7 +2839,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
   };
 
   const deletePay=(payId,orderId,amount)=>{
-    if(!confirm("Удалить этот платёж?"))return;
+    if(!confirm(t(bi("Удалить этот платёж?","למחוק תשלום זה?","Delete this payment?"))))return;
     setPayments(p=>p.filter(x=>x.id!==payId));
     setOrders(p=>p.map(o=>o.id===orderId?{...o,paid:Math.max(0,o.paid-amount)}:o));
   };
@@ -2873,7 +2873,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
         </div>
       </div>
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={()=>exportCSV(["ID","Клиент","Сумма","Оплачено","Статус"],orders.map(o=>[o.id,o.client,o.total,o.paid,o.status]),"заказы.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
+        <Btn onClick={()=>exportCSV(["ID",t(bi("Клиент","לקוח","Client")),t(bi("Сумма","סכום","Amount")),t(bi("Оплачено","שולם","Paid")),t(bi("Статус","סטטוס","Status"))],orders.map(o=>[o.id,o.client,o.total,o.paid,o.status]),t(bi("заказы","הזמנות","orders"))+".csv")} variant="ghost"><Download size={13}/> CSV</Btn>
         <Btn onClick={()=>setModal(true)}><Plus size={13}/> {t(bi("Новый заказ","הזמנה חדשה","New Order"))}</Btn>
       </div>
     </div>
@@ -2923,11 +2923,11 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
               <div>
                 <div onClick={()=>onClientClick&&onClientClick(o.client)}
                   style={{fontSize:15,fontWeight:800,color:D.text,cursor:"pointer"}}>{o.client}</div>
-                <div style={{fontSize:11,color:D.muted}}>{o.city||"—"} · {o.windows} окон · {o.created||""}{o.delivery?` · Сдача: ${o.delivery}`:""}</div>
+                <div style={{fontSize:11,color:D.muted}}>{o.city||"—"} · {o.windows} {t(bi("окон","חלונות","windows"))} · {o.created||""}{o.delivery?` · ${t(bi("Сдача","מסירה","Delivery"))}: ${o.delivery}`:""}</div>
               </div>
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-              {!isCompleted&&debt>0&&<Btn onClick={()=>addPay(o)} variant="success" small><Plus size={11}/> Платёж</Btn>}
+              {!isCompleted&&debt>0&&<Btn onClick={()=>addPay(o)} variant="success" small><Plus size={11}/> {t(bi("Платёж","תשלום","Payment"))}</Btn>}
               <Btn onClick={()=>setPlModal(plModal===o.id?null:o.id)} variant={hasPl?"teal":"ghost"} small>
                 <BarChart2 size={11}/> P&L
               </Btn>
@@ -2939,7 +2939,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
               </select>
               <button onClick={()=>deleteOrder(o.id)}
                 style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4,opacity:0.5}}
-                title="Удалить заказ">
+                title={t(bi("Удалить заказ","מחק הזמנה","Delete order"))}>
                 <Trash2 size={13}/>
               </button>
             </div>
@@ -2978,7 +2978,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
                     <option value="received" style={{background:D.card,color:D.text}}>{ts("pay_received")}</option>
                   </select>
                   <button onClick={()=>deletePay(pay.id,o.id,pay.amount)}
-                    title="Удалить платёж"
+                    title={t(bi("Удалить платёж","מחק תשלום","Delete payment"))}
                     style={{background:"none",border:"none",cursor:"pointer",color:D.red,padding:2,opacity:0.7}}>
                     <Trash2 size={11}/>
                   </button>
@@ -2991,7 +2991,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
           {plModal===o.id&&(<div style={{marginTop:4,borderTop:`1px solid ${D.border}`,paddingTop:16}}>
             <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:12}}>📊 P&L — {t(bi("Реальные затраты","עלויות אמיתיות","Actual costs"))}</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:14}}>
-              {[["💰 Материалы ₪","materialsCost"],["👷 Труд / субподряд ₪","laborCost"],["🔧 Доп. расходы ₪","extrasCost"]].map(([l,k])=>(
+              {[["💰 "+t(bi("Материалы ₪","חומרים ₪","Materials ₪")),"materialsCost"],["👷 "+t(bi("Труд / субподряд ₪","עבודה / קבלן ₪","Labor / Subcontract ₪")),"laborCost"],["🔧 "+t(bi("Доп. расходы ₪","הוצאות נוספות ₪","Extra costs ₪")),"extrasCost"]].map(([l,k])=>(
                 <div key={k}>
                   <div style={{fontSize:10,color:D.muted,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{l}</div>
                   <input type="number" value={pl[k]} onChange={e=>setPl(o.id,k,e.target.value)} placeholder="0"
@@ -3039,7 +3039,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
       <span style={{fontSize:11,color:D.muted}}>{t(bi("Стр.","עמ'","Page"))} {page} {t(bi("из","מתוך","of"))} {totalPages} · {filtered.length} {t(bi("заказов","הזמנות","orders"))}</span>
     </div>)}
 
-    {modal&&(<Modal title="📦 Новый заказ" onClose={()=>setModal(false)}>
+    {modal&&(<Modal title={"📦 "+t(bi("Новый заказ","הזמנה חדשה","New Order"))} onClose={()=>setModal(false)}>
       <Inp label={t(bi("Клиент *","לקוח *","Client *"))} value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <Inp label={t(bi("Город","עיר","City"))} value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
