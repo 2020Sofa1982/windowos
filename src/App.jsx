@@ -2074,7 +2074,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           {(form.openings||[]).some(o=>o.width&&o.height)&&<><b style={{color:D.green}}>{(form.openings||[]).reduce((s,o)=>s+(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1),0).toFixed(2)} м²</b></>}
         </div>
       </div>
-      <SH title="🔧 "+tx("installation")/>
+      <SH title={"🔧 "+tx("installation")}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
         <Sel label={tx("wallType")} value={form.wallType} onChange={e=>setForm(f=>({...f,wallType:e.target.value}))} options={WT}/>
         <Inp label={tx("floor")} value={form.floor} onChange={e=>setForm(f=>({...f,floor:e.target.value}))}/>
@@ -2723,7 +2723,7 @@ function Calc({preload,setPreload,setOrders,orders,leads,setLeads,quotes,setQuot
                 {/* Col 3: Breakdown */}
                 <div>
                   <div style={{fontSize:10,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>
-                    {tab==="detailed"?{tx("detailedCalc")}:{tx("itemTotal")}}
+                    {tab==="detailed"?tx("detailedCalc"):tx("itemTotal")}
                   </div>
                   {tab==="detailed"&&it.valid&&(
                     <>
@@ -3479,7 +3479,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
 
     {filtered.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,
       padding:40,textAlign:"center",color:D.muted}}>
-      {filter==="completed"?"Нет завершённых заказов":{tx("noOrders")}}
+      {filter==="completed"?"Нет завершённых заказов":tx("noOrders")}
     </div>}
 
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -5693,7 +5693,7 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
           {selected===today?"📅 Сегодня":""} {new Date(selected).toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})}
         </div>
         <div style={{fontSize:11,color:D.muted,marginBottom:12}}>
-          {selEvents.length>0?`${selEvents.length} событий`:{tx("noEvents")}}
+          {selEvents.length>0?`${selEvents.length} событий`:tx("noEvents")}
         </div>
         {/* Quick add buttons */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
@@ -6113,7 +6113,7 @@ export default function App(){
     />)}
 
     {/* COMPANY SETTINGS MODAL */}
-    {companyModal&&(<Modal title="⚙️ "+tx("settings") onClose={()=>setCompanyModal(false)}>
+    {companyModal&&(<Modal title={"⚙️ "+tx("settings")} onClose={()=>setCompanyModal(false)}>
       {/* Business type selector */}
       <div style={{marginBottom:14}}>
         <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>סוג עסק / Тип бизнеса</div>
