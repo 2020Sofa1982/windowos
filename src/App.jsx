@@ -805,7 +805,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
     <div style={{marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
       <div>
         <div style={{fontSize:22,fontWeight:900,color:D.text}}>Dashboard</div>
-        <div style={{fontSize:13,color:D.muted,marginTop:2}}>Реальные данные из системы</div>
+        <div style={{fontSize:13,color:D.muted,marginTop:2}}>{t(bi("Реальные данные из системы","נתונים אמיתיים מהמערכת","Real data from system"))}</div>
       </div>
       <div style={{fontSize:12,color:D.muted,textAlign:"right"}}>
         <div style={{fontSize:11,color:D.muted}}>📅 {todayStr}</div>
@@ -817,13 +817,13 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
       border:`1px solid ${D.accent}40`,borderRadius:14,padding:16,marginBottom:18}}>
       <div style={{fontSize:11,fontWeight:800,color:D.accentLight,textTransform:"uppercase",marginBottom:10,
         display:"flex",alignItems:"center",gap:6}}>
-        ⚡ Сегодня
+        ⚡ {t(bi("Сегодня","היום","Today"))}
         <span style={{fontSize:10,color:D.muted,fontWeight:400}}>— {todayStr}</span>
       </div>
       <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
         {overdueFollowUps.length>0&&(<div style={{background:D.red+"15",border:`1px solid ${D.red}30`,
           borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
-          <div style={{fontSize:10,color:D.red,fontWeight:700,marginBottom:4}}>🔴 Просроченные follow-up</div>
+          <div style={{fontSize:10,color:D.red,fontWeight:700,marginBottom:4}}>🔴 {t(bi("Просроченные follow-up","follow-up באיחור","Overdue follow-up"))}</div>
           {overdueFollowUps.slice(0,3).map(l=>(
             <div key={l.id} onClick={()=>onClientClick&&onClientClick(l.name)}
               style={{fontSize:11,color:D.text,cursor:"pointer",padding:"2px 0",
@@ -837,11 +837,11 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
               </a>
             </div>
           ))}
-          {overdueFollowUps.length>3&&<div style={{fontSize:10,color:D.muted}}>+{overdueFollowUps.length-3} ещё</div>}
+          {overdueFollowUps.length>3&&<div style={{fontSize:10,color:D.muted}}>+{overdueFollowUps.length-3} {t(bi("ещё","עוד","more"))}</div>}
         </div>)}
         {todayFollowUps.length>0&&(<div style={{background:D.yellow+"15",border:`1px solid ${D.yellow}30`,
           borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
-          <div style={{fontSize:10,color:D.yellow,fontWeight:700,marginBottom:4}}>🟡 Follow-up сегодня</div>
+          <div style={{fontSize:10,color:D.yellow,fontWeight:700,marginBottom:4}}>🟡 {t(bi("Follow-up сегодня","Follow-up היום","Follow-up today"))}</div>
           {todayFollowUps.map(l=>(
             <div key={l.id} onClick={()=>onClientClick&&onClientClick(l.name)}
               style={{fontSize:11,color:D.text,cursor:"pointer",padding:"2px 0",
@@ -858,7 +858,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
         </div>)}
         {todayMeasures.length>0&&(<div style={{background:D.teal+"15",border:`1px solid ${D.teal}30`,
           borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
-          <div style={{fontSize:10,color:D.teal,fontWeight:700,marginBottom:4}}>📐 Замеры сегодня</div>
+          <div style={{fontSize:10,color:D.teal,fontWeight:700,marginBottom:4}}>📐 {t(bi("Замеры сегодня","מדידות היום","Measurements today"))}</div>
           {todayMeasures.map(m=>(
             <div key={m.id} onClick={()=>onClientClick&&onClientClick(m.client)}
               style={{fontSize:11,color:D.text,cursor:"pointer",fontWeight:600,padding:"2px 0",
@@ -870,7 +870,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
         </div>)}
         {todayInstalls.length>0&&(<div style={{background:D.purple+"15",border:`1px solid ${D.purple}30`,
           borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
-          <div style={{fontSize:10,color:D.purple,fontWeight:700,marginBottom:4}}>🔧 Монтажи сегодня</div>
+          <div style={{fontSize:10,color:D.purple,fontWeight:700,marginBottom:4}}>🔧 {t(bi("Монтажи сегодня","התקנות היום","Installations today"))}</div>
           {todayInstalls.map(i=>(
             <div key={i.id} onClick={()=>onClientClick&&onClientClick(i.client)}
               style={{fontSize:11,color:D.text,cursor:"pointer",fontWeight:600,padding:"2px 0"}}>
@@ -880,7 +880,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
         </div>)}
         {pendingPayments.length>0&&(<div style={{background:D.green+"15",border:`1px solid ${D.green}30`,
           borderRadius:8,padding:"6px 12px",flex:1,minWidth:140}}>
-          <div style={{fontSize:10,color:D.green,fontWeight:700,marginBottom:4}}>💰 Ожидаются платежи</div>
+          <div style={{fontSize:10,color:D.green,fontWeight:700,marginBottom:4}}>💰 {t(bi("Ожидаются платежи","תשלומים צפויים","Pending payments"))}</div>
           {pendingPayments.slice(0,3).map(p=>(
             <div key={p.id} style={{fontSize:11,color:D.text,padding:"2px 0",
               display:"flex",justifyContent:"space-between"}}>
@@ -889,7 +889,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
             </div>
           ))}
           <div style={{fontSize:10,color:D.green,fontWeight:700,marginTop:2}}>
-            Итого: {fmt(pendingPayments.reduce((s,p)=>s+p.amount,0))}
+            {t(bi("Итого","סה״כ","Total"))}: {fmt(pendingPayments.reduce((s,p)=>s+p.amount,0))}
           </div>
         </div>)}
       </div>
@@ -897,21 +897,21 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
 
     {/* Top KPIs */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
-      <KCard icon={DollarSign} label="Получено ₪" value={fmt(totalPaid)} color={D.green} sub={`Ожидается ещё ${fmt(totalPending)}`}/>
-      <KCard icon={ShoppingCart} label="В работе" value={activeOrders.length} color={D.accentLight} sub={`Сумма ${fmt(activeOrders.reduce((s,o)=>s+o.total,0))}`}/>
-      <KCard icon={TrendingUp} label="Pipeline" value={fmt(pipeline)} color={D.purple} sub={`${leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status)).length} лидов в работе`}/>
-      <KCard icon={Users} label="Ср. чек" value={fmt(avgDeal)} color={D.yellow} sub={`${orders.length} заказов всего`}/>
+      <KCard icon={DollarSign} label={t(bi("Получено ₪","התקבל ₪","Received ₪"))} value={fmt(totalPaid)} color={D.green} sub={t(bi("Ожидается ещё","ממתין עוד","Pending"))+" "+fmt(totalPending)}/>
+      <KCard icon={ShoppingCart} label={t(bi("В работе","בעבודה","Active"))} value={activeOrders.length} color={D.accentLight} sub={t(bi("Сумма","סכום","Total"))+" "+fmt(activeOrders.reduce((s,o)=>s+o.total,0))}/>
+      <KCard icon={TrendingUp} label="Pipeline" value={fmt(pipeline)} color={D.purple} sub={leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status)).length+" "+t(bi("лидов в работе","לידים בעבודה","leads active"))}/>
+      <KCard icon={Users} label={t(bi("Ср. чек","עסקה ממוצעת","Avg. deal"))} value={fmt(avgDeal)} color={D.yellow} sub={orders.length+" "+t(bi("заказов всего","הזמנות בסה״כ","orders total"))}/>
     </div>
 
     <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}}>
       {/* Revenue chart */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.muted}}>📈 ВЫРУЧКА ПО МЕСЯЦАМ</div>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted}}>📈 {t(bi("ВЫРУЧКА ПО МЕСЯЦАМ","הכנסות לפי חודש","REVENUE BY MONTH"))}</div>
           <div style={{display:"flex",gap:12,fontSize:10,color:D.muted}}>
-            <span><span style={{display:"inline-block",width:10,height:10,background:D.accentLight+"90",borderRadius:2,marginRight:3}}/>КП</span>
-            <span><span style={{display:"inline-block",width:10,height:10,background:D.green,borderRadius:2,marginRight:3}}/>Получено</span>
-            <span><span style={{display:"inline-block",width:10,height:2,background:D.yellow,marginRight:3,verticalAlign:"middle"}}/>Прибыль</span>
+            <span><span style={{display:"inline-block",width:10,height:10,background:D.accentLight+"90",borderRadius:2,marginRight:3}}/>{t(bi("КП","הצעה","Quote"))}</span>
+            <span><span style={{display:"inline-block",width:10,height:10,background:D.green,borderRadius:2,marginRight:3}}/>{t(bi("Получено","התקבל","Received"))}</span>
+            <span><span style={{display:"inline-block",width:10,height:2,background:D.yellow,marginRight:3,verticalAlign:"middle"}}/>{t(bi("Прибыль","רווח","Profit"))}</span>
           </div>
         </div>
         {revenueChart.length>0?(
@@ -926,19 +926,19 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
           </ResponsiveContainer>
         ):(
           <div style={{height:180,display:"flex",alignItems:"center",justifyContent:"center",color:D.muted,fontSize:13}}>
-            Заказы появятся здесь после добавления
+            {t(bi("Заказы появятся здесь после добавления","הזמנות יופיעו כאן לאחר הוספה","Orders will appear here after adding"))}
           </div>
         )}
       </div>
 
       {/* Funnel */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:16}}>🎯 ВОРОНКА КОНВЕРСИИ</div>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:16}}>🎯 {t(bi("ВОРОНКА КОНВЕРСИИ","משפך המרה","CONVERSION FUNNEL"))}</div>
         {[
-          {label:"Лидов всего",value:fLeads,color:D.accentLight,max:fLeads},
-          {label:"Замеров",value:fMeasured,color:D.purple,max:fLeads},
-          {label:"Заказов",value:fOrders,color:D.yellow,max:fLeads},
-          {label:"Завершено",value:fCompleted,color:D.green,max:fLeads},
+          {label:t(bi("Лидов всего","לידים סה״כ","Total leads")),value:fLeads,color:D.accentLight,max:fLeads},
+          {label:t(bi("Замеров","מדידות","Measurements")),value:fMeasured,color:D.purple,max:fLeads},
+          {label:t(bi("Заказов","הזמנות","Orders")),value:fOrders,color:D.yellow,max:fLeads},
+          {label:t(bi("Завершено","הושלם","Completed")),value:fCompleted,color:D.green,max:fLeads},
         ].map(({label,value,color,max})=>(
           <div key={label} style={{marginBottom:12}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
@@ -952,10 +952,10 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
         ))}
         <div style={{borderTop:`1px solid ${D.border}`,paddingTop:12,marginTop:4,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
           {[
-            ["Лид→Замер",convLM+"%",D.purple],
-            ["Замер→Заказ",convMO+"%",D.yellow],
-            ["Лид→Заказ",convLO+"%",D.green],
-            ["Ср. чек",fmt(avgDeal),D.accentLight],
+            [t(bi("Лид→Замер","ליד→מדידה","Lead→Meas.")),convLM+"%",D.purple],
+            [t(bi("Замер→Заказ","מדידה→הזמנה","Meas.→Order")),convMO+"%",D.yellow],
+            [t(bi("Лид→Заказ","ליד→הזמנה","Lead→Order")),convLO+"%",D.green],
+            [t(bi("Ср. чек","עסקה ממוצעת","Avg. deal")),fmt(avgDeal),D.accentLight],
           ].map(([l,v,c])=>(
             <div key={l} style={{background:D.surface,borderRadius:8,padding:"7px 10px",textAlign:"center"}}>
               <div style={{fontSize:9,color:D.muted,fontWeight:700,marginBottom:2,textTransform:"uppercase"}}>{l}</div>
@@ -969,7 +969,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16}}>
       {/* Lead statuses */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>👥 ЛИДЫ ПО СТАТУСАМ</div>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>👥 {t(bi("ЛИДЫ ПО СТАТУСАМ","לידים לפי סטטוס","LEADS BY STATUS"))}</div>
         {pie.length>0?(
           <>
             <ResponsiveContainer width="100%" height={110}>
@@ -983,13 +983,13 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
               </div>))}
             </div>
           </>
-        ):<div style={{color:D.muted,fontSize:12,textAlign:"center",paddingTop:20}}>Нет лидов</div>}
+        ):<div style={{color:D.muted,fontSize:12,textAlign:"center",paddingTop:20}}>{t(bi("Нет лидов","אין לידים","No leads"))}</div>}
       </div>
 
       {/* Active orders */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>📦 АКТИВНЫЕ ЗАКАЗЫ</div>
-        {activeOrders.length===0&&<div style={{color:D.muted,fontSize:12}}>Нет активных заказов</div>}
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>📦 {t(bi("АКТИВНЫЕ ЗАКАЗЫ","הזמנות פעילות","ACTIVE ORDERS"))}</div>
+        {activeOrders.length===0&&<div style={{color:D.muted,fontSize:12}}>{t(bi("Нет активных заказов","אין הזמנות פעילות","No active orders"))}</div>}
         {activeOrders.slice(0,5).map(o=>(
           <div key={o.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${D.border}`}}>
             <div>
@@ -998,7 +998,7 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{fontSize:12,fontWeight:700,color:D.green}}>{fmt(o.paid)}</div>
-              <div style={{fontSize:10,color:D.muted}}>из {fmt(o.total)}</div>
+              <div style={{fontSize:10,color:D.muted}}>{t(bi("из","מתוך","of"))} {fmt(o.total)}</div>
             </div>
           </div>
         ))}
@@ -1007,29 +1007,29 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
       {/* Right column: pending payments + alerts */}
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         {pending.length>0&&(<div style={{background:D.card,border:`1px solid ${D.yellow}30`,borderRadius:14,padding:16}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:10}}>💰 ОЖИДАЮТСЯ ПЛАТЕЖИ</div>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:10}}>💰 {t(bi("ОЖИДАЮТСЯ ПЛАТЕЖИ","תשלומים צפויים","PENDING PAYMENTS"))}</div>
           {pending.slice(0,3).map(p=>(<div key={p.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${D.border}`}}>
             <div style={{fontSize:11,color:D.text}}>{p.client}</div>
             <div style={{fontSize:12,fontWeight:800,color:D.yellow}}>{fmt(p.amount)}</div>
           </div>))}
           <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
-            <span style={{fontSize:11,color:D.muted}}>Итого</span>
+            <span style={{fontSize:11,color:D.muted}}>{t(bi("Итого","סה״כ","Total"))}</span>
             <span style={{fontSize:14,fontWeight:900,color:D.yellow}}>{fmt(totalPending)}</span>
           </div>
         </div>)}
         <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:10}}>🔔 СТАТУС</div>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:10}}>🔔 {t(bi("СТАТУС","סטטוס","STATUS"))}</div>
           {[
-            [lowStock>0,`📦 ${lowStock} позиций мало на складе`,D.yellow],
-            [pendInst>0,`🔧 ${pendInst} монтажей в работе`,D.purple],
-            [totalPending>0,`💰 ${fmt(totalPending)} ожидается`,D.green],
+            [lowStock>0,`📦 ${lowStock} `+t(bi("позиций мало на складе","פריטים חסרים במלאי","items low in stock")),D.yellow],
+            [pendInst>0,`🔧 ${pendInst} `+t(bi("монтажей в работе","התקנות פעילות","installations active")),D.purple],
+            [totalPending>0,`💰 ${fmt(totalPending)} `+t(bi("ожидается","ממתין","pending")),D.green],
             [leads.filter(l=>migrateStatus(l.status)==="new_lead").length>0,
-              `👤 ${leads.filter(l=>migrateStatus(l.status)==="new_lead").length} новых лидов`,D.accentLight],
+              `👤 ${leads.filter(l=>migrateStatus(l.status)==="new_lead").length} `+t(bi("новых лидов","לידים חדשים","new leads")),D.accentLight],
           ].filter(([cond])=>cond).map(([,text,color],i)=>(
             <div key={i} style={{fontSize:11,color,fontWeight:700,marginBottom:5}}>• {text}</div>
           ))}
           {[lowStock,pendInst,totalPending,leads.filter(l=>l.status==="Новый лид").length].every(v=>!v)&&
-            <div style={{fontSize:11,color:D.green}}>✓ Всё в порядке</div>}
+            <div style={{fontSize:11,color:D.green}}>✓ {t(bi("Всё в порядке","הכל בסדר","All good"))}</div>}
         </div>
       </div>
     </div>
@@ -1117,9 +1117,9 @@ function Leads({leads,setLeads,onClientClick}){
     {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
       <div>
-        <div style={{fontSize:22,fontWeight:900,color:D.text}}>CRM · Лиды</div>
-        <div style={{fontSize:13,color:D.muted}}>{leads.length} в базе · {leads.filter(l=>overdueFollowUp(l)).length>0&&
-          <span style={{color:D.red,fontWeight:700}}>{leads.filter(l=>overdueFollowUp(l)).length} просроченных follow-up</span>}</div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>CRM · {t(bi("Лиды","לידים","Leads"))}</div>
+        <div style={{fontSize:13,color:D.muted}}>{leads.length} {t(bi("в базе","בבסיס","in base"))} · {leads.filter(l=>overdueFollowUp(l)).length>0&&
+          <span style={{color:D.red,fontWeight:700}}>{leads.filter(l=>overdueFollowUp(l)).length} {t(bi("просроченных follow-up","follow-up באיחור","overdue follow-up"))}</span>}</div>
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         {/* View toggle */}
@@ -1136,14 +1136,14 @@ function Leads({leads,setLeads,onClientClick}){
           leads.map(l=>[l.name,l.phone,l.city,l.type,l.jobType||"",l.status,l.priority||"",l.value,l.followUp||"",l.date]),"лиды.csv")} variant="ghost">
           <Download size={13}/> CSV
         </Btn>
-        <Btn onClick={()=>openAdd()}><Plus size={13}/> Новый лид</Btn>
+        <Btn onClick={()=>openAdd()}><Plus size={13}/> {t(bi("Новый лид","ליד חדש","New Lead"))}</Btn>
       </div>
     </div>
 
     {/* Search */}
     <div style={{position:"relative",marginBottom:16}}>
       <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
-      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по имени, телефону, городу..."
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t(bi("Поиск по имени, телефону, городу...","חיפוש לפי שם, טלפון, עיר...","Search by name, phone, city..."))}
         style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
           padding:"8px 10px 8px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
     </div>
@@ -1166,7 +1166,7 @@ function Leads({leads,setLeads,onClientClick}){
               </div>
               <div style={{minHeight:60}}>
                 {colLeads.map(l=><KanbanCard key={l.id} l={l}/>)}
-                {colLeads.length===0&&<div style={{fontSize:10,color:D.muted,textAlign:"center",paddingTop:16,opacity:0.5}}>Пусто</div>}
+                {colLeads.length===0&&<div style={{fontSize:10,color:D.muted,textAlign:"center",paddingTop:16,opacity:0.5}}>{t(bi("Пусто","ריק","Empty"))}</div>}
               </div>
             </div>
           );
@@ -1179,10 +1179,10 @@ function Leads({leads,setLeads,onClientClick}){
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
         <div style={{display:"grid",gridTemplateColumns:"2fr 1.1fr 0.8fr 0.8fr 1.2fr 1fr 1fr 56px",
           padding:"8px 14px",background:D.surface,gap:8}}>
-          {["Клиент / Работа","Телефон","Город","Приоритет","Статус","Оценка","Follow-up",""].map((h,i)=>(
+          {[t(bi("Клиент / Работа","לקוח / עבודה","Client / Job")),t(bi("Телефон","טלפון","Phone")),t(bi("Город","עיר","City")),t(bi("Приоритет","עדיפות","Priority")),t(bi("Статус","סטטוס","Status")),t(bi("Оценка","הערכה","Estimate")),"Follow-up",""].map((h,i)=>(
             <div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
         </div>
-        {filtered.length===0&&<div style={{padding:40,textAlign:"center",color:D.muted}}>Нет лидов</div>}
+        {filtered.length===0&&<div style={{padding:40,textAlign:"center",color:D.muted}}>{t(bi("Нет лидов","אין לידים","No leads"))}</div>}
         {filtered.map((l,i)=>(
           <div key={l.id} style={{display:"grid",gridTemplateColumns:"2fr 1.1fr 0.8fr 0.8fr 1.2fr 1fr 1fr 56px",
             padding:"10px 14px",gap:8,alignItems:"center",
@@ -1218,22 +1218,22 @@ function Leads({leads,setLeads,onClientClick}){
     {/* ── MODAL ── */}
     {modal&&(<Modal title={edit?"✏️ Редактировать лид":"➕ Новый лид"} onClose={()=>setModal(false)} wide>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Inp label="Имя *" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
-        <Inp label="Телефон *" value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
+        <Inp label={t(bi("Имя *","שם *","Name *"))} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
+        <Inp label={t(bi("Телефон *","טלפון *","Phone *"))} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-        <Inp label="Город" value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
-        <Sel label="Тип клиента" value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} options={CLIENT_TYPES.map(k=>({value:k,label:ts(k)}))}/>
-        <Inp label="Кол-во окон" value={form.windows} onChange={e=>setForm(p=>({...p,windows:e.target.value}))} type="number"/>
+        <Inp label={t(bi("Город","עיר","City"))} value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
+        <Sel label={t(bi("Тип клиента","סוג לקוח","Client type"))} value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} options={CLIENT_TYPES.map(k=>({value:k,label:ts(k)}))}/>
+        <Inp label={t(bi("Кол-во окон","כמות חלונות","Windows count"))} value={form.windows} onChange={e=>setForm(p=>({...p,windows:e.target.value}))} type="number"/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Sel label="Тип работы" value={form.jobType} onChange={e=>setForm(p=>({...p,jobType:e.target.value}))} options={JOB_TYPES.map(k=>({value:k,label:ts(k)}))}/>
-        <Sel label="Источник" value={form.source} onChange={e=>setForm(p=>({...p,source:e.target.value}))} options={SOURCE_TYPES.map(k=>({value:k,label:ts(k)}))}/>
+        <Sel label={t(bi("Тип работы","סוג עבודה","Job type"))} value={form.jobType} onChange={e=>setForm(p=>({...p,jobType:e.target.value}))} options={JOB_TYPES.map(k=>({value:k,label:ts(k)}))}/>
+        <Sel label={t(bi("Источник","מקור","Source"))} value={form.source} onChange={e=>setForm(p=>({...p,source:e.target.value}))} options={SOURCE_TYPES.map(k=>({value:k,label:ts(k)}))}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
-        <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={LST.map(k=>({value:k,label:ts(k)}))}/>
+        <Sel label={t(bi("Статус","סטטוס","Status"))} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={LST.map(k=>({value:k,label:ts(k)}))}/>
         <div style={{marginBottom:12}}>
-          <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>Приоритет</div>
+          <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>{t(bi("Приоритет","עדיפות","Priority"))}</div>
           <div style={{display:"flex",gap:5}}>
             {PRIORITIES.map(pr=>(
               <button key={pr.id} onClick={()=>setForm(p=>({...p,priority:pr.id}))}
@@ -1246,13 +1246,13 @@ function Leads({leads,setLeads,onClientClick}){
             ))}
           </div>
         </div>
-        <Inp label="Оценка ₪" value={form.value} onChange={e=>setForm(p=>({...p,value:e.target.value}))} type="number"/>
-        <Inp label="Follow-up дата" value={form.followUp} onChange={e=>setForm(p=>({...p,followUp:e.target.value}))} type="date"/>
+        <Inp label={t(bi("Оценка ₪","הערכה ₪","Estimate ₪"))} value={form.value} onChange={e=>setForm(p=>({...p,value:e.target.value}))} type="number"/>
+        <Inp label={t(bi("Follow-up дата","תאריך follow-up","Follow-up date"))} value={form.followUp} onChange={e=>setForm(p=>({...p,followUp:e.target.value}))} type="date"/>
       </div>
-      <Inp label="Заметки" value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
+      <Inp label={t(bi("Заметки","הערות","Notes"))} value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={submit}><Check size={13}/> {edit?"Сохранить":"Добавить"}</Btn>
-        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={submit}><Check size={13}/> {edit?t(bi("Сохранить","שמור","Save")):t(bi("Добавить","הוסף","Add"))}</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">{t(bi("Отмена","ביטול","Cancel"))}</Btn>
       </div>
     </Modal>)}
   </div>);
@@ -1306,11 +1306,11 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Замеры</div>
-        <div style={{fontSize:13,color:D.muted}}>{measurements.length} замеров</div></div>
+      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>{t(bi("Замеры","מדידות","Measurements"))}</div>
+        <div style={{fontSize:13,color:D.muted}}>{measurements.length} {t(bi("замеров","מדידות","measurements"))}</div></div>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={()=>exportCSV(["Клиент","Адрес","Дата","Статус","м²"],measurements.map(m=>[m.client,m.address,m.date,m.status,totalArea(m).toFixed(2)]),"замеры.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
-        <Btn onClick={openAdd}><Plus size={13}/> Новый замер</Btn>
+        <Btn onClick={openAdd}><Plus size={13}/> {t(bi("Новый замер","מדידה חדשה","New Measurement"))}</Btn>
       </div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
@@ -1318,7 +1318,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       <KCard icon={Ruler} label={ts("measure_done")} value={measurements.filter(m=>migrateStatus(m.status)==="measure_done").length} color={D.accentLight}/>
       <KCard icon={Check} label={ts("measure_approved")} value={measurements.filter(m=>migrateStatus(m.status)==="measure_approved").length} color={D.green}/>
     </div>
-    {measurements.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:40,textAlign:"center",color:D.muted}}>Нет замеров</div>}
+    {measurements.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:40,textAlign:"center",color:D.muted}}>{t(bi("Нет замеров","אין מדידות","No measurements"))}</div>}
     <div style={{display:"flex",flexDirection:"column",gap:10}}>
       {measurements.map(m=>{
         const area=totalArea(m);
@@ -1348,7 +1348,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
                   border:`1px solid ${(SC[migrateStatus(m.status)]||D.muted)}40`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
                 {MST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{ts(s)}</option>)}
               </select>
-              <Btn onClick={()=>onOpenCalc(m)} variant="yellow" small><Calculator size={12}/> В калькулятор</Btn>
+              <Btn onClick={()=>onOpenCalc(m)} variant="yellow" small><Calculator size={12}/> {t(bi("В калькулятор","למחשבון","To calculator"))}</Btn>
               <Btn onClick={()=>setViewM(m)} variant="ghost" small><Eye size={12}/></Btn>
               <button onClick={()=>openEdit(m)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}>✏️</button>
               <button onClick={()=>setMeasurements(p=>p.filter(x=>x.id!==m.id))} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}><Trash2 size={13}/></button>
@@ -1356,7 +1356,7 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           </div>
           {(m.openings||[]).length>0&&(<div style={{marginTop:12,background:D.surface,borderRadius:8,overflow:"hidden"}}>
             <div style={{display:"grid",gridTemplateColumns:"1.5fr 80px 80px 1.5fr 50px 1fr",padding:"5px 10px",gap:8}}>
-              {["Помещение","Ш (см)","В (см)","Тип","Кол","Заметки"].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
+              {[t(bi("Помещение","חדר","Room")),t(bi("Ш (см)","ר' (ס״מ)","W (cm)")),t(bi("В (см)","ג' (ס״מ)","H (cm)")),t(bi("Тип","סוג","Type")),t(bi("Кол","כמות","Qty")),t(bi("Заметки","הערות","Notes"))].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
             </div>
             {(m.openings||[]).map((o,i)=>(<div key={o.id} style={{display:"grid",gridTemplateColumns:"1.5fr 80px 80px 1.5fr 50px 1fr",
               padding:"6px 10px",gap:8,borderTop:`1px solid ${D.border}`,background:i%2===0?D.card+"80":D.surface}}>
@@ -1377,9 +1377,9 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
         <div><div style={{fontSize:14,fontWeight:700,color:D.text}}>{viewM.client}</div>
           <div style={{fontSize:12,color:D.muted}}>{viewM.phone}</div>
           <div style={{fontSize:12,color:D.muted}}>{viewM.address}</div></div>
-        <div><div style={{fontSize:12,color:D.muted}}>Дата: <b style={{color:D.text}}>{viewM.date}</b></div>
-          <div style={{fontSize:12,color:D.muted}}>Специалист: <b style={{color:D.text}}>{viewM.specialist||"—"}</b></div>
-          <div style={{fontSize:12,color:D.muted}}>Стена: <b style={{color:D.text}}>{viewM.wallType}</b> · Этаж: <b style={{color:D.text}}>{viewM.floor}</b></div>
+        <div><div style={{fontSize:12,color:D.muted}}>{t(bi("Дата","תאריך","Date"))}: <b style={{color:D.text}}>{viewM.date}</b></div>
+          <div style={{fontSize:12,color:D.muted}}>{t(bi("Специалист","מומחה","Specialist"))}: <b style={{color:D.text}}>{viewM.specialist||"—"}</b></div>
+          <div style={{fontSize:12,color:D.muted}}>{t(bi("Стена","קיר","Wall"))}: <b style={{color:D.text}}>{viewM.wallType}</b> · {t(bi("Этаж","קומה","Floor"))}: <b style={{color:D.text}}>{viewM.floor}</b></div>
           <div style={{marginTop:6,display:"flex",gap:8}}>
             {viewM.crane&&<span style={{background:D.yellow+"20",color:D.yellow,fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6}}>🏗️ Кран</span>}
             {viewM.demolition&&<span style={{background:D.red+"20",color:D.red,fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6}}>🔨 Демонтаж</span>}
@@ -1387,10 +1387,10 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           </div>
         </div>
       </div>
-      {viewM.installNotes&&<div style={{background:D.surface,borderRadius:8,padding:12,marginBottom:16,fontSize:12,color:D.muted}}><b style={{color:D.text}}>Заметки:</b> {viewM.installNotes}</div>}
+      {viewM.installNotes&&<div style={{background:D.surface,borderRadius:8,padding:12,marginBottom:16,fontSize:12,color:D.muted}}><b style={{color:D.text}}>{t(bi("Заметки","הערות","Notes"))}:</b> {viewM.installNotes}</div>}
       <div style={{background:D.surface,borderRadius:8,overflow:"hidden",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:"1.5fr 70px 70px 60px 1.5fr 50px",padding:"6px 12px",gap:8}}>
-          {["Помещение","Ш","В","м²","Тип","Кол"].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
+          {[t(bi("Помещение","חדר","Room")),"W","H","m²",t(bi("Тип","סוג","Type")),t(bi("Кол","כמות","Qty"))].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
         </div>
         {(viewM.openings||[]).map((o,i)=>{const a=(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1);return(
           <div key={o.id} style={{display:"grid",gridTemplateColumns:"1.5fr 70px 70px 60px 1.5fr 50px",
@@ -1403,12 +1403,12 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
             <div style={{fontSize:13,fontWeight:700,color:D.text,textAlign:"center"}}>{o.qty}</div>
           </div>);})}
         <div style={{padding:"8px 12px",borderTop:`1px solid ${D.border}`,display:"flex",justifyContent:"flex-end",gap:20}}>
-          <span style={{fontSize:12,color:D.muted}}>Итого:</span>
+          <span style={{fontSize:12,color:D.muted}}>{t(bi("Итого","סה״כ","Total"))}:</span>
           <span style={{fontSize:13,fontWeight:800,color:D.green}}>{totalArea(viewM).toFixed(2)} м²</span>
         </div>
       </div>
       {(viewM.files||[]).length>0&&(<>
-        <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Файлы и чертежи</div>
+        <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>{t(bi("Файлы и чертежи","קבצים ותוכניות","Files and drawings"))}</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
           {(viewM.files||[]).map(f=>(<div key={f.id} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:10,overflow:"hidden",width:f.isImage?120:190}}>
             {f.isImage?<img src={f.data} alt={f.name} style={{width:120,height:90,objectFit:"cover",display:"block"}}/>
@@ -1418,12 +1418,12 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
                   <div style={{fontSize:10,color:D.muted}}>{fmtSize(f.size)}</div></div>
               </div>}
             <div style={{padding:"4px 8px",borderTop:`1px solid ${D.border}`}}>
-              <button onClick={()=>dlFile(f)} style={{background:"none",border:"none",cursor:"pointer",color:D.accentLight,fontSize:10,fontWeight:700}}><Download size={10}/> Скачать</button>
+              <button onClick={()=>dlFile(f)} style={{background:"none",border:"none",cursor:"pointer",color:D.accentLight,fontSize:10,fontWeight:700}}><Download size={10}/> {t(bi("Скачать","הורד","Download"))}</button>
             </div>
           </div>))}
         </div>
       </>)}
-      <div style={{marginTop:16}}><Btn onClick={()=>{onOpenCalc(viewM);setViewM(null);}} variant="yellow"><Calculator size={13}/> Открыть в калькуляторе</Btn></div>
+      <div style={{marginTop:16}}><Btn onClick={()=>{onOpenCalc(viewM);setViewM(null);}} variant="yellow"><Calculator size={13}/> {t(bi("Открыть в калькуляторе","פתח במחשבון","Open in calculator"))}</Btn></div>
     </Modal>)}
     {/* EDIT/ADD */}
     {modal&&(<Modal title={editId?"✏️ Редактировать":"📐 Новый замер / По чертежу"} onClose={()=>setModal(false)} wide>
@@ -1446,17 +1446,17 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
       )}
       <SH title="👤 Клиент и объект"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Inp label="Имя клиента *" value={form.client} onChange={e=>setForm(f=>({...f,client:e.target.value}))}/>
-        <Inp label="Телефон" value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))}/>
+        <Inp label={t(bi("Имя клиента *","שם לקוח *","Client name *"))} value={form.client} onChange={e=>setForm(f=>({...f,client:e.target.value}))}/>
+        <Inp label={t(bi("Телефон","טלפון","Phone"))} value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))}/>
       </div>
-      <Inp label="Адрес объекта" value={form.address} onChange={e=>setForm(f=>({...f,address:e.target.value}))}/>
+      <Inp label={t(bi("Адрес объекта","כתובת האובייקט","Site address"))} value={form.address} onChange={e=>setForm(f=>({...f,address:e.target.value}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-        <Inp label="Дата" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} type="date"/>
-        <Inp label={form.mode==="По чертежу"?"Ответственный":"Специалист (выезд)"} value={form.specialist} onChange={e=>setForm(f=>({...f,specialist:e.target.value}))}/>
-        <Sel label="Статус" value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} options={MST.map(k=>({value:k,label:ts(k)}))}/>
+        <Inp label={t(bi("Дата","תאריך","Date"))} value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} type="date"/>
+        <Inp label={form.mode==="По чертежу"?t(bi("Ответственный","אחראי","Responsible")):t(bi("Специалист (выезд)","מומחה (ביקור)","Specialist (visit)"))} value={form.specialist} onChange={e=>setForm(f=>({...f,specialist:e.target.value}))}/>
+        <Sel label={t(bi("Статус","סטטוס","Status"))} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} options={MST.map(k=>({value:k,label:ts(k)}))}/>
       </div>
       {leads.length>0&&(<div style={{marginBottom:12}}>
-        <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>Привязать к лиду (авто-статус)</div>
+        <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>{t(bi("Привязать к лиду (авто-статус)","קשר ללייד (סטטוס אוטומטי)","Link to lead (auto-status)"))}</div>
         <select value={form.leadId} onChange={e=>{
           const lead=leads.find(l=>l.id===+e.target.value);
           setForm(f=>({...f,leadId:e.target.value?+e.target.value:"",
@@ -1488,17 +1488,17 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
         </div>))}
       </div>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-        <Btn onClick={addRow} variant="ghost" small><Plus size={12}/> Добавить проём</Btn>
+        <Btn onClick={addRow} variant="ghost" small><Plus size={12}/> {t(bi("Добавить проём","הוסף פתח","Add Opening"))}</Btn>
         <div style={{fontSize:12,color:D.muted}}>
           {form.openings.some(o=>o.width&&o.height)&&<><b style={{color:D.green}}>{form.openings.reduce((s,o)=>s+(parseFloat(o.width)||0)/100*(parseFloat(o.height)||0)/100*(parseInt(o.qty)||1),0).toFixed(2)} м²</b></>}
         </div>
       </div>
       <SH title="🔧 Монтаж"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-        <Sel label="Тип стены" value={form.wallType} onChange={e=>setForm(f=>({...f,wallType:e.target.value}))} options={WT.map(w=>({value:w.value,label:t(w.label)}))}/>
-        <Inp label="Этаж" value={form.floor} onChange={e=>setForm(f=>({...f,floor:e.target.value}))}/>
+        <Sel label={t(bi("Тип стены","סוג קיר","Wall type"))} value={form.wallType} onChange={e=>setForm(f=>({...f,wallType:e.target.value}))} options={WT.map(w=>({value:w.value,label:t(w.label)}))}/>
+        <Inp label={t(bi("Этаж","קומה","Floor"))} value={form.floor} onChange={e=>setForm(f=>({...f,floor:e.target.value}))}/>
         <div style={{marginBottom:12}}>
-          <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:8,textTransform:"uppercase"}}>Доп. работы</div>
+          <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:8,textTransform:"uppercase"}}>{t(bi("Доп. работы","עבודות נוספות","Additional work"))}</div>
           <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",marginBottom:6}}>
             <input type="checkbox" checked={form.demolition} onChange={e=>setForm(f=>({...f,demolition:e.target.checked}))} style={{accentColor:D.accent,width:15,height:15}}/>
             <span style={{fontSize:12,color:D.text}}>🔨 Демонтаж</span>
@@ -1509,11 +1509,11 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
           </label>
         </div>
       </div>
-      <Txa label="Заметки по монтажу" value={form.installNotes} onChange={e=>setForm(f=>({...f,installNotes:e.target.value}))}/>
+      <Txa label={t(bi("Заметки по монтажу","הערות להתקנה","Installation notes"))} value={form.installNotes} onChange={e=>setForm(f=>({...f,installNotes:e.target.value}))}/>
       <SH title="📎 Фото и файлы"/>
       <div style={{background:D.surface,border:`2px dashed ${D.border}`,borderRadius:12,padding:"12px 18px",marginBottom:10,textAlign:"center"}}>
-        <div style={{fontSize:12,color:D.muted,marginBottom:8}}>Фото, PDF, DWG, DXF, AutoCAD и любые другие форматы</div>
-        <Btn variant="teal" onClick={()=>{const fi=document.createElement("input");fi.type="file";fi.multiple=true;fi.accept="image/*,.pdf,.dwg,.dxf,.rvt,.skp,.ifc";fi.onchange=pickFiles;fi.click();}}><Paperclip size={13}/> Прикрепить файлы</Btn>
+        <div style={{fontSize:12,color:D.muted,marginBottom:8}}>{t(bi("Фото, PDF, DWG, DXF, AutoCAD и любые другие форматы","תמונות, PDF, DWG, DXF, AutoCAD וכל פורמט אחר","Photos, PDF, DWG, DXF, AutoCAD and any other format"))}</div>
+        <Btn variant="teal" onClick={()=>{const fi=document.createElement("input");fi.type="file";fi.multiple=true;fi.accept="image/*,.pdf,.dwg,.dxf,.rvt,.skp,.ifc";fi.onchange=pickFiles;fi.click();}}><Paperclip size={13}/> {t(bi("Прикрепить файлы","צרף קבצים","Attach files"))}</Btn>
       </div>
       {form.files.length>0&&(<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
         {form.files.map(f=>(<div key={f.id} style={{position:"relative",background:D.surface,border:`1px solid ${D.border}`,borderRadius:10,overflow:"hidden",width:f.isImage?100:180}}>
@@ -1527,8 +1527,8 @@ function Measurements({measurements,setMeasurements,onOpenCalc,leads,setLeads,on
         </div>))}
       </div>)}
       <div style={{display:"flex",gap:8,marginTop:8,paddingTop:14,borderTop:`1px solid ${D.border}`}}>
-        <Btn onClick={submit}><Check size={13}/> {editId?"Сохранить":"Создать"}</Btn>
-        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={submit}><Check size={13}/> {editId?t(bi("Сохранить","שמור","Save")):t(bi("Создать","צור","Create"))}</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">{t(bi("Отмена","ביטול","Cancel"))}</Btn>
       </div>
     </Modal>)}
   </div>);
@@ -2643,18 +2643,18 @@ function Installation({installations,setInstallations,orders,onClientClick}){
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Монтаж</div>
-        <div style={{fontSize:13,color:D.muted}}>{installations.length} объектов</div></div>
-      <Btn onClick={openAdd}><Plus size={13}/> Новый монтаж</Btn>
+      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>{t(bi("Монтаж","התקנה","Installation"))}</div>
+        <div style={{fontSize:13,color:D.muted}}>{installations.length} {t(bi("объектов","אובייקטים","objects"))}</div></div>
+      <Btn onClick={openAdd}><Plus size={13}/> {t(bi("Новый монтаж","התקנה חדשה","New Installation"))}</Btn>
     </div>
     {/* Stats */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
       <KCard icon={Clock} label={ts("inst_planned")} value={installations.filter(i=>migrateStatus(i.status)==="inst_planned").length} color={D.purple}/>
       <KCard icon={Wrench} label={ts("inst_progress")} value={installations.filter(i=>migrateStatus(i.status)==="inst_progress").length} color={D.accentLight}/>
       <KCard icon={Check} label={ts("inst_done")} value={installations.filter(i=>migrateStatus(i.status)==="inst_done").length} color={D.green}/>
-      <KCard icon={ClipboardCheck} label="Актов выдано" value={installations.filter(i=>migrateStatus(i.status)==="inst_done").length} color={D.teal}/>
+      <KCard icon={ClipboardCheck} label={t(bi("Актов выдано","תעודות הושלמו","Certificates issued"))} value={installations.filter(i=>migrateStatus(i.status)==="inst_done").length} color={D.teal}/>
     </div>
-    {installations.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:40,textAlign:"center",color:D.muted}}>Нет монтажей. Нажми «Новый монтаж» чтобы начать.</div>}
+    {installations.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:40,textAlign:"center",color:D.muted}}>{t(bi("Нет монтажей. Нажми «Новый монтаж» чтобы начать.","אין התקנות. לחץ «התקנה חדשה» כדי להתחיל.","No installations. Click «New Installation» to start."))}</div>}
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       {installations.map(inst=>{
         const done=doneCount(inst);
@@ -2674,8 +2674,8 @@ function Installation({installations,setInstallations,orders,onClientClick}){
                   border:`1px solid ${(SC[migrateStatus(inst.status)]||D.muted)}40`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
                 {IST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{ts(s)}</option>)}
               </select>
-              <Btn onClick={()=>setViewId(inst.id)} variant="teal" small><Eye size={12}/> Чек-лист</Btn>
-              <Btn onClick={()=>printAct(inst,ord)} variant="success" small><Download size={12}/> Акт PDF</Btn>
+              <Btn onClick={()=>setViewId(inst.id)} variant="teal" small><Eye size={12}/> {t(bi("Чек-лист","רשימת תיוג","Checklist"))}</Btn>
+              <Btn onClick={()=>printAct(inst,ord)} variant="success" small><Download size={12}/> {t(bi("Акт PDF","מסמך PDF","Act PDF"))}</Btn>
               <button onClick={()=>openEdit(inst)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}>✏️</button>
               <button onClick={()=>setInstallations(p=>p.filter(x=>x.id!==inst.id))} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:4}}><Trash2 size={13}/></button>
             </div>
@@ -2686,7 +2686,7 @@ function Installation({installations,setInstallations,orders,onClientClick}){
               <PBar value={pct} color={pct===100?D.green:D.purple}/>
             </div>
             <div style={{fontSize:11,color:D.muted}}>📸 до: {(inst.photosBefore||[]).length} · после: {(inst.photosAfter||[]).length}</div>
-            <div style={{fontSize:11,color:D.muted}}>{inst.completedDate?`✅ ${inst.completedDate}`:"Не завершён"}</div>
+            <div style={{fontSize:11,color:D.muted}}>{inst.completedDate?`✅ ${inst.completedDate}`:t(bi("Не завершён","לא הושלם","Not completed"))}</div>
           </div>
         </div>);
       })}
@@ -2711,14 +2711,14 @@ function Installation({installations,setInstallations,orders,onClientClick}){
           <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото до установки ({(viewInst.photosBefore||[]).length})</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
             {(viewInst.photosBefore||[]).map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
-            {(viewInst.photosBefore||[]).length===0&&<div style={{fontSize:11,color:D.muted}}>Нет фото</div>}
+            {(viewInst.photosBefore||[]).length===0&&<div style={{fontSize:11,color:D.muted}}>{t(bi("Нет фото","אין תמונות","No photos"))}</div>}
           </div>
           <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>Фото после установки ({(viewInst.photosAfter||[]).length})</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
             {(viewInst.photosAfter||[]).map(p=>(<img key={p.id} src={p.data} alt={p.name} style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:`1px solid ${D.border}`}}/>))}
-            {(viewInst.photosAfter||[]).length===0&&<div style={{fontSize:11,color:D.muted}}>Нет фото</div>}
+            {(viewInst.photosAfter||[]).length===0&&<div style={{fontSize:11,color:D.muted}}>{t(bi("Нет фото","אין תמונות","No photos"))}</div>}
           </div>
-          {viewInst.notes&&<div style={{marginTop:14,background:D.surface,borderRadius:8,padding:12,fontSize:12,color:D.muted}}><b style={{color:D.text}}>Заметки:</b> {viewInst.notes}</div>}
+          {viewInst.notes&&<div style={{marginTop:14,background:D.surface,borderRadius:8,padding:12,fontSize:12,color:D.muted}}><b style={{color:D.text}}>{t(bi("Заметки","הערות","Notes"))}:</b> {viewInst.notes}</div>}
           <div style={{marginTop:16,display:"flex",gap:8}}>
             <Btn onClick={()=>printAct(viewInst,linked(viewInst))} variant="success"><Download size={13}/> Акт PDF</Btn>
           </div>
@@ -2729,13 +2729,13 @@ function Installation({installations,setInstallations,orders,onClientClick}){
     {/* ADD/EDIT MODAL */}
     {modal&&(<Modal title={editId?"✏️ Редактировать монтаж":"🔧 Новый монтаж"} onClose={()=>setModal(false)} wide>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Inp label="Клиент *" value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
-        <Inp label="Телефон" value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
+        <Inp label={t(bi("Клиент *","לקוח *","Client *"))} value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
+        <Inp label={t(bi("Телефон","טלפון","Phone"))} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
       </div>
-      <Inp label="Адрес объекта" value={form.address} onChange={e=>setForm(p=>({...p,address:e.target.value}))}/>
+      <Inp label={t(bi("Адрес объекта","כתובת האובייקט","Site address"))} value={form.address} onChange={e=>setForm(p=>({...p,address:e.target.value}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
         <div style={{marginBottom:12}}>
-          <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>Привязать заказ</div>
+          <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>{t(bi("Привязать заказ","קשר הזמנה","Link order"))}</div>
           <select value={form.orderId} onChange={e=>{
             const ord=orders.find(o=>o.id===e.target.value);
             setForm(p=>({...p,orderId:e.target.value,client:ord?ord.client:p.client}));
@@ -2744,8 +2744,8 @@ function Installation({installations,setInstallations,orders,onClientClick}){
             {orders.map(o=><option key={o.id} value={o.id} style={{background:D.card}}>{o.id} · {o.client}</option>)}
           </select>
         </div>
-        <Inp label="Дата монтажа" value={form.scheduledDate} onChange={e=>setForm(p=>({...p,scheduledDate:e.target.value}))} type="date"/>
-        <Inp label="Специалист" value={form.specialist} onChange={e=>setForm(p=>({...p,specialist:e.target.value}))}/>
+        <Inp label={t(bi("Дата монтажа","תאריך התקנה","Installation date"))} value={form.scheduledDate} onChange={e=>setForm(p=>({...p,scheduledDate:e.target.value}))} type="date"/>
+        <Inp label={t(bi("Специалист","מומחה","Specialist"))} value={form.specialist} onChange={e=>setForm(p=>({...p,specialist:e.target.value}))}/>
       </div>
       {/* Checklist */}
       <div style={{marginBottom:12}}>
@@ -2763,34 +2763,34 @@ function Installation({installations,setInstallations,orders,onClientClick}){
       {/* Photos */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
         <div>
-          <div style={{fontSize:10,fontWeight:700,color:D.muted,textTransform:"uppercase",marginBottom:6}}>Фото ДО ({form.photosBefore.length})</div>
+          <div style={{fontSize:10,fontWeight:700,color:D.muted,textTransform:"uppercase",marginBottom:6}}>{t(bi("Фото ДО","תמונות לפני","Photos BEFORE"))} ({form.photosBefore.length})</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
             {form.photosBefore.map(p=>(<img key={p.id} src={p.data} alt="" style={{width:56,height:44,objectFit:"cover",borderRadius:5}}/>))}
           </div>
           <label style={{display:"inline-flex",alignItems:"center",gap:5,background:D.surface,border:`1px dashed ${D.border}`,borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,color:D.muted}}>
-            <Image size={12}/> Добавить
+            <Image size={12}/> {t(bi("Добавить","הוסף","Add"))}
             <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>pickPhotos(e,"photosBefore")}/>
           </label>
         </div>
         <div>
-          <div style={{fontSize:10,fontWeight:700,color:D.muted,textTransform:"uppercase",marginBottom:6}}>Фото ПОСЛЕ ({form.photosAfter.length})</div>
+          <div style={{fontSize:10,fontWeight:700,color:D.muted,textTransform:"uppercase",marginBottom:6}}>{t(bi("Фото ПОСЛЕ","תמונות אחרי","Photos AFTER"))} ({form.photosAfter.length})</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
             {form.photosAfter.map(p=>(<img key={p.id} src={p.data} alt="" style={{width:56,height:44,objectFit:"cover",borderRadius:5}}/>))}
           </div>
           <label style={{display:"inline-flex",alignItems:"center",gap:5,background:D.surface,border:`1px dashed ${D.border}`,borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,color:D.muted}}>
-            <Image size={12}/> Добавить
+            <Image size={12}/> {t(bi("Добавить","הוסף","Add"))}
             <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>pickPhotos(e,"photosAfter")}/>
           </label>
         </div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-        <Inp label="Дата завершения" value={form.completedDate} onChange={e=>setForm(p=>({...p,completedDate:e.target.value}))} type="date"/>
-        <Sel label="Статус" value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={IST.map(k=>({value:k,label:ts(k)}))}/>
+        <Inp label={t(bi("Дата завершения","תאריך השלמה","Completion date"))} value={form.completedDate} onChange={e=>setForm(p=>({...p,completedDate:e.target.value}))} type="date"/>
+        <Sel label={t(bi("Статус","סטטוס","Status"))} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))} options={IST.map(k=>({value:k,label:ts(k)}))}/>
       </div>
-      <Inp label="Заметки / Замечания" value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
+      <Inp label={t(bi("Заметки / Замечания","הערות / הארות","Notes / Remarks"))} value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={submit}><Check size={13}/> {editId?"Сохранить":"Создать"}</Btn>
-        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={submit}><Check size={13}/> {editId?t(bi("Сохранить","שמור","Save")):t(bi("Создать","צור","Create"))}</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">{t(bi("Отмена","ביטול","Cancel"))}</Btn>
       </div>
     </Modal>)}
   </div>);
@@ -2867,14 +2867,14 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
       <div>
-        <div style={{fontSize:22,fontWeight:900,color:D.text}}>Заказы</div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>{t(bi("Заказы","הזמנות","Orders"))}</div>
         <div style={{fontSize:13,color:D.muted}}>
-          {activeCount} активных · {completedCount} завершённых · {orders.length} всего
+          {activeCount} {t(bi("активных","פעיל","active"))} · {completedCount} {t(bi("завершённых","הושלם","completed"))} · {orders.length} {t(bi("всего","בסה״כ","total"))}
         </div>
       </div>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={()=>exportCSV(["ID","Клиент","Сумма","Оплачено","Статус"],orders.map(o=>[o.id,o.client,o.total,o.paid,o.status]),"заказы.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
-        <Btn onClick={()=>setModal(true)}><Plus size={13}/> Новый заказ</Btn>
+        <Btn onClick={()=>setModal(true)}><Plus size={13}/> {t(bi("Новый заказ","הזמנה חדשה","New Order"))}</Btn>
       </div>
     </div>
 
@@ -2882,11 +2882,11 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
     <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
       <div style={{position:"relative",flex:1,minWidth:200}}>
         <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
-        <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Поиск по клиенту или ID..."
+        <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder={t(bi("Поиск по клиенту или ID...","חיפוש לפי לקוח או ID...","Search by client or ID..."))}
           style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
             padding:"7px 10px 7px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
       </div>
-      {[["active",`Активные (${activeCount})`],["completed",`Завершённые (${completedCount})`],["all","Все"]].map(([f,l])=>(
+      {[["active",t(bi("Активные","פעילות","Active"))+" ("+activeCount+")"],["completed",t(bi("Завершённые","הושלמו","Completed"))+" ("+completedCount+")"],["all",t(bi("Все","הכל","All"))]].map(([f,l])=>(
         <button key={f} onClick={()=>{setFilter(f);setPage(1);}}
           style={{padding:"6px 14px",borderRadius:8,border:`1px solid ${filter===f?D.accent:D.border}`,
             background:filter===f?D.accent+"20":"transparent",color:filter===f?D.accentLight:D.muted,
@@ -2898,7 +2898,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
 
     {filtered.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,
       padding:40,textAlign:"center",color:D.muted}}>
-      {filter==="completed"?"Нет завершённых заказов":"Нет заказов"}
+      {filter==="completed"?t(bi("Нет завершённых заказов","אין הזמנות שהושלמו","No completed orders")):t(bi("Нет заказов","אין הזמנות","No orders"))}
     </div>}
 
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -2947,19 +2947,19 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
 
           {/* Financials */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 2fr",gap:16,alignItems:"center",marginBottom:12}}>
-            {[["Сумма КП",fmt(o.total),D.text],["Получено",fmt(o.paid),D.green],
-              ["Остаток",fmt(debt),debt>0?D.yellow:D.green]].map(([l,v,c])=>(
+            {[[t(bi("Сумма КП","סכום הצעה","Quote total")),fmt(o.total),D.text],[t(bi("Получено","התקבל","Received")),fmt(o.paid),D.green],
+              [t(bi("Остаток","יתרה","Balance")),fmt(debt),debt>0?D.yellow:D.green]].map(([l,v,c])=>(
               <div key={l}><div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>{l}</div>
                 <div style={{fontSize:18,fontWeight:800,color:c}}>{v}</div></div>
             ))}
-            <div><div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Прогресс {o.progress}%</div>
+            <div><div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>{t(bi("Прогресс","התקדמות","Progress"))} {o.progress}%</div>
               <PBar value={o.progress} color={o.progress===100?D.green:o.progress>50?D.purple:D.accent}/></div>
           </div>
 
           {/* Payments list with edit/delete */}
           {orderPays.length>0&&(<div style={{background:D.surface,borderRadius:10,padding:"8px 12px",marginBottom:10}}>
             <div style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:6}}>
-              Платежи по заказу
+              {t(bi("Платежи по заказу","תשלומים להזמנה","Payments for order"))}
             </div>
             {orderPays.map(pay=>(
               <div key={pay.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
@@ -2989,7 +2989,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
 
           {/* P&L Panel */}
           {plModal===o.id&&(<div style={{marginTop:4,borderTop:`1px solid ${D.border}`,paddingTop:16}}>
-            <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:12}}>📊 P&L — Реальные затраты</div>
+            <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:12}}>📊 P&L — {t(bi("Реальные затраты","עלויות אמיתיות","Actual costs"))}</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:14}}>
               {[["💰 Материалы ₪","materialsCost"],["👷 Труд / субподряд ₪","laborCost"],["🔧 Доп. расходы ₪","extrasCost"]].map(([l,k])=>(
                 <div key={k}>
@@ -3002,12 +3002,12 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
               <div style={{background:hasPl?(profit>=0?D.green+"15":D.red+"15"):D.surface,
                 border:`1px solid ${hasPl?(profit>=0?D.green:D.red)+"40":D.border}`,
                 borderRadius:10,padding:"10px 12px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
-                <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Прибыль (факт)</div>
+                <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>{t(bi("Прибыль (факт)","רווח (בפועל)","Profit (actual)"))}</div>
                 <div style={{fontSize:20,fontWeight:900,color:hasPl?(profit>=0?D.green:D.red):D.muted}}>{hasPl?fmt(profit):"—"}</div>
-                {hasPl&&<div style={{fontSize:11,color:D.muted,marginTop:2}}>Маржа {margin}%</div>}
+                {hasPl&&<div style={{fontSize:11,color:D.muted,marginTop:2}}>{t(bi("Маржа","מרווח","Margin"))} {margin}%</div>}
               </div>
             </div>
-            <input placeholder="Заметки по затратам..." value={pl.notes} onChange={e=>setPl(o.id,"notes",e.target.value)}
+            <input placeholder={t(bi("Заметки по затратам...","הערות על עלויות...","Cost notes..."))} value={pl.notes} onChange={e=>setPl(o.id,"notes",e.target.value)}
               style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,
                 padding:"7px 12px",color:D.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
           </div>)}
@@ -3020,7 +3020,7 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
       <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}
         style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:7,padding:"6px 12px",
           cursor:page===1?"default":"pointer",color:page===1?D.muted:D.text,opacity:page===1?0.4:1}}>
-        ← Назад
+        ← {t(bi("Назад","חזרה","Back"))}
       </button>
       {Array.from({length:totalPages},(_,i)=>i+1).map(n=>(
         <button key={n} onClick={()=>setPage(n)}
@@ -3034,27 +3034,27 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
         style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:7,padding:"6px 12px",
           cursor:page===totalPages?"default":"pointer",color:page===totalPages?D.muted:D.text,
           opacity:page===totalPages?0.4:1}}>
-        Вперёд →
+        {t(bi("Вперёд","קדימה","Next"))} →
       </button>
-      <span style={{fontSize:11,color:D.muted}}>Стр. {page} из {totalPages} · {filtered.length} заказов</span>
+      <span style={{fontSize:11,color:D.muted}}>{t(bi("Стр.","עמ'","Page"))} {page} {t(bi("из","מתוך","of"))} {totalPages} · {filtered.length} {t(bi("заказов","הזמנות","orders"))}</span>
     </div>)}
 
     {modal&&(<Modal title="📦 Новый заказ" onClose={()=>setModal(false)}>
-      <Inp label="Клиент *" value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
+      <Inp label={t(bi("Клиент *","לקוח *","Client *"))} value={form.client} onChange={e=>setForm(p=>({...p,client:e.target.value}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Inp label="Город" value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
-        <Inp label="Кол-во окон" value={form.windows} onChange={e=>setForm(p=>({...p,windows:e.target.value}))} type="number"/>
+        <Inp label={t(bi("Город","עיר","City"))} value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
+        <Inp label={t(bi("Кол-во окон","כמות חלונות","Windows count"))} value={form.windows} onChange={e=>setForm(p=>({...p,windows:e.target.value}))} type="number"/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Inp label="Сумма ₪ *" value={form.total} onChange={e=>setForm(p=>({...p,total:e.target.value}))} type="number"/>
-        <Inp label="Дата сдачи" value={form.delivery} onChange={e=>setForm(p=>({...p,delivery:e.target.value}))} type="date"/>
+        <Inp label={t(bi("Сумма ₪ *","סכום ₪ *","Amount ₪ *"))} value={form.total} onChange={e=>setForm(p=>({...p,total:e.target.value}))} type="number"/>
+        <Inp label={t(bi("Дата сдачи","תאריך מסירה","Delivery date"))} value={form.delivery} onChange={e=>setForm(p=>({...p,delivery:e.target.value}))} type="date"/>
       </div>
       {form.total&&<div style={{background:D.surface,borderRadius:8,padding:12,marginBottom:12,fontSize:12,color:D.muted}}>
-        Предоплата 40%: <b style={{color:D.green}}>{fmt(+form.total*0.4)}</b> · Остаток: <b style={{color:D.yellow}}>{fmt(+form.total*0.6)}</b>
+        {t(bi("Предоплата 40%","מקדמה 40%","Deposit 40%"))}: <b style={{color:D.green}}>{fmt(+form.total*0.4)}</b> · {t(bi("Остаток","יתרה","Balance"))}: <b style={{color:D.yellow}}>{fmt(+form.total*0.6)}</b>
       </div>}
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={addOrder}><Check size={13}/> Создать</Btn>
-        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={addOrder}><Check size={13}/> {t(bi("Создать","צור","Create"))}</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">{t(bi("Отмена","ביטול","Cancel"))}</Btn>
       </div>
     </Modal>)}
   </div>);
@@ -3069,12 +3069,12 @@ function Inventory({inventory,setInventory}){
   const upd=(id,d)=>setInventory(p=>p.map(i=>i.id===id?{...i,qty:Math.max(0,i.qty+d)}:i));
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>Склад</div>
-        <div style={{fontSize:13,color:D.muted}}>{inventory.length} позиций {low.length>0&&<span style={{color:D.yellow}}>· ⚠️ {low.length} нужно закупить</span>}</div></div>
+      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>{t(bi("Склад","מלאי","Inventory"))}</div>
+        <div style={{fontSize:13,color:D.muted}}>{inventory.length} {t(bi("позиций","פריטים","items"))} {low.length>0&&<span style={{color:D.yellow}}>· ⚠️ {low.length} {t(bi("нужно закупить","צריך להזמין","need to order"))}</span>}</div></div>
       <Btn onClick={()=>exportCSV(["Наименование","Ед.","Кол","Мин","Цена"],inventory.map(i=>[i.name,i.unit,i.qty,i.minQty,i.price]),"склад.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
     </div>
     {low.length>0&&(<div style={{background:D.yellow+"15",border:`1px solid ${D.yellow}40`,borderRadius:12,padding:"12px 16px",marginBottom:16}}>
-      <div style={{fontSize:11,fontWeight:800,color:D.yellow,marginBottom:6}}>⚠️ ТРЕБУЕТСЯ ЗАКУПКА</div>
+      <div style={{fontSize:11,fontWeight:800,color:D.yellow,marginBottom:6}}>⚠️ {t(bi("ТРЕБУЕТСЯ ЗАКУПКА","נדרשת הזמנה","REORDER REQUIRED"))}</div>
       <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
         {low.map(i=><span key={i.id} style={{background:D.yellow+"20",border:`1px solid ${D.yellow}40`,borderRadius:6,padding:"2px 8px",fontSize:11,color:D.yellow,fontWeight:700}}>{i.name}: {i.qty}/{i.minQty}</span>)}
       </div>
@@ -3698,17 +3698,17 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
 
   return(<div>
     <div style={{marginBottom:22}}>
-      <div style={{fontSize:22,fontWeight:900,color:D.text}}>P&L · Финансы</div>
-      <div style={{fontSize:13,color:D.muted}}>Прибыль, затраты, точка безубыточности</div>
+      <div style={{fontSize:22,fontWeight:900,color:D.text}}>P&L · {t(bi("Финансы","כספים","Finance"))}</div>
+      <div style={{fontSize:13,color:D.muted}}>{t(bi("Прибыль, затраты, точка безубыточности","רווח, עלויות, נקודת איזון","Profit, costs, breakeven"))}</div>
     </div>
 
     {/* Top summary */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
       {[
-        ["Выручка (КП)",fmt(totalRevenue),D.text,"💼"],
-        ["Получено",fmt(totalPaid),D.green,"💰"],
-        ["Постоянные затраты",fmt(totalFixed),D.red,"🏢"],
-        ["Чистая прибыль",fmt(netProfit),netProfit>=0?D.green:D.red,"📊"],
+        [t(bi("Выручка (КП)","הכנסות (הצעה)","Revenue (Quote)")),fmt(totalRevenue),D.text,"💼"],
+        [t(bi("Получено","התקבל","Received")),fmt(totalPaid),D.green,"💰"],
+        [t(bi("Постоянные затраты","עלויות קבועות","Fixed costs")),fmt(totalFixed),D.red,"🏢"],
+        [t(bi("Чистая прибыль","רווח נקי","Net profit")),fmt(netProfit),netProfit>=0?D.green:D.red,"📊"],
       ].map(([l,v,c,ico])=>(
         <div key={l} style={{background:D.card,border:`1px solid ${c==="D.text"?D.border:c+"30"}`,
           borderRadius:14,padding:"14px 16px",borderTop:`3px solid ${c}`}}>
@@ -3723,7 +3723,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
       {/* Fixed Costs */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
         <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:14}}>
-          🏢 Постоянные затраты в месяц
+          🏢 {t(bi("Постоянные затраты в месяц","עלויות קבועות לחודש","Fixed monthly costs"))}
           <span style={{marginLeft:8,color:D.red,fontWeight:900}}>{fmt(totalFixed)}</span>
         </div>
         {fixedCosts.map(c=>(
@@ -3747,7 +3747,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
         {/* Add new */}
         <div style={{display:"flex",gap:6,marginTop:10}}>
           <input value={newCost.name} onChange={e=>setNewCost(p=>({...p,name:e.target.value}))}
-            placeholder="Название затраты..."
+            placeholder={t(bi("Название затраты...","שם העלות...","Cost name..."))}
             style={{flex:1,background:D.bg,border:`1px solid ${D.border}`,borderRadius:7,
               padding:"6px 10px",color:D.text,fontSize:12,outline:"none"}}/>
           <input type="number" value={newCost.amount} onChange={e=>setNewCost(p=>({...p,amount:e.target.value}))}
@@ -3765,7 +3765,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
       {/* Breakeven */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
         <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:16}}>
-          🎯 Точка безубыточности
+          🎯 {t(bi("Точка безубыточности","נקודת איזון","Breakeven point"))}
         </div>
         {/* Gauge */}
         <div style={{textAlign:"center",marginBottom:20}}>
@@ -3777,16 +3777,16 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
               stroke={gaugeColor} strokeWidth="16" strokeLinecap="round"
               strokeDasharray={`${breakevenPct*2.51} 251`}/>}
             <text x="100" y="78" textAnchor="middle" style={{fontSize:"28px",fontWeight:900,fill:gaugeColor}}>{breakevenPct}%</text>
-            <text x="100" y="98" textAnchor="middle" style={{fontSize:"11px",fill:"#64748b"}}>выполнение плана</text>
+            <text x="100" y="98" textAnchor="middle" style={{fontSize:"11px",fill:"#64748b"}}>{t(bi("выполнение плана","ביצוע תוכנית","plan completion"))}</text>
             <text x="20" y="112" textAnchor="middle" style={{fontSize:"9px",fill:"#94a3b8"}}>0</text>
             <text x="180" y="112" textAnchor="middle" style={{fontSize:"9px",fill:"#94a3b8"}}>100%</text>
           </svg>
         </div>
         {[
-          ["Нужно выручки",fmt(breakevenRevenue),D.yellow],
-          ["Получено",fmt(totalPaid),D.green],
-          ["До безубыточности",fmt(Math.max(0,breakevenRevenue-totalPaid)),netProfit>=0?D.green:D.red],
-          ["Мин. заказов/мес",breakevenOrders+" шт",D.accentLight],
+          [t(bi("Нужно выручки","נדרשות הכנסות","Revenue needed")),fmt(breakevenRevenue),D.yellow],
+          [t(bi("Получено","התקבל","Received")),fmt(totalPaid),D.green],
+          [t(bi("До безубыточности","עד נקודת איזון","To breakeven")),fmt(Math.max(0,breakevenRevenue-totalPaid)),netProfit>=0?D.green:D.red],
+          [t(bi("Мин. заказов/мес","הזמנות מינ./חודש","Min. orders/month")),breakevenOrders+" "+t(bi("шт","יח'","pcs")),D.accentLight],
         ].map(([l,v,c])=>(
           <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8,padding:"5px 0",borderBottom:`1px solid ${D.border}`}}>
             <span style={{fontSize:11,color:D.muted}}>{l}</span>
@@ -3802,14 +3802,14 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
     {/* Monthly Goals */}
     <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20,marginBottom:16}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>🎯 Цели на месяц</div>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>🎯 {t(bi("Цели на месяц","יעדים לחודש","Monthly Goals"))}</div>
         <Btn onClick={()=>{setGoalForm({...goals});setEditGoals(!editGoals);}} variant="ghost" small>
-          {editGoals?"✓ Сохранить":"✏️ Изменить"}
+          {editGoals?"✓ "+t(bi("Сохранить","שמור","Save")):"✏️ "+t(bi("Изменить","ערוך","Edit"))}
         </Btn>
       </div>
       {editGoals?(
         <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:10}}>
-          {[["Лиды","leads"],["Замеры","measures"],["Заказы","orders"],["Выручка ₪","revenue"],["Маржа %","margin"]].map(([l,k])=>(
+          {[[t(bi("Лиды","לידים","Leads")),"leads"],[t(bi("Замеры","מדידות","Measurements")),"measures"],[t(bi("Заказы","הזמנות","Orders")),"orders"],[t(bi("Выручка ₪","הכנסות ₪","Revenue ₪")),"revenue"],[t(bi("Маржа %","מרווח %","Margin %")),"margin"]].map(([l,k])=>(
             <div key={k}>
               <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>{l}</div>
               <input type="number" value={goalForm[k]}
@@ -3820,22 +3820,22 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
           ))}
         </div>
       ):null}
-      {editGoals&&<Btn onClick={()=>{setGoals(goalForm);setEditGoals(false);}} small><Check size={12}/> Сохранить цели</Btn>}
+      {editGoals&&<Btn onClick={()=>{setGoals(goalForm);setEditGoals(false);}} small><Check size={12}/> {t(bi("Сохранить цели","שמור יעדים","Save goals"))}</Btn>}
       {!editGoals&&(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <div>
-          <GoalBar label="👤 Лидов" current={fLeads} target={goals.leads} color={D.accentLight}/>
-          <GoalBar label="📐 Замеров" current={fMeasures} target={goals.measures} color={D.purple}/>
-          <GoalBar label="📦 Заказов" current={fOrders} target={goals.orders} color={D.yellow}/>
+          <GoalBar label={"👤 "+t(bi("Лидов","לידים","Leads"))} current={fLeads} target={goals.leads} color={D.accentLight}/>
+          <GoalBar label={"📐 "+t(bi("Замеров","מדידות","Measurements"))} current={fMeasures} target={goals.measures} color={D.purple}/>
+          <GoalBar label={"📦 "+t(bi("Заказов","הזמנות","Orders"))} current={fOrders} target={goals.orders} color={D.yellow}/>
         </div>
         <div>
-          <GoalBar label="💰 Выручка" current={totalPaid} target={goals.revenue} color={D.green} fmt={fmt}/>
+          <GoalBar label={"💰 "+t(bi("Выручка","הכנסות","Revenue"))} current={totalPaid} target={goals.revenue} color={D.green} fmt={fmt}/>
           <div style={{marginTop:16,background:D.surface,borderRadius:10,padding:14}}>
-            <div style={{fontSize:11,color:D.muted,marginBottom:8}}>📊 Итог месяца</div>
+            <div style={{fontSize:11,color:D.muted,marginBottom:8}}>📊 {t(bi("Итог месяца","סיכום חודשי","Monthly summary"))}</div>
             {[
-              ["Выручка получена",fmt(totalPaid),D.green],
-              ["Постоянные затраты",fmt(totalFixed),D.red],
-              ["Валовая прибыль (~35%)",fmt(grossProfit),D.accentLight],
-              ["Чистая прибыль",fmt(netProfit),netProfit>=0?D.green:D.red],
+              [t(bi("Выручка получена","הכנסות שהתקבלו","Revenue received")),fmt(totalPaid),D.green],
+              [t(bi("Постоянные затраты","עלויות קבועות","Fixed costs")),fmt(totalFixed),D.red],
+              [t(bi("Валовая прибыль (~35%)","רווח גולמי (~35%)","Gross profit (~35%)")),fmt(grossProfit),D.accentLight],
+              [t(bi("Чистая прибыль","רווח נקי","Net profit")),fmt(netProfit),netProfit>=0?D.green:D.red],
             ].map(([l,v,c])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
                 <span style={{fontSize:11,color:D.muted}}>{l}</span>
@@ -3855,21 +3855,21 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
       if(overdue.length===0&&todayFu.length===0)return null;
       return(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
         <div style={{fontSize:12,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:14}}>
-          🔔 Follow-up напоминания
+          🔔 {t(bi("Follow-up напоминания","תזכורות follow-up","Follow-up reminders"))}
         </div>
         {overdue.length>0&&(<div style={{marginBottom:12}}>
-          <div style={{fontSize:11,fontWeight:700,color:D.red,marginBottom:8}}>🔴 Просрочено ({overdue.length})</div>
+          <div style={{fontSize:11,fontWeight:700,color:D.red,marginBottom:8}}>🔴 {t(bi("Просрочено","באיחור","Overdue"))} ({overdue.length})</div>
           {overdue.map(l=>(
             <div key={l.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
               padding:"8px 12px",background:D.red+"10",border:`1px solid ${D.red}30`,borderRadius:8,marginBottom:6}}>
               <div>
                 <div style={{fontSize:12,fontWeight:700,color:D.text}}>{l.name}</div>
-                <div style={{fontSize:10,color:D.muted}}>{l.status} · Должен был: {l.followUp}</div>
+                <div style={{fontSize:10,color:D.muted}}>{l.status} · {t(bi("Должен был","היה צריך להיות","Should have been"))}: {l.followUp}</div>
               </div>
               <div style={{display:"flex",gap:6}}>
                 {l.phone&&<a href={`tel:${l.phone}`} style={{background:D.green+"20",border:`1px solid ${D.green}40`,
                   borderRadius:6,padding:"4px 8px",color:D.green,fontSize:11,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>
-                  <Phone size={11}/>Звонок
+                  <Phone size={11}/>{t(bi("Звонок","שיחה","Call"))}
                 </a>}
                 {l.phone&&<a href={`https://wa.me/${l.phone.replace(/[^0-9]/g,"").replace(/^0/,"972")}`}
                   target="_blank" rel="noreferrer"
@@ -3882,7 +3882,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
           ))}
         </div>)}
         {todayFu.length>0&&(<div>
-          <div style={{fontSize:11,fontWeight:700,color:D.yellow,marginBottom:8}}>🟡 Сегодня ({todayFu.length})</div>
+          <div style={{fontSize:11,fontWeight:700,color:D.yellow,marginBottom:8}}>🟡 {t(bi("Сегодня","היום","Today"))} ({todayFu.length})</div>
           {todayFu.map(l=>(
             <div key={l.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
               padding:"8px 12px",background:D.yellow+"10",border:`1px solid ${D.yellow}30`,borderRadius:8,marginBottom:6}}>
@@ -3893,7 +3893,7 @@ function FinancePL({orders,payments,leads,measurements,kpi}){
               <div style={{display:"flex",gap:6}}>
                 {l.phone&&<a href={`tel:${l.phone}`} style={{background:D.green+"20",border:`1px solid ${D.green}40`,
                   borderRadius:6,padding:"4px 8px",color:D.green,fontSize:11,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>
-                  <Phone size={11}/>Звонок
+                  <Phone size={11}/>{t(bi("Звонок","שיחה","Call"))}
                 </a>}
               </div>
             </div>
@@ -4087,36 +4087,36 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
 
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>KPI & Аналитика</div>
-        <div style={{fontSize:13,color:D.muted}}>Реальные данные + история</div></div>
+      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>KPI & {t(bi("Аналитика","אנליטיקה","Analytics"))}</div>
+        <div style={{fontSize:13,color:D.muted}}>{t(bi("Реальные данные + история","נתונים אמיתיים + היסטוריה","Real data + history"))}</div></div>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={exportExcel} variant="success"><Download size={13}/> Excel</Btn>
-        <Btn onClick={()=>setModal(true)}><Plus size={13}/> Добавить месяц</Btn>
+        <Btn onClick={()=>setModal(true)}><Plus size={13}/> {t(bi("Добавить месяц","הוסף חודש","Add month"))}</Btn>
       </div>
     </div>
 
     {/* Real-time KPIs */}
     <div style={{background:D.card,border:`1px solid ${D.accentLight}30`,borderRadius:14,padding:16,marginBottom:20}}>
       <div style={{fontSize:11,fontWeight:800,color:D.accentLight,textTransform:"uppercase",marginBottom:14}}>
-        📊 Реальные показатели (из системы)
+        📊 {t(bi("Реальные показатели (из системы)","מדדים אמיתיים (מהמערכת)","Real metrics (from system)"))}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>
-        <KCard icon={Users} label="Лидов всего" value={fLeads} color={D.accentLight}/>
-        <KCard icon={Ruler} label="Замеров" value={fMeasured} color={D.purple}/>
-        <KCard icon={ShoppingCart} label="Заказов" value={fOrders} color={D.yellow}/>
-        <KCard icon={DollarSign} label="Получено" value={fmt(totalPaid)} color={D.green}/>
+        <KCard icon={Users} label={t(bi("Лидов всего","לידים סה״כ","Total leads"))} value={fLeads} color={D.accentLight}/>
+        <KCard icon={Ruler} label={t(bi("Замеров","מדידות","Measurements"))} value={fMeasured} color={D.purple}/>
+        <KCard icon={ShoppingCart} label={t(bi("Заказов","הזמנות","Orders"))} value={fOrders} color={D.yellow}/>
+        <KCard icon={DollarSign} label={t(bi("Получено","התקבל","Received"))} value={fmt(totalPaid)} color={D.green}/>
       </div>
     </div>
 
     {/* Funnel conversion */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:20}}>
-        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:16}}>🎯 ВОРОНКА КОНВЕРСИИ</div>
+        <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:16}}>🎯 {t(bi("ВОРОНКА КОНВЕРСИИ","משפך המרה","CONVERSION FUNNEL"))}</div>
         {[
-          {label:"Лиды",value:fLeads,color:D.accentLight},
-          {label:"Замеры",value:fMeasured,color:D.purple},
-          {label:"Заказы",value:fOrders,color:D.yellow},
-          {label:"Закрыто (выиграли)",value:fWon,color:D.green},
+          {label:t(bi("Лиды","לידים","Leads")),value:fLeads,color:D.accentLight},
+          {label:t(bi("Замеры","מדידות","Measurements")),value:fMeasured,color:D.purple},
+          {label:t(bi("Заказы","הזמנות","Orders")),value:fOrders,color:D.yellow},
+          {label:t(bi("Закрыто (выиграли)","נסגר (ניצחנו)","Closed (won)")),value:fWon,color:D.green},
         ].map(({label,value,color})=>(
           <div key={label} style={{marginBottom:14}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
@@ -4132,9 +4132,9 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
         {/* Conversion rates */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginTop:8}}>
           {[
-            ["Лид→Замер",convLM+"%",D.purple],
-            ["Замер→Заказ",convMO+"%",D.yellow],
-            ["Лид→Заказ",convLO+"%",D.green],
+            [t(bi("Лид→Замер","ליד→מדידה","Lead→Meas.")),convLM+"%",D.purple],
+            [t(bi("Замер→Заказ","מדידה→הזמנה","Meas.→Order")),convMO+"%",D.yellow],
+            [t(bi("Лид→Заказ","ליד→הזמנה","Lead→Order")),convLO+"%",D.green],
             ["Win Rate",winRate+"%",D.teal],
           ].map(([l,v,c])=>(
             <div key={l} style={{background:D.surface,borderRadius:8,padding:"8px 6px",textAlign:"center"}}>
@@ -4148,12 +4148,12 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         {/* Avg deal + pipeline */}
         <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>💰 ФИНАНСЫ</div>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>💰 {t(bi("ФИНАНСЫ","כספים","FINANCIALS"))}</div>
           {[
-            ["Средний чек",fmt(avgDeal),D.yellow],
-            ["Контрактов",fmt(totalContracted),D.text],
-            ["Получено",fmt(totalPaid),D.green],
-            ["Ожидается",fmt(totalContracted-totalPaid),D.yellow],
+            [t(bi("Средний чек","עסקה ממוצעת","Avg. deal")),fmt(avgDeal),D.yellow],
+            [t(bi("Контрактов","חוזים","Contracts")),fmt(totalContracted),D.text],
+            [t(bi("Получено","התקבל","Received")),fmt(totalPaid),D.green],
+            [t(bi("Ожидается","ממתין","Pending")),fmt(totalContracted-totalPaid),D.yellow],
           ].map(([l,v,c])=>(
             <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
               <span style={{fontSize:11,color:D.muted}}>{l}</span>
@@ -4164,7 +4164,7 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
 
         {/* Source breakdown */}
         {sources.length>0&&(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
-          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>📣 ИСТОЧНИКИ ЛИДОВ</div>
+          <div style={{fontSize:12,fontWeight:800,color:D.muted,marginBottom:12}}>📣 {t(bi("ИСТОЧНИКИ ЛИДОВ","מקורות לידים","LEAD SOURCES"))}</div>
           {sources.slice(0,5).map(([src,cnt])=>(
             <div key={src} style={{marginBottom:8}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
@@ -4211,7 +4211,7 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
       </div>
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",padding:"8px 14px",background:D.surface,gap:10}}>
-          {["Месяц","Лиды","Замеры","Заказы","Выручка","Себест.","OPEX","EBITDA"].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
+          {[t(bi("Месяц","חודש","Month")),t(bi("Лиды","לידים","Leads")),t(bi("Замеры","מדידות","Meas.")),t(bi("Заказы","הזמנות","Orders")),t(bi("Выручка","הכנסות","Revenue")),t(bi("Себест.","עלות","COGS")),"OPEX","EBITDA"].map((h,i)=>(<div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
         </div>
         {kpi.map((d,i)=>{const e=d.revenue-d.cogs-d.opex;return(
           <div key={i} style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",padding:"10px 14px",gap:10,
@@ -4228,16 +4228,16 @@ function KPI({kpi,setKpi,leads,measurements,orders,payments}){
     {modal&&(<Modal title="📅 Добавить месяц" onClose={()=>setModal(false)}>
       <Sel label="Месяц" value={form.month} onChange={e=>setForm(p=>({...p,month:e.target.value}))} options={["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"]}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Inp label="Лидов" value={form.leads} onChange={e=>setForm(p=>({...p,leads:e.target.value}))} type="number"/>
-        <Inp label="Замеров" value={form.measures} onChange={e=>setForm(p=>({...p,measures:e.target.value}))} type="number"/>
-        <Inp label="Заказов" value={form.orders} onChange={e=>setForm(p=>({...p,orders:e.target.value}))} type="number"/>
-        <Inp label="Выручка ₪" value={form.revenue} onChange={e=>setForm(p=>({...p,revenue:e.target.value}))} type="number"/>
-        <Inp label="Себестоимость ₪" value={form.cogs} onChange={e=>setForm(p=>({...p,cogs:e.target.value}))} type="number"/>
+        <Inp label={t(bi("Лидов","לידים","Leads"))} value={form.leads} onChange={e=>setForm(p=>({...p,leads:e.target.value}))} type="number"/>
+        <Inp label={t(bi("Замеров","מדידות","Measurements"))} value={form.measures} onChange={e=>setForm(p=>({...p,measures:e.target.value}))} type="number"/>
+        <Inp label={t(bi("Заказов","הזמנות","Orders"))} value={form.orders} onChange={e=>setForm(p=>({...p,orders:e.target.value}))} type="number"/>
+        <Inp label={t(bi("Выручка ₪","הכנסות ₪","Revenue ₪"))} value={form.revenue} onChange={e=>setForm(p=>({...p,revenue:e.target.value}))} type="number"/>
+        <Inp label={t(bi("Себестоимость ₪","עלות ₪","COGS ₪"))} value={form.cogs} onChange={e=>setForm(p=>({...p,cogs:e.target.value}))} type="number"/>
         <Inp label="OPEX ₪" value={form.opex} onChange={e=>setForm(p=>({...p,opex:e.target.value}))} type="number"/>
       </div>
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={addMonth}><Check size={13}/> Добавить</Btn>
-        <Btn onClick={()=>setModal(false)} variant="ghost">Отмена</Btn>
+        <Btn onClick={addMonth}><Check size={13}/> {t(bi("Добавить","הוסף","Add"))}</Btn>
+        <Btn onClick={()=>setModal(false)} variant="ghost">{t(bi("Отмена","ביטול","Cancel"))}</Btn>
       </div>
     </Modal>)}
   </div>);
@@ -4336,8 +4336,8 @@ function Quotes({quotes,setQuotes,onClientClick}){
   return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
       <div>
-        <div style={{fontSize:22,fontWeight:900,color:D.text}}>КП — История</div>
-        <div style={{fontSize:13,color:D.muted}}>{quotes.length} предложений сохранено</div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>{t(bi("КП — История","היסטוריית הצעות","Quote History"))}</div>
+        <div style={{fontSize:13,color:D.muted}}>{quotes.length} {t(bi("предложений сохранено","הצעות שמורות","quotes saved"))}</div>
       </div>
       <Btn onClick={()=>exportCSV(
         ["ID","Клиент","Дата","Сумма","Статус","Позиций"],
@@ -4348,10 +4348,10 @@ function Quotes({quotes,setQuotes,onClientClick}){
     {/* Stats */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
       {[
-        ["Всего КП",quotes.length,D.accentLight],
-        ["Принято",quotes.filter(q=>q.status==="Принято").length,D.green],
-        ["Ожидают ответа",quotes.filter(q=>q.status==="Отправлено").length,D.yellow],
-        ["Сумма принятых",fmt(quotes.filter(q=>q.status==="Принято").reduce((s,q)=>s+q.total,0)),D.teal],
+        [t(bi("Всего КП","סה\"כ הצעות","Total Quotes")),quotes.length,D.accentLight],
+        [t(bi("Принято","התקבלו","Accepted")),quotes.filter(q=>q.status==="Принято").length,D.green],
+        [t(bi("Ожидают ответа","ממתינות לתשובה","Awaiting Response")),quotes.filter(q=>q.status==="Отправлено").length,D.yellow],
+        [t(bi("Сумма принятых","סכום שהתקבל","Accepted Total")),fmt(quotes.filter(q=>q.status==="Принято").reduce((s,q)=>s+q.total,0)),D.teal],
       ].map(([l,v,c])=>(
         <div key={l} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:12,padding:"12px 16px"}}>
           <div style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:4}}>{l}</div>
@@ -4364,7 +4364,7 @@ function Quotes({quotes,setQuotes,onClientClick}){
     <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
       <div style={{position:"relative",flex:1,minWidth:200}}>
         <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по клиенту или ID..."
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t(bi("Поиск по клиенту или ID...","חיפוש לפי לקוח או ID...","Search by client or ID..."))}
           style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
             padding:"7px 10px 7px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
       </div>
@@ -4378,7 +4378,7 @@ function Quotes({quotes,setQuotes,onClientClick}){
 
     {/* List */}
     {filtered.length===0&&<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,
-      padding:40,textAlign:"center",color:D.muted}}>Нет сохранённых КП. Создай КП в Калькуляторе и нажми «Сохранить КП».</div>}
+      padding:40,textAlign:"center",color:D.muted}}>{t(bi("Нет сохранённых КП. Создай КП в Калькуляторе и нажми «Сохранить КП».","אין הצעות שמורות. צור הצעה במחשבון ולחץ «שמור הצעה».","No saved quotes. Create a quote in the Calculator and click «Save Quote»."))}</div>}
     <div style={{display:"flex",flexDirection:"column",gap:10}}>
       {filtered.map(q=>(
         <div key={q.id} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:"16px 20px"}}>
@@ -4422,7 +4422,7 @@ function Quotes({quotes,setQuotes,onClientClick}){
                 </div>
               ))}
               {q.items.length>3&&<div style={{padding:"5px 10px",fontSize:10,color:D.muted}}>
-                + ещё {q.items.length-3} позиций
+                + {t(bi("ещё","עוד","more"))} {q.items.length-3} {t(bi("позиций","פריטים","items"))}
               </div>}
             </div>
           )}
@@ -4430,10 +4430,10 @@ function Quotes({quotes,setQuotes,onClientClick}){
           {/* Totals */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12}}>
             {[
-              ["Итого КП",fmt(q.total),D.accentLight],
-              ["Маржа",q.margin+"%",D.green],
-              ["Аванс "+q.split+"%",fmt(Math.round(q.total*q.split/100)),D.yellow],
-              ["Остаток "+(100-q.split)+"%",fmt(q.total-Math.round(q.total*q.split/100)),D.muted],
+              [t(bi("Итого КП","סה\"כ הצעה","Quote Total")),fmt(q.total),D.accentLight],
+              [t(bi("Маржа","מרווח","Margin")),q.margin+"%",D.green],
+              [t(bi("Аванс","מקדמה","Deposit"))+" "+q.split+"%",fmt(Math.round(q.total*q.split/100)),D.yellow],
+              [t(bi("Остаток","יתרה","Balance"))+" "+(100-q.split)+"%",fmt(q.total-Math.round(q.total*q.split/100)),D.muted],
             ].map(([l,v,c])=>(
               <div key={l} style={{textAlign:"center"}}>
                 <div style={{fontSize:9,color:D.muted,fontWeight:700,textTransform:"uppercase",marginBottom:2}}>{l}</div>
@@ -4462,7 +4462,7 @@ function ActivityLog({activities}){
     <div style={{position:"relative",marginBottom:8}}>
       <Search size={11} style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
       <input value={search} onChange={e=>setSearch(e.target.value)}
-        placeholder="Поиск в истории..."
+        placeholder={t(bi("Поиск в истории...","חיפוש בהיסטוריה...","Search history..."))}
         style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,
           padding:"5px 8px 5px 24px",color:D.text,fontSize:11,outline:"none",boxSizing:"border-box"}}/>
     </div>
@@ -4786,8 +4786,8 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
   const [quickForm,setQuickForm]=useState({client:"",phone:"",address:"",time:"09:00",notes:""});
 
   const today=new Date().toISOString().split("T")[0];
-  const DAYS_RU=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
-  const MONTHS_RU=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+  const DAYS_RU=[t(bi("Пн","ב'","Mon")),t(bi("Вт","ג'","Tue")),t(bi("Ср","ד'","Wed")),t(bi("Чт","ה'","Thu")),t(bi("Пт","ו'","Fri")),t(bi("Сб","ש'","Sat")),t(bi("Вс","א'","Sun"))];
+  const MONTHS_RU=[t(bi("Январь","ינואר","January")),t(bi("Февраль","פברואר","February")),t(bi("Март","מרץ","March")),t(bi("Апрель","אפריל","April")),t(bi("Май","מאי","May")),t(bi("Июнь","יוני","June")),t(bi("Июль","יולי","July")),t(bi("Август","אוגוסט","August")),t(bi("Сентябрь","ספטמבר","September")),t(bi("Октябрь","אוקטובר","October")),t(bi("Ноябрь","נובמבר","November")),t(bi("Декабрь","דצמבר","December"))];
 
   // Build events map: date → [{type,label,color,client,id}]
   const eventsMap={};
@@ -4806,7 +4806,7 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
   });
 
   const TYPE_ICONS={measure:"📐",install:"🔧",followup:"🔔",payment:"💰"};
-  const TYPE_LABELS={measure:"Замер",install:"Монтаж",followup:"Follow-up",payment:"Платёж"};
+  const TYPE_LABELS={measure:t(bi("Замер","מדידה","Measurement")),install:t(bi("Монтаж","התקנה","Installation")),followup:"Follow-up",payment:t(bi("Платёж","תשלום","Payment"))};
 
   // Month grid
   const getDaysInMonth=(y,m)=>{
@@ -4890,7 +4890,7 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           {/* Legend */}
           <div style={{display:"flex",gap:8,marginRight:8,fontSize:10,color:D.muted}}>
-            {[["📐",D.teal,"Замер"],["🔧",D.purple,"Монтаж"],["🔔",D.yellow,"Follow-up"],["💰",D.green,"Платёж"]].map(([ico,c,l])=>(
+            {[["📐",D.teal,t(bi("Замер","מדידה","Measurement"))],["🔧",D.purple,t(bi("Монтаж","התקנה","Installation"))],["🔔",D.yellow,"Follow-up"],["💰",D.green,t(bi("Платёж","תשלום","Payment"))]].map(([ico,c,l])=>(
               <span key={l} style={{display:"flex",alignItems:"center",gap:3}}>
                 <span style={{width:8,height:8,borderRadius:"50%",background:c,display:"inline-block"}}/>
                 {l}
@@ -4899,11 +4899,11 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
           </div>
           <button onClick={goToday} style={{background:D.accent+"20",border:`1px solid ${D.accent}40`,
             borderRadius:7,padding:"5px 12px",cursor:"pointer",color:D.accentLight,fontSize:11,fontWeight:700}}>
-            Сегодня
+            {t(bi("Сегодня","היום","Today"))}
           </button>
           {/* View toggle */}
           <div style={{display:"flex",background:D.surface,borderRadius:8,padding:2,gap:2}}>
-            {[["month","Месяц"],["week","Неделя"]].map(([v,l])=>(
+            {[["month",t(bi("Месяц","חודש","Month"))],["week",t(bi("Неделя","שבוע","Week"))]].map(([v,l])=>(
               <button key={v} onClick={()=>setView(v)}
                 style={{padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,
                   background:view===v?D.accent:"transparent",color:view===v?"#fff":D.muted}}>
@@ -5008,14 +5008,14 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
       {/* Selected day header */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
         <div style={{fontSize:13,fontWeight:900,color:D.text,marginBottom:2}}>
-          {selected===today?"📅 Сегодня":""} {new Date(selected).toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})}
+          {selected===today?`📅 ${t(bi("Сегодня","היום","Today"))}`:""} {new Date(selected).toLocaleDateString(_LANG==="he"?"he-IL":_LANG==="en"?"en-US":"ru-RU",{weekday:"long",day:"numeric",month:"long"})}
         </div>
         <div style={{fontSize:11,color:D.muted,marginBottom:12}}>
-          {selEvents.length>0?`${selEvents.length} событий`:"Нет событий"}
+          {selEvents.length>0?`${selEvents.length} ${t(bi("событий","אירועים","events"))}`:t(bi("Нет событий","אין אירועים","No events"))}
         </div>
         {/* Quick add buttons */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-          {[["measure","📐 Замер",D.teal],["install","🔧 Монтаж",D.purple],
+          {[["measure",`📐 ${t(bi("Замер","מדידה","Measurement"))}`,D.teal],["install",`🔧 ${t(bi("Монтаж","התקנה","Installation"))}`,D.purple],
             ["followup","🔔 Follow-up",D.yellow]].map(([type,label,color])=>(
             <button key={type} onClick={()=>setQuickModal({date:selected,type})}
               style={{background:color+"15",border:`1px solid ${color}40`,borderRadius:8,
@@ -5026,14 +5026,14 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
           <button onClick={()=>setPage&&setPage("calc")}
             style={{background:D.accent+"15",border:`1px solid ${D.accent}40`,borderRadius:8,
               padding:"7px 6px",cursor:"pointer",color:D.accentLight,fontWeight:700,fontSize:11}}>
-            🧮 КП
+            🧮 {t(bi("КП","הצעה","Quote"))}
           </button>
         </div>
       </div>
 
       {/* Events for selected day */}
       {selEvents.length>0&&(<div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
-        <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>События дня</div>
+        <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>{t(bi("События дня","אירועי היום","Day Events"))}</div>
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {selEvents.map((ev,i)=>(
             <div key={i} style={{background:ev.color+"12",border:`1px solid ${ev.color}30`,
@@ -5042,7 +5042,7 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
                 <div style={{flex:1}}>
                   <div style={{fontSize:11,fontWeight:800,color:ev.color}}>
                     {TYPE_ICONS[ev.type]} {TYPE_LABELS[ev.type]}
-                    {ev.isPast&&<span style={{marginLeft:6,fontSize:9,background:D.red,color:"#fff",borderRadius:4,padding:"1px 4px"}}>просрочено</span>}
+                    {ev.isPast&&<span style={{marginLeft:6,fontSize:9,background:D.red,color:"#fff",borderRadius:4,padding:"1px 4px"}}>{t(bi("просрочено","באיחור","overdue"))}</span>}
                   </div>
                   <div onClick={()=>onClientClick&&onClientClick(ev.client)}
                     style={{fontSize:13,fontWeight:700,color:D.text,cursor:"pointer",marginTop:2}}>
@@ -5072,7 +5072,7 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
       {/* Upcoming 7 days */}
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,padding:16}}>
         <div style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:10}}>
-          📅 Ближайшие 7 дней
+          📅 {t(bi("Ближайшие 7 дней","7 ימים קרובים","Upcoming 7 days"))}
         </div>
         {(()=>{
           const upcoming=[];
@@ -5080,9 +5080,9 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
             const d=new Date();d.setDate(d.getDate()+i);
             const dstr=d.toISOString().split("T")[0];
             const evs=eventsMap[dstr]||[];
-            if(evs.length>0)upcoming.push({date:dstr,evs,label:i===0?"Сегодня":i===1?"Завтра":d.toLocaleDateString("ru-RU",{weekday:"short",day:"numeric",month:"short"})});
+            if(evs.length>0)upcoming.push({date:dstr,evs,label:i===0?t(bi("Сегодня","היום","Today")):i===1?t(bi("Завтра","מחר","Tomorrow")):d.toLocaleDateString(_LANG==="he"?"he-IL":_LANG==="en"?"en-US":"ru-RU",{weekday:"short",day:"numeric",month:"short"})});
           }
-          if(upcoming.length===0)return<div style={{fontSize:11,color:D.muted}}>Нет запланированных событий</div>;
+          if(upcoming.length===0)return<div style={{fontSize:11,color:D.muted}}>{t(bi("Нет запланированных событий","אין אירועים מתוכננים","No upcoming events"))}</div>;
           return upcoming.map(({date,evs,label})=>(
             <div key={date} onClick={()=>setSelected(date)}
               style={{marginBottom:8,cursor:"pointer",padding:"6px 8px",borderRadius:8,
@@ -5105,40 +5105,40 @@ function Calendar({leads,measurements,installations,payments,setMeasurements,set
     </div>
 
     {/* QUICK CREATE MODAL */}
-    {quickModal&&(<Modal title={`${TYPE_ICONS[quickModal.type]} Создать ${TYPE_LABELS[quickModal.type]} — ${new Date(quickModal.date).toLocaleDateString("ru-RU",{day:"numeric",month:"long"})}`}
+    {quickModal&&(<Modal title={`${TYPE_ICONS[quickModal.type]} ${t(bi("Создать","צור","Create"))} ${TYPE_LABELS[quickModal.type]} — ${new Date(quickModal.date).toLocaleDateString(_LANG==="he"?"he-IL":_LANG==="en"?"en-US":"ru-RU",{day:"numeric",month:"long"})}`}
       onClose={()=>setQuickModal(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
-        <Inp label="Клиент *" value={quickForm.client} onChange={e=>setQuickForm(p=>({...p,client:e.target.value}))} placeholder="Имя клиента"/>
-        {quickModal.type!=="followup"&&<Inp label="Телефон" value={quickForm.phone} onChange={e=>setQuickForm(p=>({...p,phone:e.target.value}))} placeholder="05X-XXXXXXX"/>}
-        {quickModal.type!=="followup"&&<Inp label="Адрес" value={quickForm.address} onChange={e=>setQuickForm(p=>({...p,address:e.target.value}))} placeholder="Улица, город"/>}
+        <Inp label={t(bi("Клиент *","לקוח *","Client *"))} value={quickForm.client} onChange={e=>setQuickForm(p=>({...p,client:e.target.value}))} placeholder={t(bi("Имя клиента","שם לקוח","Client name"))}/>
+        {quickModal.type!=="followup"&&<Inp label={t(bi("Телефон","טלפון","Phone"))} value={quickForm.phone} onChange={e=>setQuickForm(p=>({...p,phone:e.target.value}))} placeholder="05X-XXXXXXX"/>}
+        {quickModal.type!=="followup"&&<Inp label={t(bi("Адрес","כתובת","Address"))} value={quickForm.address} onChange={e=>setQuickForm(p=>({...p,address:e.target.value}))} placeholder={t(bi("Улица, город","רחוב, עיר","Street, city"))}/>}
         {quickModal.type==="followup"&&(
           <div style={{fontSize:11,color:D.muted,background:D.surface,borderRadius:8,padding:10}}>
-            Для Follow-up введи имя клиента точно как в CRM — дата follow-up обновится автоматически.
+            {t(bi("Для Follow-up введи имя клиента точно как в CRM — дата follow-up обновится автоматически.","עבור Follow-up הזן את שם הלקוח בדיוק כמו ב-CRM — תאריך ה-follow-up יתעדכן אוטומטית.","For Follow-up enter the client name exactly as in CRM — the follow-up date will update automatically."))}
           </div>
         )}
-        <Inp label="Заметки" value={quickForm.notes} onChange={e=>setQuickForm(p=>({...p,notes:e.target.value}))} placeholder="Доп. информация..."/>
+        <Inp label={t(bi("Заметки","הערות","Notes"))} value={quickForm.notes} onChange={e=>setQuickForm(p=>({...p,notes:e.target.value}))} placeholder={t(bi("Доп. информация...","מידע נוסף...","Additional info..."))}/>
       </div>
       <div style={{display:"flex",gap:8}}>
-        <Btn onClick={saveQuick} variant="success"><Check size={13}/> Сохранить</Btn>
-        <Btn onClick={()=>setQuickModal(null)} variant="ghost">Отмена</Btn>
+        <Btn onClick={saveQuick} variant="success"><Check size={13}/> {t(bi("Сохранить","שמור","Save"))}</Btn>
+        <Btn onClick={()=>setQuickModal(null)} variant="ghost">{t(bi("Отмена","ביטול","Cancel"))}</Btn>
       </div>
     </Modal>)}
   </div>);
 }
 
 const PAGES=[
-  {id:"dashboard",   icon:LayoutDashboard, label:"Dashboard"},
-  {id:"leads",       icon:Users,           label:"Лиды / CRM"},
-  {id:"measurements",icon:Ruler,           label:"Замеры"},
-  {id:"calc",        icon:Calculator,      label:"Калькулятор КП"},
-  {id:"quotes",      icon:FileText,        label:"КП История"},
-  {id:"orders",      icon:ShoppingCart,    label:"Заказы"},
-  {id:"installation",icon:Wrench,          label:"Монтаж"},
-  {id:"payments",    icon:Wallet,          label:"Касса"},
-  {id:"calendar",    icon:CalendarDays,    label:"Календарь"},
-  {id:"finance",     icon:TrendingUp,      label:"P&L · Финансы"},
-  {id:"kpi",         icon:BarChart2,       label:"KPI"},
-  {id:"inventory",   icon:Package,         label:"Склад"},
+  {id:"dashboard",   icon:LayoutDashboard, label:bi("Дашборд","לוח בקרה","Dashboard")},
+  {id:"leads",       icon:Users,           label:bi("Лиды / CRM","לידים / CRM","Leads / CRM")},
+  {id:"measurements",icon:Ruler,           label:bi("Замеры","מדידות","Measurements")},
+  {id:"calc",        icon:Calculator,      label:bi("Калькулятор КП","מחשבון הצעות","Quote Calculator")},
+  {id:"quotes",      icon:FileText,        label:bi("История КП","היסטוריית הצעות","Quote History")},
+  {id:"orders",      icon:ShoppingCart,    label:bi("Заказы","הזמנות","Orders")},
+  {id:"installation",icon:Wrench,          label:bi("Монтаж","התקנה","Installation")},
+  {id:"payments",    icon:Wallet,          label:bi("Касса","קופה","Payments")},
+  {id:"calendar",    icon:CalendarDays,    label:bi("Календарь","לוח שנה","Calendar")},
+  {id:"finance",     icon:TrendingUp,      label:bi("P&L · Финансы","רווח והפסד","P&L · Finance")},
+  {id:"kpi",         icon:BarChart2,       label:bi("KPI","KPI","KPI")},
+  {id:"inventory",   icon:Package,         label:bi("Склад","מלאי","Inventory")},
 ];
 
 export default function App(){
@@ -5281,7 +5281,7 @@ export default function App(){
           <div style={{fontSize:13,fontWeight:900,color:D.text}}>WindowOS</div>
           <div style={{display:"flex",alignItems:"center",gap:4,marginTop:1}}>
             <div style={{width:6,height:6,borderRadius:"50%",background:saved?D.green:D.yellow}}/>
-            <span style={{fontSize:9,color:D.muted,fontWeight:600}}>{saved?"Сохранено":"Сохраняю..."}</span>
+            <span style={{fontSize:9,color:D.muted,fontWeight:600}}>{saved?t(bi("Сохранено","נשמר","Saved")):t(bi("Сохраняю...","שומר...","Saving..."))}</span>
             {fbOnline&&<span style={{fontSize:9,color:"#F97316",fontWeight:700,marginLeft:2}}>☁️</span>}
             {fbSynced&&!fbOnline&&<span style={{fontSize:9,color:D.muted,marginLeft:2}}>offline</span>}
           </div>
@@ -5299,7 +5299,7 @@ export default function App(){
           background:active?"linear-gradient(135deg,#2563EB18,#1D4ED808)":"transparent",
           borderLeft:active?`3px solid ${D.accent}`:"3px solid transparent",color:active?D.accentLight:D.muted}}>
           <Icon size={14}/>
-          <span style={{fontSize:12,fontWeight:active?700:500,flex:1}}>{label}</span>
+          <span style={{fontSize:12,fontWeight:active?700:500,flex:1}}>{t(label)}</span>
           {badge>0&&<span style={{background:D.yellow+"30",color:D.yellow,fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 5px"}}>{badge}</span>}
         </button>);
       })}
@@ -5334,7 +5334,7 @@ export default function App(){
       <button onClick={()=>setCompanyModal(true)}
         style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:7,
           padding:"5px 8px",color:D.muted,fontSize:10,cursor:"pointer",textAlign:"left"}}>
-        ⚙️ Реквизиты компании
+        ⚙️ {t(bi("Реквизиты компании","פרטי חברה","Company Settings"))}
       </button>
     </div>
     <div style={{padding:"6px 14px 8px",fontSize:9,color:D.muted+"55"}}>WindowOS v5.0 🇮🇱</div>
@@ -5369,7 +5369,7 @@ export default function App(){
           <Menu size={20}/>
         </button>
         <div style={{fontSize:14,fontWeight:900,color:D.text}}>WindowOS</div>
-        <div style={{fontSize:11,color:D.muted,flex:1}}>{PAGES.find(p=>p.id===page)?.label||""}</div>
+        <div style={{fontSize:11,color:D.muted,flex:1}}>{t(PAGES.find(p=>p.id===page)?.label)||""}</div>
         <div style={{width:8,height:8,borderRadius:"50%",background:saved?D.green:D.yellow}}/>
       </div>
 
@@ -5382,7 +5382,7 @@ export default function App(){
             onChange={e=>setGlobalSearch(e.target.value)}
             onFocus={()=>setSearchFocus(true)}
             onBlur={()=>setTimeout(()=>setSearchFocus(false),200)}
-            placeholder="🔍 Глобальный поиск — клиент, телефон, заказ, адрес..."
+            placeholder={t(bi("🔍 Глобальный поиск — клиент, телефон, заказ, адрес...","🔍 חיפוש כללי — לקוח, טלפון, הזמנה, כתובת...","🔍 Global search — client, phone, order, address..."))}
             style={{width:"100%",background:D.card,border:`1px solid ${searchFocus?D.accent:D.border}`,
               borderRadius:10,padding:"9px 12px 9px 36px",color:D.text,fontSize:13,
               outline:"none",boxSizing:"border-box",transition:"border-color 0.2s"}}/>
