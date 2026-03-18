@@ -687,7 +687,7 @@ const Sel=({label,options,...p})=>(<div style={{marginBottom:12}}>
   <select {...p} style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,
     padding:"8px 12px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}>
     {options.map(o=>typeof o==="string"?<option key={o} value={o} style={{background:D.card}}>{o}</option>
-      :<option key={o.value} value={o.value} style={{background:D.card}}>{o.label}</option>)}
+      :<option key={o.value} value={o.value} style={{background:D.card}}>{typeof o.label==="object"?t(o.label):o.label}</option>)}
   </select>
 </div>);
 const Txa=({label,...p})=>(<div style={{marginBottom:12}}>
