@@ -3064,42 +3064,394 @@ function Orders({orders,setOrders,setPayments,payments,onClientClick}){
 // INVENTORY
 // ═══════════════════════════════════════════════════════════════
 function Inventory({inventory,setInventory}){
+  // ── State ────────────────────────────────────────────────────
+  const [sortCol,setSortCol]=useState("name");
+  const [sortDir,setSortDir]=useState("asc");
+  const [catFilter,setCatFilter]=useState("all");
+  const [lowOnly,setLowOnly]=useState(false);
+  const [search,setSearch]=useState("");
+  const [movements,setMovements]=useState(()=>load("wb:stock_movements",[]));
+  const [stockInModal,setStockInModal]=useState(null);   // item id
+  const [stockOutModal,setStockOutModal]=useState(null); // item id
+  const [detailItem,setDetailItem]=useState(null);       // item id
+  const [purchaseModal,setPurchaseModal]=useState(false);
+  const [addModal,setAddModal]=useState(false);
+  const [editItem,setEditItem]=useState(null);
+  const today=new Date().toISOString().split("T")[0];
+  const [inForm,setInForm]=useState({qty:"",comment:"",date:today});
+  const [outForm,setOutForm]=useState({qty:"",orderId:"",date:today});
+  const [newForm,setNewForm]=useState({name:"",unit:"шт.",qty:"0",minQty:"10",price:"0",category:""});
+
+  // ── Persist movements ────────────────────────────────────────
+  useEffect(()=>{try{localStorage.setItem("wb:stock_movements",JSON.stringify(movements));}catch{}},[movements]);
+
+  // ── Derived ──────────────────────────────────────────────────
   const low=inventory.filter(i=>i.qty<i.minQty);
-  const cats=[...new Set(inventory.map(i=>i.category))];
-  const upd=(id,d)=>setInventory(p=>p.map(i=>i.id===id?{...i,qty:Math.max(0,i.qty+d)}:i));
+  const CATS=["Профиль","Стекло","Фурнитура","Расходники","Инструменты"];
+  const CAT_LABELS={
+    "Профиль":bi("Профиль","פרופיל","Profile"),
+    "Стекло":bi("Стекло","זכוכית","Glass"),
+    "Фурнитура":bi("Фурнитура","חומרה","Hardware"),
+    "Расходники":bi("Расходники","מתכלים","Consumables"),
+    "Инструменты":bi("Инструменты","כלים","Tools"),
+  };
+
+  // Filter
+  let visible=inventory.filter(i=>{
+    if(catFilter!=="all"&&(i.category||"")!==catFilter)return false;
+    if(lowOnly&&i.qty>=i.minQty)return false;
+    if(search&&!i.name.toLowerCase().includes(search.toLowerCase()))return false;
+    return true;
+  });
+
+  // Sort
+  visible=[...visible].sort((a,b)=>{
+    let av=a[sortCol]??"", bv=b[sortCol]??"";
+    if(typeof av==="string")av=av.toLowerCase();
+    if(typeof bv==="string")bv=bv.toLowerCase();
+    if(av<bv)return sortDir==="asc"?-1:1;
+    if(av>bv)return sortDir==="asc"?1:-1;
+    return 0;
+  });
+
+  const handleSort=(col)=>{
+    if(sortCol===col)setSortDir(d=>d==="asc"?"desc":"asc");
+    else{setSortCol(col);setSortDir("asc");}
+  };
+  const sortIcon=(col)=>sortCol===col?(sortDir==="asc"?" ▲":" ▼"):"";
+
+  // Stock status badge
+  const StockBadge=({item})=>{
+    if(item.qty===0)return <span style={{fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:5,background:D.red+"20",color:D.red,marginLeft:5}}>{t(bi("Нет","אין","None"))}</span>;
+    if(item.qty<item.minQty)return <span style={{fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:5,background:D.yellow+"20",color:D.yellow,marginLeft:5}}>{t(bi("Мало","מעט","Low"))}</span>;
+    return <span style={{fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:5,background:D.green+"20",color:D.green,marginLeft:5}}>OK</span>;
+  };
+
+  // Save item changes to inventory
+  const saveInventory=(newInv)=>setInventory(newInv);
+
+  // Stock In
+  const handleStockIn=(itemId)=>{
+    const qty=parseFloat(inForm.qty);
+    if(!qty||qty<=0)return;
+    const id=Date.now();
+    const item=inventory.find(i=>i.id===itemId);
+    const rec={id,itemId,itemName:item?.name||"",type:"in",qty,comment:inForm.comment,orderId:"",date:inForm.date,createdAt:new Date().toISOString()};
+    setMovements(m=>[rec,...m]);
+    setInventory(p=>p.map(i=>i.id===itemId?{...i,qty:i.qty+qty}:i));
+    setStockInModal(null);
+    setInForm({qty:"",comment:"",date:today});
+  };
+
+  // Stock Out
+  const handleStockOut=(itemId)=>{
+    const qty=parseFloat(outForm.qty);
+    if(!qty||qty<=0)return;
+    const id=Date.now();
+    const item=inventory.find(i=>i.id===itemId);
+    const rec={id,itemId,itemName:item?.name||"",type:"out",qty,comment:"",orderId:outForm.orderId,date:outForm.date,createdAt:new Date().toISOString()};
+    setMovements(m=>[rec,...m]);
+    setInventory(p=>p.map(i=>i.id===itemId?{...i,qty:Math.max(0,i.qty-qty)}:i));
+    setStockOutModal(null);
+    setOutForm({qty:"",orderId:"",date:today});
+  };
+
+  // Purchase list copy
+  const copyPurchaseList=()=>{
+    const needList=inventory.filter(i=>i.qty<i.minQty);
+    const dateStr=new Date().toLocaleDateString("ru-RU");
+    const lines=needList.map((i,idx)=>`${idx+1}. ${i.name}: ${t(bi("нужно","צריך","need"))} ${i.minQty-i.qty} ${i.unit} (${t(bi("есть","יש","have"))} ${i.qty}, ${t(bi("мин","מינ","min"))} ${i.minQty})`);
+    const text=`${t(bi("Список закупок","רשימת קניות","Purchase List"))} — ${dateStr}\n${lines.join("\n")}`;
+    navigator.clipboard.writeText(text).catch(()=>{});
+  };
+
+  // Add item
+  const handleAddItem=()=>{
+    const id=Date.now();
+    const item={id,name:newForm.name,unit:newForm.unit,qty:parseFloat(newForm.qty)||0,minQty:parseFloat(newForm.minQty)||0,price:parseFloat(newForm.price)||0,category:newForm.category||""};
+    setInventory(p=>[...p,item]);
+    setAddModal(false);
+    setNewForm({name:"",unit:"шт.",qty:"0",minQty:"10",price:"0",category:""});
+  };
+
+  // Edit item save
+  const handleEditSave=()=>{
+    setInventory(p=>p.map(i=>i.id===editItem.id?{...editItem}:i));
+    setEditItem(null);
+  };
+
+  // Delete item
+  const handleDelete=(id)=>{
+    if(!window.confirm(t(bi("Удалить позицию?","למחוק פריט?","Delete item?"))))return;
+    setInventory(p=>p.filter(i=>i.id!==id));
+  };
+
+  const inItem=inventory.find(i=>i.id===stockInModal);
+  const outItem=inventory.find(i=>i.id===stockOutModal);
+  const detItem=inventory.find(i=>i.id===detailItem);
+  const detMovements=detItem?movements.filter(m=>m.itemId===detItem.id).slice(0,5):[];
+  const purchaseItems=inventory.filter(i=>i.qty<i.minQty);
+
   return(<div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:22,fontWeight:900,color:D.text}}>{t(bi("Склад","מלאי","Inventory"))}</div>
-        <div style={{fontSize:13,color:D.muted}}>{inventory.length} {t(bi("позиций","פריטים","items"))} {low.length>0&&<span style={{color:D.yellow}}>· ⚠️ {low.length} {t(bi("нужно закупить","צריך להזמין","need to order"))}</span>}</div></div>
-      <Btn onClick={()=>exportCSV([t(bi("Наименование","שם","Name")),t(bi("Ед.","יח'","Unit")),t(bi("Кол","כמות","Qty")),t(bi("Мин","מינימום","Min")),t(bi("Цена","מחיר","Price"))],inventory.map(i=>[i.name,i.unit,i.qty,i.minQty,i.price]),"склад.csv")} variant="ghost"><Download size={13}/> CSV</Btn>
+    {/* ── Header ── */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+      <div>
+        <div style={{fontSize:22,fontWeight:900,color:D.text}}>{t(bi("Склад","מלאי","Inventory"))}</div>
+        <div style={{fontSize:13,color:D.muted}}>{inventory.length} {t(bi("позиций","פריטים","items"))} {low.length>0&&<span style={{color:D.yellow}}>· ⚠️ {low.length} {t(bi("нужно закупить","צריך להזמין","need to order"))}</span>}</div>
+      </div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <Btn onClick={()=>setPurchaseModal(true)} variant="yellow" small>🛒 {t(bi("Список закупок","רשימת קניות","Purchase List"))}</Btn>
+        <Btn onClick={()=>setAddModal(true)} variant="success" small><Plus size={13}/> {t(bi("Добавить","הוסף","Add"))}</Btn>
+        <Btn onClick={()=>exportCSV([t(bi("Наименование","שם","Name")),t(bi("Ед.","יח'","Unit")),t(bi("Кол","כמות","Qty")),t(bi("Мин","מינימום","Min")),t(bi("Цена","מחיר","Price"))],inventory.map(i=>[i.name,i.unit,i.qty,i.minQty,i.price]),"склад.csv")} variant="ghost" small><Download size={13}/> CSV</Btn>
+      </div>
     </div>
-    {low.length>0&&(<div style={{background:D.yellow+"15",border:`1px solid ${D.yellow}40`,borderRadius:12,padding:"12px 16px",marginBottom:16}}>
+
+    {/* ── Low stock warning ── */}
+    {low.length>0&&(<div style={{background:D.yellow+"15",border:`1px solid ${D.yellow}40`,borderRadius:12,padding:"12px 16px",marginBottom:14}}>
       <div style={{fontSize:11,fontWeight:800,color:D.yellow,marginBottom:6}}>⚠️ {t(bi("ТРЕБУЕТСЯ ЗАКУПКА","נדרשת הזמנה","REORDER REQUIRED"))}</div>
       <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
         {low.map(i=><span key={i.id} style={{background:D.yellow+"20",border:`1px solid ${D.yellow}40`,borderRadius:6,padding:"2px 8px",fontSize:11,color:D.yellow,fontWeight:700}}>{i.name}: {i.qty}/{i.minQty}</span>)}
       </div>
     </div>)}
-    {cats.map(cat=>(<div key={cat} style={{marginBottom:18}}>
-      <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:8}}>{cat}</div>
-      <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:12,overflow:"hidden"}}>
-        {inventory.filter(i=>i.category===cat).map((i,idx,arr)=>(
-          <div key={i.id} style={{display:"grid",gridTemplateColumns:"2.5fr 1fr 1.5fr 1fr 80px",
-            padding:"10px 16px",gap:10,alignItems:"center",background:idx%2===0?D.card:D.surface,
-            borderBottom:idx<arr.length-1?`1px solid ${D.border}`:"none"}}>
-            <div style={{fontSize:13,fontWeight:600,color:i.qty<i.minQty?D.yellow:D.text}}>{i.name}</div>
-            <div style={{fontSize:11,color:D.muted}}>{i.unit}</div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <button onClick={()=>upd(i.id,-1)} style={{background:D.border,border:"none",borderRadius:5,width:22,height:22,cursor:"pointer",color:D.text,fontWeight:800}}>−</button>
-              <span style={{fontSize:14,fontWeight:800,color:i.qty<i.minQty?D.yellow:D.green,minWidth:30,textAlign:"center"}}>{i.qty}</span>
-              <button onClick={()=>upd(i.id,1)} style={{background:D.border,border:"none",borderRadius:5,width:22,height:22,cursor:"pointer",color:D.text,fontWeight:800}}>+</button>
-              <span style={{fontSize:10,color:D.muted}}>/ {i.minQty}</span>
-            </div>
-            <div style={{fontSize:12,color:D.muted}}>{fmt(i.price)}</div>
-            <div style={{fontSize:12,fontWeight:700,color:D.text}}>{fmt(i.qty*i.price)}</div>
+
+    {/* ── Filters panel ── */}
+    <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14,alignItems:"center"}}>
+      {/* Search */}
+      <div style={{position:"relative"}}>
+        <Search size={13} style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t(bi("Поиск...","חיפוש...","Search..."))}
+          style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"6px 10px 6px 28px",color:D.text,fontSize:12,width:160,outline:"none"}}/>
+      </div>
+      {/* Category buttons */}
+      {[{id:"all",label:t(bi("Все","הכל","All"))},...CATS.map(c=>({id:c,label:t(CAT_LABELS[c])}))].map(c=>(
+        <button key={c.id} onClick={()=>setCatFilter(c.id)}
+          style={{background:catFilter===c.id?D.accent+"30":D.card,border:`1px solid ${catFilter===c.id?D.accent:D.border}`,
+            borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:700,
+            color:catFilter===c.id?D.accentLight:D.muted}}>
+          {c.label}
+        </button>
+      ))}
+      {/* Low stock toggle */}
+      <button onClick={()=>setLowOnly(v=>!v)}
+        style={{background:lowOnly?D.yellow+"25":D.card,border:`1px solid ${lowOnly?D.yellow:D.border}`,
+          borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:700,
+          color:lowOnly?D.yellow:D.muted}}>
+        ⚠️ {t(bi("Мало на складе","מלאי נמוך","Low stock only"))}
+      </button>
+    </div>
+
+    {/* ── Table ── */}
+    <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:12,overflow:"hidden"}}>
+      {/* Header row */}
+      <div style={{display:"grid",gridTemplateColumns:"2.5fr 0.8fr 1fr 1fr 0.8fr 1fr 100px",
+        padding:"8px 14px",gap:8,background:D.surface,borderBottom:`1px solid ${D.border}`}}>
+        {[
+          {key:"name",label:t(bi("Наименование","שם","Name"))},
+          {key:"category",label:t(bi("Категория","קטגוריה","Category"))},
+          {key:"qty",label:t(bi("Кол-во","כמות","Qty"))},
+          {key:"minQty",label:t(bi("Мин.","מינ.","Min"))},
+          {key:"price",label:t(bi("Цена","מחיר","Price"))},
+          {key:"total",label:t(bi("Сумма","סכום","Total")),noSort:true},
+          {key:"actions",label:"",noSort:true},
+        ].map(col=>(
+          <div key={col.key} onClick={col.noSort?undefined:()=>handleSort(col.key)}
+            style={{fontSize:10,fontWeight:800,color:sortCol===col.key?D.accentLight:D.muted,
+              textTransform:"uppercase",letterSpacing:"0.05em",cursor:col.noSort?"default":"pointer",userSelect:"none"}}>
+            {col.label}{col.noSort?"":sortIcon(col.key)}
           </div>
         ))}
       </div>
-    </div>))}
+
+      {/* Rows */}
+      {visible.length===0&&(
+        <div style={{padding:32,textAlign:"center",color:D.muted,fontSize:13}}>{t(bi("Нет позиций","אין פריטים","No items"))}</div>
+      )}
+      {visible.map((i,idx)=>(
+        <div key={i.id} style={{display:"grid",gridTemplateColumns:"2.5fr 0.8fr 1fr 1fr 0.8fr 1fr 100px",
+          padding:"10px 14px",gap:8,alignItems:"center",
+          background:idx%2===0?D.card:D.surface,
+          borderBottom:idx<visible.length-1?`1px solid ${D.border}`:"none"}}>
+          {/* Name */}
+          <div style={{display:"flex",alignItems:"center",gap:4}}>
+            <button onClick={()=>setDetailItem(i.id)}
+              style={{fontSize:13,fontWeight:600,color:i.qty<i.minQty?D.yellow:D.text,background:"none",border:"none",cursor:"pointer",padding:0,textAlign:"left"}}>
+              {i.name}
+            </button>
+          </div>
+          {/* Category */}
+          <div style={{fontSize:11,color:D.muted}}>{i.category||"—"}</div>
+          {/* Qty with badge */}
+          <div style={{display:"flex",alignItems:"center",gap:4}}>
+            <span style={{fontSize:14,fontWeight:800,color:i.qty===0?D.red:i.qty<i.minQty?D.yellow:D.green}}>{i.qty}</span>
+            <StockBadge item={i}/>
+          </div>
+          {/* Min qty */}
+          <div style={{fontSize:12,color:D.muted}}>{i.minQty} {i.unit}</div>
+          {/* Price */}
+          <div style={{fontSize:12,color:D.muted}}>{fmt(i.price)}</div>
+          {/* Total */}
+          <div style={{fontSize:12,fontWeight:700,color:D.text}}>{fmt(i.qty*i.price)}</div>
+          {/* Actions */}
+          <div style={{display:"flex",gap:4}}>
+            <button onClick={()=>{setStockInModal(i.id);setInForm({qty:"",comment:"",date:today});}}
+              style={{background:D.green+"25",border:`1px solid ${D.green}40`,borderRadius:6,width:26,height:26,cursor:"pointer",color:D.green,fontWeight:900,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>＋</button>
+            <button onClick={()=>{setStockOutModal(i.id);setOutForm({qty:"",orderId:"",date:today});}}
+              style={{background:D.red+"20",border:`1px solid ${D.red}35`,borderRadius:6,width:26,height:26,cursor:"pointer",color:D.red,fontWeight:900,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>－</button>
+            <button onClick={()=>setEditItem({...i})}
+              style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:6,width:26,height:26,cursor:"pointer",color:D.muted,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>
+            <button onClick={()=>handleDelete(i.id)}
+              style={{background:D.red+"15",border:`1px solid ${D.red}30`,borderRadius:6,width:26,height:26,cursor:"pointer",color:D.red,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>🗑</button>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {/* ── Stock In Modal ── */}
+    {stockInModal&&inItem&&(
+      <Modal title={"📥 "+t(bi("Приход товара","קבלת סחורה","Stock In"))+": "+inItem.name} onClose={()=>setStockInModal(null)}>
+        <Inp label={t(bi("Количество","כמות","Quantity"))} type="number" min="0" step="1"
+          value={inForm.qty} onChange={e=>setInForm(f=>({...f,qty:e.target.value}))}/>
+        <Inp label={t(bi("Комментарий","הערה","Comment"))} type="text"
+          value={inForm.comment} onChange={e=>setInForm(f=>({...f,comment:e.target.value}))}/>
+        <Inp label={t(bi("Дата","תאריך","Date"))} type="date"
+          value={inForm.date} onChange={e=>setInForm(f=>({...f,date:e.target.value}))}/>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
+          <Btn variant="ghost" onClick={()=>setStockInModal(null)}>{t(bi("Отмена","ביטול","Cancel"))}</Btn>
+          <Btn variant="success" onClick={()=>handleStockIn(stockInModal)}>{t(bi("Сохранить","שמור","Save"))}</Btn>
+        </div>
+      </Modal>
+    )}
+
+    {/* ── Stock Out Modal ── */}
+    {stockOutModal&&outItem&&(
+      <Modal title={"📤 "+t(bi("Расход товара","הוצאת סחורה","Stock Out"))+": "+outItem.name} onClose={()=>setStockOutModal(null)}>
+        <Inp label={t(bi("Количество","כמות","Quantity"))} type="number" min="0" step="1"
+          value={outForm.qty} onChange={e=>setOutForm(f=>({...f,qty:e.target.value}))}/>
+        <Inp label={t(bi("Номер заказа (опционально)","מס׳ הזמנה (אופציונלי)","Order number (optional)"))} type="text"
+          value={outForm.orderId} onChange={e=>setOutForm(f=>({...f,orderId:e.target.value}))}/>
+        <Inp label={t(bi("Дата","תאריך","Date"))} type="date"
+          value={outForm.date} onChange={e=>setOutForm(f=>({...f,date:e.target.value}))}/>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
+          <Btn variant="ghost" onClick={()=>setStockOutModal(null)}>{t(bi("Отмена","ביטול","Cancel"))}</Btn>
+          <Btn variant="danger" onClick={()=>handleStockOut(stockOutModal)}>{t(bi("Сохранить","שמור","Save"))}</Btn>
+        </div>
+      </Modal>
+    )}
+
+    {/* ── Item Detail Modal ── */}
+    {detailItem&&detItem&&(
+      <Modal title={detItem.name} onClose={()=>setDetailItem(null)}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+          <div style={{background:D.surface,borderRadius:10,padding:"10px 14px"}}>
+            <div style={{fontSize:10,color:D.muted,marginBottom:3}}>{t(bi("Категория","קטגוריה","Category"))}</div>
+            <div style={{fontSize:13,fontWeight:700,color:D.text}}>{detItem.category||"—"}</div>
+          </div>
+          <div style={{background:D.surface,borderRadius:10,padding:"10px 14px"}}>
+            <div style={{fontSize:10,color:D.muted,marginBottom:3}}>{t(bi("Единица","יחידה","Unit"))}</div>
+            <div style={{fontSize:13,fontWeight:700,color:D.text}}>{detItem.unit}</div>
+          </div>
+          <div style={{background:D.surface,borderRadius:10,padding:"10px 14px"}}>
+            <div style={{fontSize:10,color:D.muted,marginBottom:3}}>{t(bi("На складе","במלאי","In stock"))}</div>
+            <div style={{fontSize:20,fontWeight:900,color:detItem.qty===0?D.red:detItem.qty<detItem.minQty?D.yellow:D.green}}>{detItem.qty}</div>
+          </div>
+          <div style={{background:D.surface,borderRadius:10,padding:"10px 14px"}}>
+            <div style={{fontSize:10,color:D.muted,marginBottom:3}}>{t(bi("Минимум","מינימום","Minimum"))}</div>
+            <div style={{fontSize:20,fontWeight:900,color:D.muted}}>{detItem.minQty}</div>
+          </div>
+          <div style={{background:D.surface,borderRadius:10,padding:"10px 14px"}}>
+            <div style={{fontSize:10,color:D.muted,marginBottom:3}}>{t(bi("Цена","מחיר","Price"))}</div>
+            <div style={{fontSize:13,fontWeight:700,color:D.text}}>{fmt(detItem.price)}</div>
+          </div>
+          <div style={{background:D.surface,borderRadius:10,padding:"10px 14px"}}>
+            <div style={{fontSize:10,color:D.muted,marginBottom:3}}>{t(bi("Стоимость остатка","שווי מלאי","Stock value"))}</div>
+            <div style={{fontSize:13,fontWeight:700,color:D.accent}}>{fmt(detItem.qty*detItem.price)}</div>
+          </div>
+        </div>
+        <div style={{fontSize:11,fontWeight:800,color:D.muted,textTransform:"uppercase",marginBottom:8}}>{t(bi("Последние движения","תנועות אחרונות","Recent movements"))}</div>
+        {detMovements.length===0?(
+          <div style={{color:D.muted,fontSize:12,textAlign:"center",padding:12}}>{t(bi("Нет движений","אין תנועות","No movements"))}</div>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {detMovements.map(m=>(
+              <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,background:D.surface,borderRadius:8,padding:"8px 12px"}}>
+                <span style={{fontSize:16}}>{m.type==="in"?"📥":"📤"}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:700,color:m.type==="in"?D.green:D.red}}>{m.type==="in"?"+":"-"}{m.qty} {detItem.unit}</div>
+                  <div style={{fontSize:11,color:D.muted}}>{m.date}{m.comment?" · "+m.comment:""}{m.orderId?" · "+t(bi("Заказ","הזמנה","Order"))+" "+m.orderId:""}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+    )}
+
+    {/* ── Purchase List Modal ── */}
+    {purchaseModal&&(
+      <Modal title={"🛒 "+t(bi("Список закупок","רשימת קניות","Purchase List"))} onClose={()=>setPurchaseModal(false)}>
+        {purchaseItems.length===0?(
+          <div style={{textAlign:"center",padding:24,color:D.green,fontSize:14,fontWeight:700}}>✅ {t(bi("Все позиции в норме","כל הפריטים תקינים","All items are OK"))}</div>
+        ):(
+          <>
+            <div style={{fontSize:12,color:D.muted,marginBottom:12}}>{t(bi("Позиций","פריטים","Items"))}: <b style={{color:D.yellow}}>{purchaseItems.length}</b></div>
+            <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:10,overflow:"hidden",marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",padding:"7px 12px",background:D.surface,gap:8}}>
+                {[t(bi("Наименование","שם","Name")),t(bi("Есть","יש","Have")),t(bi("Мин.","מינ.","Min")),t(bi("Купить","לקנות","To buy"))].map((h,idx)=>(
+                  <div key={idx} style={{fontSize:10,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>
+                ))}
+              </div>
+              {purchaseItems.map((i,idx)=>(
+                <div key={i.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",padding:"8px 12px",gap:8,
+                  background:idx%2===0?D.card:D.surface,borderTop:`1px solid ${D.border}`}}>
+                  <div style={{fontSize:12,fontWeight:600,color:D.text}}>{i.name}</div>
+                  <div style={{fontSize:12,color:D.yellow}}>{i.qty} {i.unit}</div>
+                  <div style={{fontSize:12,color:D.muted}}>{i.minQty} {i.unit}</div>
+                  <div style={{fontSize:13,fontWeight:800,color:D.green}}>+{i.minQty-i.qty}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+              <Btn variant="ghost" onClick={()=>setPurchaseModal(false)}>{t(bi("Закрыть","סגור","Close"))}</Btn>
+              <Btn variant="teal" onClick={copyPurchaseList}>📋 {t(bi("Копировать список","העתק רשימה","Copy list"))}</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+    )}
+
+    {/* ── Add Item Modal ── */}
+    {addModal&&(
+      <Modal title={t(bi("Добавить позицию","הוסף פריט","Add item"))} onClose={()=>setAddModal(false)}>
+        <Inp label={t(bi("Наименование","שם","Name"))} value={newForm.name} onChange={e=>setNewForm(f=>({...f,name:e.target.value}))}/>
+        <Sel label={t(bi("Категория","קטגוריה","Category"))} value={newForm.category} onChange={e=>setNewForm(f=>({...f,category:e.target.value}))}
+          options={[{value:"",label:t(bi("— без категории —","— ללא קטגוריה —","— no category —"))},...CATS.map(c=>({value:c,label:t(CAT_LABELS[c]||bi(c,c,c))}))]}/>
+        <Inp label={t(bi("Единица","יחידה","Unit"))} value={newForm.unit} onChange={e=>setNewForm(f=>({...f,unit:e.target.value}))}/>
+        <Inp label={t(bi("Количество","כמות","Quantity"))} type="number" value={newForm.qty} onChange={e=>setNewForm(f=>({...f,qty:e.target.value}))}/>
+        <Inp label={t(bi("Минимум","מינימום","Minimum"))} type="number" value={newForm.minQty} onChange={e=>setNewForm(f=>({...f,minQty:e.target.value}))}/>
+        <Inp label={t(bi("Цена","מחיר","Price"))} type="number" value={newForm.price} onChange={e=>setNewForm(f=>({...f,price:e.target.value}))}/>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
+          <Btn variant="ghost" onClick={()=>setAddModal(false)}>{t(bi("Отмена","ביטול","Cancel"))}</Btn>
+          <Btn variant="primary" onClick={handleAddItem} disabled={!newForm.name}>{t(bi("Добавить","הוסף","Add"))}</Btn>
+        </div>
+      </Modal>
+    )}
+
+    {/* ── Edit Item Modal ── */}
+    {editItem&&(
+      <Modal title={t(bi("Редактировать","עריכה","Edit"))+": "+editItem.name} onClose={()=>setEditItem(null)}>
+        <Inp label={t(bi("Наименование","שם","Name"))} value={editItem.name} onChange={e=>setEditItem(f=>({...f,name:e.target.value}))}/>
+        <Sel label={t(bi("Категория","קטגוריה","Category"))} value={editItem.category||""} onChange={e=>setEditItem(f=>({...f,category:e.target.value}))}
+          options={[{value:"",label:t(bi("— без категории —","— ללא קטגוריה —","— no category —"))},...CATS.map(c=>({value:c,label:t(CAT_LABELS[c]||bi(c,c,c))}))]}/>
+        <Inp label={t(bi("Единица","יחידה","Unit"))} value={editItem.unit} onChange={e=>setEditItem(f=>({...f,unit:e.target.value}))}/>
+        <Inp label={t(bi("Количество","כמות","Quantity"))} type="number" value={editItem.qty} onChange={e=>setEditItem(f=>({...f,qty:parseFloat(e.target.value)||0}))}/>
+        <Inp label={t(bi("Минимум","מינימום","Minimum"))} type="number" value={editItem.minQty} onChange={e=>setEditItem(f=>({...f,minQty:parseFloat(e.target.value)||0}))}/>
+        <Inp label={t(bi("Цена","מחיר","Price"))} type="number" value={editItem.price} onChange={e=>setEditItem(f=>({...f,price:parseFloat(e.target.value)||0}))}/>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
+          <Btn variant="ghost" onClick={()=>setEditItem(null)}>{t(bi("Отмена","ביטול","Cancel"))}</Btn>
+          <Btn variant="primary" onClick={handleEditSave}>{t(bi("Сохранить","שמור","Save"))}</Btn>
+        </div>
+      </Modal>
+    )}
   </div>);
 }
 
