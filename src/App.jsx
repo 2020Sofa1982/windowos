@@ -656,6 +656,43 @@ const fileIcon=t=>{if(!t)return"📎";if(t.startsWith("image/"))return"🖼️";
 const dlFile=f=>{const a=document.createElement("a");a.href=f.data;a.download=f.name;a.click();};
 const exportCSV=(headers,rows,fn)=>{const csv=[headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,\uFEFF"+encodeURIComponent(csv);a.download=fn;a.click();};
 
+// ── CRM HELPERS (module level) ────────────────────────────────
+const daysSince=(d)=>Math.floor((Date.now()-new Date(d).getTime())/86400000);
+
+const calcScore=(lead)=>{
+  let score=0;
+  const src=lead.source||"";
+  if(src==="src_repeat")score+=35;
+  else if(src==="src_referral")score+=30;
+  else if(src==="src_google_ads")score+=25;
+  else score+=15;
+  const val=parseFloat(lead.value)||0;
+  if(val>50000)score+=25;
+  else if(val>20000)score+=20;
+  else if(val>5000)score+=15;
+  else score+=5;
+  const days=daysSince(lead.date||new Date().toISOString().split("T")[0]);
+  if(days<7)score+=20;
+  else if(days<30)score+=10;
+  if(lead.followUp||lead.nextActionDate)score+=10;
+  if(lead.priority==="high")score+=5;
+  if(lead.priority==="urgent")score+=10;
+  return Math.min(100,score);
+};
+
+const getDefaultProbability=(status)=>{
+  const map={new_lead:10,lead_measure:30,lead_quote:50,lead_followup:60,lead_won:100,lead_lost:0};
+  return map[status]||20;
+};
+
+const getActionStatus=(lead)=>{
+  if(!lead.nextActionDate)return null;
+  const today=new Date().toISOString().split("T")[0];
+  if(lead.nextActionDate<today)return"overdue";
+  if(lead.nextActionDate===today)return"today";
+  return"planned";
+};
+
 // ── UI ATOMS ─────────────────────────────────────────────────
 const Badge=({status})=>{
   const migrated=migrateStatus(status)||status;
@@ -896,12 +933,20 @@ function Dashboard({leads,orders,payments,inventory,kpi,measurements,installatio
     </div>)}
 
     {/* Top KPIs */}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
-      <KCard icon={DollarSign} label={t(bi("Получено ₪","התקבל ₪","Received ₪"))} value={fmt(totalPaid)} color={D.green} sub={t(bi("Ожидается ещё","ממתין עוד","Pending"))+" "+fmt(totalPending)}/>
-      <KCard icon={ShoppingCart} label={t(bi("В работе","בעבודה","Active"))} value={activeOrders.length} color={D.accentLight} sub={t(bi("Сумма","סכום","Total"))+" "+fmt(activeOrders.reduce((s,o)=>s+o.total,0))}/>
-      <KCard icon={TrendingUp} label="Pipeline" value={fmt(pipeline)} color={D.purple} sub={leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status)).length+" "+t(bi("лидов в работе","לידים בעבודה","leads active"))}/>
-      <KCard icon={Users} label={t(bi("Ср. чек","עסקה ממוצעת","Avg. deal"))} value={fmt(avgDeal)} color={D.yellow} sub={orders.length+" "+t(bi("заказов всего","הזמנות בסה״כ","orders total"))}/>
-    </div>
+    {(()=>{
+      const forecast=leads.filter(l=>!["lead_won","lead_lost"].includes(migrateStatus(l.status))).reduce((sum,l)=>{
+        const prob=l.probability!=null?l.probability:getDefaultProbability(migrateStatus(l.status));
+        return sum+(parseFloat(l.value)||0)*prob/100;
+      },0);
+      return(
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:14,marginBottom:20}}>
+        <KCard icon={DollarSign} label={t(bi("Получено ₪","התקבל ₪","Received ₪"))} value={fmt(totalPaid)} color={D.green} sub={t(bi("Ожидается ещё","ממתין עוד","Pending"))+" "+fmt(totalPending)}/>
+        <KCard icon={ShoppingCart} label={t(bi("В работе","בעבודה","Active"))} value={activeOrders.length} color={D.accentLight} sub={t(bi("Сумма","סכום","Total"))+" "+fmt(activeOrders.reduce((s,o)=>s+o.total,0))}/>
+        <KCard icon={TrendingUp} label="Pipeline" value={fmt(pipeline)} color={D.purple} sub={leads.filter(l=>!["Закрыт (выиграли)","Закрыт (проиграли)"].includes(l.status)).length+" "+t(bi("лидов в работе","לידים בעבודה","leads active"))}/>
+        <KCard icon={Users} label={t(bi("Ср. чек","עסקה ממוצעת","Avg. deal"))} value={fmt(avgDeal)} color={D.yellow} sub={orders.length+" "+t(bi("заказов всего","הזמנות בסה״כ","orders total"))}/>
+        <KCard icon={BarChart2} label={t(bi("Прогноз","תחזית","Forecast"))} value={fmt(forecast)} color={D.purple} sub={t(bi("Взвешенный pipeline","פייפליין משוקלל","Weighted pipeline"))}/>
+      </div>);
+    })()}
 
     <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}}>
       {/* Revenue chart */}
@@ -1058,24 +1103,46 @@ const KANBAN_COLS=[
 
 const EMPTY_LEAD=()=>({name:"",phone:"",city:"",type:"client_private",jobType:"job_new",
   windows:"1",source:"src_google_ads",status:"new_lead",priority:"normal",
-  value:"",followUp:"",notes:""});
+  value:"",followUp:"",notes:"",nextAction:"",nextActionDate:"",probability:null});
 
-function Leads({leads,setLeads,onClientClick}){
+function Leads({leads,setLeads,onClientClick,onOpenCalc}){
   const [view,setView]=useState("kanban");
   const [search,setSearch]=useState("");
+  const [statusFilter,setStatusFilter]=useState("");
+  const [sortBy,setSortBy]=useState("date");
+  const [sortDir2,setSortDir2]=useState("desc");
+  const [filterSource,setFilterSource]=useState("");
+  const [filterPriority,setFilterPriority]=useState("");
+  const [filterOverdue,setFilterOverdue]=useState(false);
   const [modal,setModal]=useState(false);
   const [edit,setEdit]=useState(null);
+  const [editId,setEditId]=useState(null);
   const [form,setForm]=useState(EMPTY_LEAD());
+  const [dupWarning,setDupWarning]=useState("");
 
-  const filtered=leads.filter(l=>
-    l.name.toLowerCase().includes(search.toLowerCase())||
-    (l.phone||"").includes(search)||(l.city||"").toLowerCase().includes(search.toLowerCase()));
+  let filtered=leads.filter(l=>{
+    const q=search.toLowerCase();
+    if(q&&!l.name?.toLowerCase().includes(q)&&!(l.phone||"").includes(q)&&!(l.city||"").toLowerCase().includes(q))return false;
+    if(statusFilter&&migrateStatus(l.status)!==statusFilter)return false;
+    if(filterSource&&(l.source||"")!==filterSource)return false;
+    if(filterPriority&&(l.priority||"")!==filterPriority)return false;
+    if(filterOverdue){const as=getActionStatus(l);if(as!=="overdue")return false;}
+    return true;
+  });
+  filtered=[...filtered].sort((a,b)=>{
+    let va,vb;
+    if(sortBy==="value"){va=parseFloat(a.value)||0;vb=parseFloat(b.value)||0;}
+    else if(sortBy==="score"){va=calcScore(a);vb=calcScore(b);}
+    else if(sortBy==="status"){va=LST.indexOf(migrateStatus(a.status));vb=LST.indexOf(migrateStatus(b.status));}
+    else{va=a.date||"";vb=b.date||"";}
+    return sortDir2==="asc"?(va>vb?1:-1):(va<vb?1:-1);
+  });
 
-  const openAdd=(status="new_lead")=>{setEdit(null);setForm({...EMPTY_LEAD(),status});setModal(true);};
-  const openEdit=l=>{setEdit(l.id);setForm({...EMPTY_LEAD(),...l,windows:String(l.windows||1),value:String(l.value||0)});setModal(true);};
+  const openAdd=(status="new_lead")=>{setEdit(null);setEditId(null);setDupWarning("");setForm({...EMPTY_LEAD(),status});setModal(true);};
+  const openEdit=l=>{setEdit(l.id);setEditId(l.id);setDupWarning("");setForm({...EMPTY_LEAD(),...l,windows:String(l.windows||1),value:String(l.value||0),probability:l.probability!=null?l.probability:null});setModal(true);};
   const submit=()=>{
     if(!form.name||!form.phone)return;
-    const data={...form,windows:+form.windows||1,value:+form.value||0,date:new Date().toISOString().split("T")[0]};
+    const data={...form,windows:+form.windows||1,value:+form.value||0,date:edit?(leads.find(l=>l.id===edit)?.date||new Date().toISOString().split("T")[0]):new Date().toISOString().split("T")[0],probability:form.probability!=null&&form.probability!==""?+form.probability:null};
     if(edit) setLeads(p=>p.map(l=>l.id===edit?{...data,id:edit}:l));
     else setLeads(p=>[...p,{...data,id:Date.now()}]);
     setModal(false);
@@ -1088,30 +1155,56 @@ function Leads({leads,setLeads,onClientClick}){
   const overdueFollowUp=l=>l.followUp&&l.followUp<today&&!["lead_won","lead_lost"].includes(migrateStatus(l.status));
 
   // ── KANBAN CARD ──
-  const KanbanCard=({l})=>(
+  const KanbanCard=({l})=>{
+    const score=calcScore(l);
+    const scoreColor=score>=61?D.green:score>=31?D.yellow:D.red;
+    const actionStatus=getActionStatus(l);
+    return(
     <div style={{background:D.card,border:`1px solid ${overdueFollowUp(l)?D.red+"60":D.border}`,
       borderRadius:10,padding:12,marginBottom:8,cursor:"pointer",
       borderLeft:`3px solid ${SC[migrateStatus(l.status)]||D.muted}`}}
       onClick={()=>openEdit(l)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-        <div onClick={()=>onClientClick&&onClientClick(l.name)} style={{fontSize:13,fontWeight:800,color:D.text,lineHeight:1.3,flex:1,paddingRight:4,cursor:"pointer"}}
-          title={t(bi("Открыть карточку клиента","פתח כרטיס לקוח","Open client card"))}>{l.name}</div>
+        <div style={{display:"flex",alignItems:"center",gap:4,flex:1,paddingRight:4}}>
+          <div onClick={e=>{e.stopPropagation();onClientClick&&onClientClick(l.name);}} style={{fontSize:13,fontWeight:800,color:D.text,lineHeight:1.3,cursor:"pointer"}}
+            title={t(bi("Открыть карточку клиента","פתח כרטיס לקוח","Open client card"))}>{l.name}</div>
+          <span title={score+"/100"} style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:scoreColor,marginLeft:2,flexShrink:0}}/>
+        </div>
         <span style={{fontSize:9,color:pColor(l.priority),fontWeight:800,whiteSpace:"nowrap"}}>{pLabel(l.priority)}</span>
       </div>
       {l.jobType&&<div style={{display:"inline-block",background:D.surface,border:`1px solid ${D.border}`,
-        borderRadius:4,padding:"1px 6px",fontSize:9,color:D.muted,fontWeight:700,marginBottom:5}}>{l.jobType}</div>}
+        borderRadius:4,padding:"1px 6px",fontSize:9,color:D.muted,fontWeight:700,marginBottom:5}}>{ts(l.jobType)||l.jobType}</div>}
       <div style={{fontSize:11,color:D.muted,marginBottom:4}}>📞 {l.phone}</div>
       {l.city&&<div style={{fontSize:10,color:D.muted}}>📍 {l.city}</div>}
+      {actionStatus&&<div style={{fontSize:9,fontWeight:700,marginTop:4,padding:"2px 5px",borderRadius:4,display:"inline-block",
+        background:(actionStatus==="overdue"?D.red:actionStatus==="today"?D.yellow:D.green)+"18",
+        color:actionStatus==="overdue"?D.red:actionStatus==="today"?D.yellow:D.green}}>
+        {actionStatus==="overdue"?"🔴 "+t(bi("Просрочено","באיחור","Overdue")):actionStatus==="today"?"🟡 "+t(bi("Сегодня","היום","Today")):"🟢 "+(l.nextAction||t(bi("Запланировано","מתוכנן","Planned")))}
+      </div>}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,paddingTop:6,borderTop:`1px solid ${D.border}`}}>
         <span style={{fontSize:12,fontWeight:800,color:D.green}}>{l.value>0?fmt(l.value):"—"}</span>
-        {l.followUp&&<span style={{fontSize:9,fontWeight:700,
-          color:overdueFollowUp(l)?D.red:D.teal,background:(overdueFollowUp(l)?D.red:D.teal)+"18",
-          borderRadius:4,padding:"2px 5px"}}>
-          📅 {overdueFollowUp(l)?t(bi("Просрочен!","באיחור!","Overdue!")):l.followUp}
-        </span>}
+        <div style={{display:"flex",gap:4,alignItems:"center"}} onClick={e=>e.stopPropagation()}>
+          <a href={"tel:"+l.phone} style={{background:D.green+"18",border:"none",borderRadius:5,padding:"2px 5px",cursor:"pointer",color:D.green,textDecoration:"none",fontSize:11,display:"inline-flex",alignItems:"center"}} title={t(bi("Звонок","שיחה","Call"))}>
+            <Phone size={11}/>
+          </a>
+          <a href={"https://wa.me/"+(l.phone||"").replace(/\D/g,"")} target="_blank" rel="noreferrer"
+            style={{background:D.green+"18",border:"none",borderRadius:5,padding:"2px 5px",cursor:"pointer",textDecoration:"none",fontSize:11}} title="WhatsApp">
+            💬
+          </a>
+          <button onClick={()=>onOpenCalc&&onOpenCalc({client:l.name,phone:l.phone})}
+            style={{background:D.accent+"18",border:"none",borderRadius:5,padding:"2px 5px",cursor:"pointer",color:D.accentLight,fontSize:11,display:"inline-flex",alignItems:"center"}}
+            title={t(bi("Открыть КП","פתח הצעה","Open Quote"))}>
+            <Calculator size={11}/>
+          </button>
+        </div>
       </div>
+      {l.followUp&&<div style={{fontSize:9,fontWeight:700,marginTop:4,
+        color:overdueFollowUp(l)?D.red:D.teal,background:(overdueFollowUp(l)?D.red:D.teal)+"18",
+        borderRadius:4,padding:"2px 5px",display:"inline-block"}}>
+        📅 {overdueFollowUp(l)?t(bi("Просрочен!","באיחור!","Overdue!")):l.followUp}
+      </div>}
     </div>
-  );
+  );};
 
   return(<div>
     {/* Header */}
@@ -1141,11 +1234,53 @@ function Leads({leads,setLeads,onClientClick}){
     </div>
 
     {/* Search */}
-    <div style={{position:"relative",marginBottom:16}}>
+    <div style={{position:"relative",marginBottom:10}}>
       <Search size={12} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:D.muted}}/>
       <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t(bi("Поиск по имени, телефону, городу...","חיפוש לפי שם, טלפון, עיר...","Search by name, phone, city..."))}
         style={{width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:8,
           padding:"8px 10px 8px 30px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+    </div>
+
+    {/* Filter panel */}
+    <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
+      <select value={sortBy} onChange={e=>setSortBy(e.target.value)}
+        style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"4px 8px",color:D.text,fontSize:11,cursor:"pointer"}}>
+        <option value="date">{t(bi("По дате","לפי תאריך","By date"))}</option>
+        <option value="value">{t(bi("По сумме","לפי סכום","By value"))}</option>
+        <option value="score">{t(bi("По скорингу","לפי ניקוד","By score"))}</option>
+        <option value="status">{t(bi("По статусу","לפי סטטוס","By status"))}</option>
+      </select>
+      <button onClick={()=>setSortDir2(d=>d==="asc"?"desc":"asc")}
+        style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"4px 8px",color:D.muted,fontSize:11,cursor:"pointer"}}>
+        {sortDir2==="asc"?"↑":"↓"}
+      </button>
+      <select value={filterSource} onChange={e=>setFilterSource(e.target.value)}
+        style={{background:D.bg,border:`1px solid ${D.border}`,borderRadius:6,padding:"4px 8px",color:D.text,fontSize:11,cursor:"pointer"}}>
+        <option value="">{t(bi("Все источники","כל המקורות","All Sources"))}</option>
+        {SOURCE_TYPES.map(k=><option key={k} value={k}>{ts(k)}</option>)}
+      </select>
+      <div style={{display:"flex",gap:4}}>
+        {["","urgent","high","normal"].map(p=>(
+          <button key={p} onClick={()=>setFilterPriority(p)}
+            style={{padding:"3px 8px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer",border:`1px solid ${filterPriority===p?D.accent:D.border}`,
+              background:filterPriority===p?D.accent+"22":"transparent",color:filterPriority===p?D.accentLight:D.muted}}>
+            {p===""?t(bi("Все","הכל","All")):ts(p)}
+          </button>
+        ))}
+      </div>
+      <button onClick={()=>setFilterOverdue(v=>!v)}
+        style={{padding:"3px 8px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer",
+          border:`1px solid ${filterOverdue?D.red:D.border}`,
+          background:filterOverdue?D.red+"22":"transparent",color:filterOverdue?D.red:D.muted}}>
+        🔴 {t(bi("Просроченные","באיחור","Overdue"))}
+      </button>
+      {(filterSource||filterPriority||filterOverdue||statusFilter)&&(
+        <button onClick={()=>{setFilterSource("");setFilterPriority("");setFilterOverdue(false);setStatusFilter("");}}
+          style={{padding:"3px 8px",borderRadius:6,fontSize:10,cursor:"pointer",border:`1px solid ${D.border}`,background:"transparent",color:D.muted}}>
+          ✕ {t(bi("Сбросить","איפוס","Reset"))}
+        </button>
+      )}
+      <div style={{marginLeft:"auto",fontSize:10,color:D.muted}}>{filtered.length} {t(bi("лидов","לידים","leads"))}</div>
     </div>
 
     {/* ── KANBAN VIEW ── */}
@@ -1154,11 +1289,15 @@ function Leads({leads,setLeads,onClientClick}){
         {KANBAN_COLS.map(col=>{
           const colLeads=filtered.filter(l=>migrateStatus(l.status)===col.id);
           const colValue=colLeads.reduce((s,l)=>s+(l.value||0),0);
+          const isStale=!["lead_won","lead_lost"].includes(col.id)&&colLeads.some(l=>daysSince(l.date||"")>7);
           return(
-            <div key={col.id} style={{background:D.surface,borderRadius:12,padding:10,minWidth:200,borderTop:`3px solid ${col.color}`}}>
+            <div key={col.id} style={{background:D.surface,borderRadius:12,padding:10,minWidth:200,
+              borderTop:`3px solid ${col.color}`,
+              border:isStale?`2px solid ${D.red}50`:`1px solid ${D.border}`,
+              borderTopWidth:3,borderTopColor:col.color}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                 <div>
-                  <div style={{fontSize:11,fontWeight:800,color:col.color}}>{ts(col.id)}</div>
+                  <div style={{fontSize:11,fontWeight:800,color:isStale?D.red:col.color}}>{ts(col.id)}{isStale&&" ⚠"}</div>
                   <div style={{fontSize:10,color:D.muted}}>{colLeads.length} · {colValue>0?fmt(colValue):""}</div>
                 </div>
                 <button onClick={()=>openAdd(col.id)} style={{background:D.border,border:"none",borderRadius:6,
@@ -1167,6 +1306,11 @@ function Leads({leads,setLeads,onClientClick}){
               <div style={{minHeight:60}}>
                 {colLeads.map(l=><KanbanCard key={l.id} l={l}/>)}
                 {colLeads.length===0&&<div style={{fontSize:10,color:D.muted,textAlign:"center",paddingTop:16,opacity:0.5}}>{t(bi("Пусто","ריק","Empty"))}</div>}
+              </div>
+              {/* Column footer */}
+              <div style={{borderTop:`1px solid ${D.border}`,marginTop:8,paddingTop:6,display:"flex",justifyContent:"space-between",fontSize:9,color:D.muted}}>
+                <span>{colLeads.length} {t(bi("лида","לידים","leads"))}</span>
+                <span>{colValue>0?fmt(colValue):""}</span>
               </div>
             </div>
           );
@@ -1177,24 +1321,40 @@ function Leads({leads,setLeads,onClientClick}){
     {/* ── LIST VIEW ── */}
     {view==="list"&&(
       <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:14,overflow:"hidden"}}>
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1.1fr 0.8fr 0.8fr 1.2fr 1fr 1fr 56px",
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1.1fr 0.8fr 0.8fr 1.2fr 1fr 1fr 80px",
           padding:"8px 14px",background:D.surface,gap:8}}>
-          {[t(bi("Клиент / Работа","לקוח / עבודה","Client / Job")),t(bi("Телефон","טלפון","Phone")),t(bi("Город","עיר","City")),t(bi("Приоритет","עדיפות","Priority")),t(bi("Статус","סטטוס","Status")),t(bi("Оценка","הערכה","Estimate")),"Follow-up",""].map((h,i)=>(
+          {[t(bi("Клиент / Работа","לקוח / עבודה","Client / Job")),t(bi("Телефон","טלפון","Phone")),t(bi("Город","עיר","City")),t(bi("Приоритет","עדיפות","Priority")),t(bi("Статус","סטטוס","Status")),t(bi("Оценка","הערכה","Estimate")),t(bi("Действие","פעולה","Action")),""].map((h,i)=>(
             <div key={i} style={{fontSize:9,fontWeight:800,color:D.muted,textTransform:"uppercase"}}>{h}</div>))}
         </div>
         {filtered.length===0&&<div style={{padding:40,textAlign:"center",color:D.muted}}>{t(bi("Нет лидов","אין לידים","No leads"))}</div>}
-        {filtered.map((l,i)=>(
-          <div key={l.id} style={{display:"grid",gridTemplateColumns:"2fr 1.1fr 0.8fr 0.8fr 1.2fr 1fr 1fr 56px",
+        {filtered.map((l,i)=>{
+          const sc=calcScore(l);
+          const scColor=sc>=61?D.green:sc>=31?D.yellow:D.red;
+          const actionStatus=getActionStatus(l);
+          return(
+          <div key={l.id} style={{display:"grid",gridTemplateColumns:"2fr 1.1fr 0.8fr 0.8fr 1.2fr 1fr 1fr 80px",
             padding:"10px 14px",gap:8,alignItems:"center",
             background:overdueFollowUp(l)?D.red+"08":i%2===0?D.card:D.surface,
             borderTop:`1px solid ${D.border}`,borderLeft:`3px solid ${SC[migrateStatus(l.status)]||D.muted}`}}>
             <div>
-              <div onClick={()=>onClientClick&&onClientClick(l.name)} style={{fontSize:13,fontWeight:700,color:D.text,cursor:"pointer"}}>{l.name}</div>
+              <div style={{display:"flex",alignItems:"center",gap:4}}>
+                <div onClick={()=>onClientClick&&onClientClick(l.name)} style={{fontSize:13,fontWeight:700,color:D.text,cursor:"pointer"}}>{l.name}</div>
+                <span title={sc+"/100"} style={{display:"inline-block",width:7,height:7,borderRadius:"50%",background:scColor,flexShrink:0}}/>
+              </div>
               <div style={{fontSize:10,color:D.muted}}>{ts(l.jobType)||l.jobType} · {ts(l.source)||l.source} · {l.date}</div>
             </div>
-            <a href={`tel:${l.phone}`} style={{fontSize:12,color:D.green,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:3}}>
-              <Phone size={10}/>{l.phone}
-            </a>
+            <div style={{display:"flex",flexDirection:"column",gap:2}}>
+              <a href={"tel:"+l.phone} style={{fontSize:12,color:D.green,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:3}}>
+                <Phone size={10}/>{l.phone}
+              </a>
+              <div style={{display:"flex",gap:3}}>
+                <a href={"https://wa.me/"+(l.phone||"").replace(/\D/g,"")} target="_blank" rel="noreferrer"
+                  style={{fontSize:10,color:D.green,textDecoration:"none",background:D.green+"15",padding:"1px 4px",borderRadius:4}} title="WhatsApp">💬</a>
+                <button onClick={()=>onOpenCalc&&onOpenCalc({client:l.name,phone:l.phone})}
+                  style={{fontSize:10,background:D.accent+"15",border:"none",borderRadius:4,padding:"1px 4px",cursor:"pointer",color:D.accentLight,display:"inline-flex",alignItems:"center"}}
+                  title={t(bi("Открыть КП","פתח הצעה","Open Quote"))}><Calculator size={9}/></button>
+              </div>
+            </div>
             <div style={{fontSize:12,color:D.muted}}>{l.city}</div>
             <div style={{fontSize:11,fontWeight:700,color:pColor(l.priority)}}>{pLabel(l.priority)}</div>
             <select value={migrateStatus(l.status)||l.status} onChange={e=>setLeads(p=>p.map(x=>x.id===l.id?{...x,status:e.target.value}:x))}
@@ -1203,15 +1363,18 @@ function Leads({leads,setLeads,onClientClick}){
               {LST.map(s=><option key={s} value={s} style={{background:D.card,color:D.text}}>{ts(s)}</option>)}
             </select>
             <div style={{fontSize:13,fontWeight:700,color:D.green}}>{l.value>0?fmt(l.value):"—"}</div>
-            <div style={{fontSize:10,fontWeight:700,color:overdueFollowUp(l)?D.red:D.teal}}>
-              {l.followUp||(overdueFollowUp(l)?"⚠️ "+t(bi("Просрочен","באיחור","Overdue")):"")||"—"}
+            <div style={{fontSize:9,fontWeight:700}}>
+              {actionStatus==="overdue"&&<span style={{color:D.red}}>{"🔴 "+t(bi("Просрочено","באיחור","Overdue"))}</span>}
+              {actionStatus==="today"&&<span style={{color:D.yellow}}>{"🟡 "+t(bi("Сегодня","היום","Today"))}</span>}
+              {actionStatus==="planned"&&<span style={{color:D.green}}>{"🟢 "+(l.nextAction||"")}</span>}
+              {!actionStatus&&<span style={{color:D.muted}}>{l.followUp||(overdueFollowUp(l)?"⚠️ "+t(bi("Просрочен","באיחור","Overdue")):"")||"—"}</span>}
             </div>
             <div style={{display:"flex",gap:3}}>
               <button onClick={()=>openEdit(l)} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:3}}><Eye size={12}/></button>
               <button onClick={()=>setLeads(p=>p.filter(x=>x.id!==l.id))} style={{background:"none",border:"none",cursor:"pointer",color:D.muted,padding:3}}><Trash2 size={12}/></button>
             </div>
           </div>
-        ))}
+        );})}
       </div>
     )}
 
@@ -1219,7 +1382,18 @@ function Leads({leads,setLeads,onClientClick}){
     {modal&&(<Modal title={edit?"✏️ "+t(bi("Редактировать лид","עריכת ליד","Edit Lead")):"➕ "+t(bi("Новый лид","ליד חדש","New Lead"))} onClose={()=>setModal(false)} wide>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <Inp label={t(bi("Имя *","שם *","Name *"))} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
-        <Inp label={t(bi("Телефон *","טלפון *","Phone *"))} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>{t(bi("Телефон *","טלפון *","Phone *"))}</div>
+          <input value={form.phone} onChange={e=>{
+            const phone=e.target.value;
+            setForm(p=>({...p,phone}));
+            const existing=leads.find(l=>l.id!==editId&&l.phone&&l.phone.replace(/\D/g,"")===phone.replace(/\D/g,"")&&phone.replace(/\D/g,"").length>=7);
+            setDupWarning(existing?existing.name:"");
+          }} style={{width:"100%",background:D.bg,border:`1px solid ${dupWarning?D.yellow:D.border}`,borderRadius:8,padding:"8px 12px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+          {dupWarning&&(<div style={{color:D.yellow,fontSize:12,marginTop:4,padding:"4px 8px",background:D.yellow+"15",borderRadius:6}}>
+            ⚠️ {t(bi("Клиент с таким телефоном уже есть","לקוח עם מספר זה כבר קיים","Client with this phone already exists"))}: <b>{dupWarning}</b>
+          </div>)}
+        </div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
         <Inp label={t(bi("Город","עיר","City"))} value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
@@ -1249,7 +1423,21 @@ function Leads({leads,setLeads,onClientClick}){
         <Inp label={t(bi("Оценка ₪","הערכה ₪","Estimate ₪"))} value={form.value} onChange={e=>setForm(p=>({...p,value:e.target.value}))} type="number"/>
         <Inp label={t(bi("Follow-up дата","תאריך follow-up","Follow-up date"))} value={form.followUp} onChange={e=>setForm(p=>({...p,followUp:e.target.value}))} type="date"/>
       </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:10,fontWeight:700,color:D.muted,marginBottom:4,textTransform:"uppercase"}}>{t(bi("Вероятность закрытия %","סבירות סגירה %","Close Probability %"))}</div>
+          <input type="number" min="0" max="100" value={form.probability!=null&&form.probability!==""?form.probability:""} placeholder={String(getDefaultProbability(migrateStatus(form.status)||form.status))}
+            onChange={e=>setForm(p=>({...p,probability:e.target.value===""?null:+e.target.value}))}
+            style={{width:"100%",background:D.bg,border:`1px solid ${D.border}`,borderRadius:8,padding:"8px 12px",color:D.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+        </div>
+        <div/>
+      </div>
       <Inp label={t(bi("Заметки","הערות","Notes"))} value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <Inp label={t(bi("Следующее действие","פעולה הבאה","Next Action"))} value={form.nextAction||""} onChange={e=>setForm(p=>({...p,nextAction:e.target.value}))}
+          placeholder={t(bi("Перезвонить, Отправить КП...","להתקשר, לשלוח הצעה...","Call back, Send quote..."))}/>
+        <Inp label={t(bi("Дата действия","תאריך פעולה","Action Date"))} value={form.nextActionDate||""} onChange={e=>setForm(p=>({...p,nextActionDate:e.target.value}))} type="date"/>
+      </div>
       <div style={{display:"flex",gap:8}}>
         <Btn onClick={submit}><Check size={13}/> {edit?t(bi("Сохранить","שמור","Save")):t(bi("Добавить","הוסף","Add"))}</Btn>
         <Btn onClick={()=>setModal(false)} variant="ghost">{t(bi("Отмена","ביטול","Cancel"))}</Btn>
@@ -5754,7 +5942,7 @@ export default function App(){
         </div>
         {page==="dashboard"&&<Dashboard leads={leads} orders={orders} payments={payments} inventory={inventory} kpi={kpi} measurements={measurements} installations={installations} onClientClick={setClientCard}/>}
         {page==="calendar"&&<Calendar leads={leads} measurements={measurements} installations={installations} payments={payments} setMeasurements={setMeasurements} setInstallations={setInstallations} setLeads={setLeads} onClientClick={setClientCard} setPage={navTo}/>}
-        {page==="leads"&&<Leads leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
+        {page==="leads"&&<Leads leads={leads} setLeads={setLeads} onClientClick={setClientCard} onOpenCalc={openCalc}/>}
         {page==="measurements"&&<Measurements measurements={measurements} setMeasurements={setMeasurements} onOpenCalc={openCalc} leads={leads} setLeads={setLeads} onClientClick={setClientCard}/>}
         {page==="orders"&&<Orders orders={orders} setOrders={setOrders} setPayments={setPayments} payments={payments} onClientClick={setClientCard}/>}
         {page==="installation"&&<Installation installations={installations} setInstallations={setInstallations} orders={orders} onClientClick={setClientCard}/>}
